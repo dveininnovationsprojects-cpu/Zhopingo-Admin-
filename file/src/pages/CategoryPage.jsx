@@ -13,10 +13,16 @@ const CategoryPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({ id: "", name: "", description: "", image: null });
+  
+  // Updated formData to include HSN and GST
+  const [formData, setFormData] = useState({ 
+    id: "", name: "", description: "", image: null, hsnCode: "", gstRate: "" 
+  });
   const [categories, setCategories] = useState([]);
+  const [hsnList, setHsnList] = useState([]); // Store HSN Master data
 
   const API_BASE_URL = "http://54.157.210.26/api/v1/catalog/categories";
+  const HSN_API_URL = "http://54.157.210.26/api/v1/catalog/hsn-master";
   const IMAGE_BASE_URL = "http://54.157.210.26/uploads/";
 
   const fetchCategories = async () => {
@@ -27,16 +33,38 @@ const CategoryPage = () => {
         setCategories(response.data.data);
       }
     } catch (error) {
-      console.error("Fetch Error:", error.message);
       toast.error("Failed to load categories");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const fetchHsnData = async () => {
+    try {
+      const response = await axios.get(HSN_API_URL);
+      if (response.data.success) {
+        setHsnList(response.data.data);
+      }
+    } catch (error) {
+      console.error("HSN Fetch Error:", error);
+    }
+  };
+
   useEffect(() => {
     fetchCategories();
+    fetchHsnData();
   }, []);
+
+  // Handle HSN selection to auto-fill GST
+  const handleHsnChange = (e) => {
+    const selectedCode = e.target.value;
+    const hsnObj = hsnList.find(item => item.hsnCode === selectedCode);
+    setFormData({
+      ...formData,
+      hsnCode: selectedCode,
+      gstRate: hsnObj ? hsnObj.gstRate : ""
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,6 +73,8 @@ const CategoryPage = () => {
     const data = new FormData();
     data.append("name", formData.name);
     data.append("description", formData.description);
+    data.append("hsnCode", formData.hsnCode);
+    data.append("gstRate", formData.gstRate);
     if (formData.image) {
       data.append("image", formData.image);
     }
@@ -62,32 +92,29 @@ const CategoryPage = () => {
       }
 
       if (response.data.success) {
-        // App kulla toast message
         toast.success(isEditMode ? "Category Updated Successfully!" : "Category Created Successfully!");
         fetchCategories();
         setIsDrawerOpen(false);
-        setFormData({ id: "", name: "", description: "", image: null });
+        setFormData({ id: "", name: "", description: "", image: null, hsnCode: "", gstRate: "" });
       }
     } catch (error) {
-      console.error("SAVE ERROR:", error.response?.data);
-      toast.error(error.response?.data?.message || "Check connection or format");
+      toast.error(error.response?.data?.message || "Fill all details !");
     } finally {
       setIsLoading(false);
     }
   };
+  
 
   const confirmDelete = async () => {
     setIsLoading(true);
     try {
       const response = await axios.delete(`${API_BASE_URL}/${deleteId}`);
       if (response.data.success) {
-        // App kulla toast message
         toast.success("Category Deleted Successfully!");
         fetchCategories();
         setShowDeleteModal(false);
       }
     } catch (error) {
-      console.error("Delete Error:", error);
       toast.error("Failed to delete category");
     } finally {
       setIsLoading(false);
@@ -100,12 +127,13 @@ const CategoryPage = () => {
       id: item._id,
       name: item.name,
       description: item.description || "",
+      hsnCode: item.hsnCode || "",
+      gstRate: item.gstRate || "",
       image: null
     });
     setIsDrawerOpen(true);
   };
 
-  // Blinking bug-ah fix panna logic update
   const getImageUrl = (imagePath) => {
     if (!imagePath) return "assets/images/default.png";
     if (imagePath.startsWith('http')) return imagePath;
@@ -113,9 +141,8 @@ const CategoryPage = () => {
     return `${IMAGE_BASE_URL}${fileName}`;
   };
 
-  // Image load error handle panna common constant
   const handleImageError = (e) => {
-    e.target.onerror = null; // Infinite loop block panna ithu mukkiyam
+    e.target.onerror = null;
     e.target.src = "assets/images/default.png";
   };
 
@@ -136,7 +163,7 @@ const CategoryPage = () => {
               {categories.map(cat => <option key={cat._id} value={cat.name}>{cat.name}</option>)}
             </select>
           </div>
-          <button onClick={() => { setIsEditMode(false); setFormData({ id: "", name: "", description: "", image: null }); setIsDrawerOpen(true); }}
+          <button onClick={() => { setIsEditMode(false); setFormData({ id: "", name: "", description: "", image: null, hsnCode: "", gstRate: "" }); setIsDrawerOpen(true); }}
             className="btn btn-primary-600 text-sm d-flex align-items-center gap-2">
             <Icon icon="lucide:plus" /> Add New Category
           </button>
@@ -153,7 +180,13 @@ const CategoryPage = () => {
             <table className='table basic-border-table mb-0'>
               <thead>
                 <tr>
-                  <th scope='col'>S.no</th><th scope='col'>Image</th><th scope='col'>Name</th><th scope='col'>Description</th><th scope='col'>Action</th>
+                  <th scope='col'>S.no</th>
+                  <th scope='col'>Image</th>
+                  <th scope='col'>Name</th>
+                  <th scope='col'>HSN Code</th>
+                  <th scope='col'>GST %</th>
+                  <th scope='col'>Description</th>
+                  <th scope='col'>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -162,15 +195,16 @@ const CategoryPage = () => {
                     <tr key={item._id}>
                       <td>{index + 1}</td>
                       <td>
-                        <img
-                          src={getImageUrl(item.image)}
-                          alt=""
-                          className="w-40-px h-40-px radius-8 object-fit-cover shadow-sm"
-                          onError={handleImageError}
-                        />
+                        <img src={getImageUrl(item.image)} alt="" className="w-40-px h-40-px radius-8 object-fit-cover shadow-sm" onError={handleImageError} />
                       </td>
                       <td className="text-primary-600 fw-medium">{item.name}</td>
-                      <td><div className="text-wrap" style={{ maxWidth: '300px' }}>{item.description}</div></td>
+                      <td className="fw-semibold text-secondary-light">{item.hsnCode || "---"}</td>
+                      <td>
+                        <span className="badge bg-info-focus text-info-main px-12 py-4 radius-4">
+                          {item.gstRate ? `${item.gstRate}%` : "0%"}
+                        </span>
+                      </td>
+                      <td><div className="text-wrap" style={{ maxWidth: '250px' }}>{item.description}</div></td>
                       <td>
                         <div className="d-flex align-items-center gap-3">
                           <button onClick={() => handleEdit(item)} className="text-info-600 text-xl border-0 bg-transparent cursor-pointer"><Icon icon="lucide:edit" /></button>
@@ -180,7 +214,7 @@ const CategoryPage = () => {
                     </tr>
                   ))
                 ) : (
-                  <tr><td colSpan="5" className="text-center py-4">No categories found.</td></tr>
+                  <tr><td colSpan="7" className="text-center py-4">No categories found.</td></tr>
                 )}
               </tbody>
             </table>
@@ -196,15 +230,32 @@ const CategoryPage = () => {
         </div>
         <div className='offcanvas-body p-24'>
           <form className="row gy-4" onSubmit={handleSubmit}>
-            {/* Category ID hidden visual-aa, but state-la maintain aagum */}
             <div className="col-12">
               <label className="form-label fw-semibold">Category Name</label>
               <input type="text" className="form-control" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
             </div>
+
+            {/* HSN Selection Field */}
+            <div className="col-12">
+              <label className="form-label fw-semibold">HSN Code</label>
+              <select className="form-select" value={formData.hsnCode} onChange={handleHsnChange} required>
+                <option value="">Select HSN Code</option>
+                {hsnList.map(hsn => (
+                  <option key={hsn._id} value={hsn.hsnCode}>{hsn.hsnCode} ({hsn.description.substring(0, 20)}...)</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-12">
+              <label className="form-label fw-semibold">GST Rate (%)</label>
+              <input type="text" className="form-control bg-light" value={formData.gstRate} readOnly placeholder="Auto-filled from HSN" />
+            </div>
+
             <div className="col-12">
               <label className="form-label fw-semibold">Description</label>
               <textarea className="form-control" rows="4" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}></textarea>
             </div>
+
             <div className="col-12">
               <label className="form-label fw-semibold">Update Image</label>
               <div className="upload-box border-dashed p-24 radius-8 text-center bg-info-50 position-relative">
@@ -214,6 +265,7 @@ const CategoryPage = () => {
                 <label htmlFor="catImg" className="stretched-link cursor-pointer"></label>
               </div>
             </div>
+
             <div className="col-12 d-flex gap-3 mt-4">
               <button type="button" className="btn btn-outline-primary-600 flex-grow-1" onClick={() => setIsDrawerOpen(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary-600 flex-grow-1 shadow-sm">{isEditMode ? 'Update Category' : 'Submit'}</button>
@@ -227,7 +279,7 @@ const CategoryPage = () => {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content radius-16 border-0 shadow">
               <div className="modal-body text-center p-40">
-                <div className="w-80-px h-80-px bg-danger-focus text-danger-600 rounded-circle d-inline-flex justify-content-center align-items-center mb-24 animate-bounce">
+                <div className="w-80-px h-80-px bg-danger-focus text-danger-600 rounded-circle d-inline-flex justify-content-center align-items-center mb-24">
                   <Icon icon="lucide:trash-2" className="text-4xl" />
                 </div>
                 <h5 className="mb-8 fw-semibold">Delete Category?</h5>

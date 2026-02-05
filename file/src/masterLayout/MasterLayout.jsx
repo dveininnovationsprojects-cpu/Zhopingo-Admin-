@@ -2152,7 +2152,12 @@ const MasterLayout = ({ children }) => {
     New Sellers
   </NavLink>
 </li>
-                <li>
+<li>
+      <NavLink to='/all-sellers' className={(navData) => (navData.isActive ? "active-page" : "")}>
+        <i className='ri-circle-fill circle-icon text-success-main w-auto' /> Sellers List
+      </NavLink>
+    </li>
+               {/* <li>
                   <NavLink
                     to='/users-list'
                     className={(navData) =>
@@ -2162,7 +2167,7 @@ const MasterLayout = ({ children }) => {
                     <i className='ri-circle-fill circle-icon text-primary-600 w-auto' />{" "}
                     Sellers List
                   </NavLink>
-                </li>
+                </li>*/}
                 <li>
                   <NavLink
                     to='/users-grid'
@@ -2185,7 +2190,7 @@ const MasterLayout = ({ children }) => {
                     Add Seller (Manual)
                   </NavLink>
                 </li>
-                <li>
+               {/*} <li>
                   <NavLink
                     to='/view-profile'
                     className={(navData) =>
@@ -2195,7 +2200,7 @@ const MasterLayout = ({ children }) => {
                     <i className='ri-circle-fill circle-icon text-danger-main w-auto' />{" "}
                     Admin Profile
                   </NavLink>
-                </li>
+                </li>*/}
               </ul>
             </li>
             {/* Customer Management Link Added */}

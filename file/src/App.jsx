@@ -332,6 +332,9 @@ import CustomerPage from "./pages/CustomerPage";
 import OrderPage from "./pages/OrderPage";
 import AttributesPage from "./pages/AttributesPage";
 import NewSellerPage from "./pages/NewSellerPage";
+import AllSellersListPage from './pages/AllSellersListPage';
+import SellerDashboard from "./pages/SellerDashboard";
+
 
 function App() {
   return (
@@ -485,6 +488,9 @@ function App() {
         <Route exact path='/order' element={<OrderPage />} />
         <Route exact path='/attributes' element={<AttributesPage />} />
         <Route exact path='/new-seller' element={<NewSellerPage />} />
+        <Route exact path="/all-sellers" element={<AllSellersListPage />} />
+        <Route exact path='/seller-dashboard' element={<SellerDashboard />} />
+
       </Routes>
     </BrowserRouter>
   );

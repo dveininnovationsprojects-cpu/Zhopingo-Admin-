@@ -1,170 +1,220 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const SignUpLayer = () => {
-  const [role, setRole] = useState("admin"); // Default Admin
-  const [step, setStep] = useState(1);
+  // 1: Details Entry, 2: KYC Upload, 3: Success
+  const [step, setStep] = useState(1); 
   const navigate = useNavigate();
+  const API_BASE = "http://54.157.210.26/api/v1";
 
-  const handleRoleChange = (e) => {
-    setRole(e.target.value);
-    setStep(1); // Role maathuna udane step 1 reset aaganum
+  // Form States
+  const [formData, setFormData] = useState({
+    name: "", phone: "", email: "", password: "", confirmPassword: "", 
+    shopName: "", panNumber: "", gstNumber: "", fssaiNumber: "", msmeNumber: ""
+  });
+  
+  const [files, setFiles] = useState({ pan_doc: null, gst_doc: null, msme_doc: null, fssai_doc: null });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  /* ===========================================================
+  WHATSAPP OTP LOGIC (COMMENTED AS PER REQUEST)
+  ===========================================================
+  const handleSendOTP = async () => { ... }
+  const handleVerifyOTP = async () => { ... }
+  ===========================================================
+  */
+
+  // STEP 1: REGISTER DETAILS (Backend: /register)
+  const handleRegisterDetails = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email || !formData.password || !formData.shopName) {
+      return toast.error("All required fields must be filled!");
+    }
+    if (formData.password !== formData.confirmPassword) {
+      return toast.error("Passwords mismatch!");
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await axios.post(`${API_BASE}/seller/register`, {
+        name: formData.name,
+        email: formData.email, // Primary ID as per your new backend
+        phone: formData.phone,
+        password: formData.password,
+        shopName: formData.shopName
+      });
+
+      if (res.data.success) {
+        toast.success("Details registered! Now upload KYC.");
+        setStep(2); // Moving to KYC step
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Registration failed");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleFinalSubmit = (e) => {
+  // STEP 2: KYC UPLOAD (Backend: /kyc)
+  const handleKycUpload = async (e) => {
     e.preventDefault();
-    setStep(4); // Success Message
+
+    // Compulsory check as per your backend controller
+    if (!formData.panNumber || !formData.gstNumber || !files.pan_doc || !files.gst_doc || !files.msme_doc) {
+      return toast.error("PAN, GST, and MSME documents/numbers are compulsory!");
+    }
+
+    setIsSubmitting(true);
+    const data = new FormData();
+    data.append("email", formData.email); // Finding seller by email
+    data.append("panNumber", formData.panNumber);
+    data.append("gstNumber", formData.gstNumber);
+    if (formData.fssaiNumber) data.append("fssaiNumber", formData.fssaiNumber);
+    if (formData.msmeNumber) data.append("msmeNumber", formData.msmeNumber);
+
+    if (files.pan_doc) data.append("pan_doc", files.pan_doc);
+    if (files.gst_doc) data.append("gst_doc", files.gst_doc);
+    if (files.msme_doc) data.append("msme_doc", files.msme_doc);
+    if (files.fssai_doc) data.append("fssai_doc", files.fssai_doc);
+
+    try {
+      const res = await axios.post(`${API_BASE}/seller/kyc`, data, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      if (res.data.success) {
+        toast.success("KYC Submitted Successfully!");
+        setStep(3); // Success Screen
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "KYC Upload failed");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <section className='auth bg-base d-flex flex-wrap vh-100 overflow-hidden'>
-      {/* LEFT SIDE IMAGE - FIXED FIT */}
+      <ToastContainer position="top-right" autoClose={2000} theme="colored" />
+      
       <div className='auth-left d-lg-block d-none vh-100' style={{ flex: '0 0 50%' }}>
-        <img 
-          src='assets/images/auth/zhopingo-splash.jpeg' 
-          alt='Zhopingo' 
-          className="w-100 h-100" 
-          style={{ objectFit: 'cover' }} 
-        />
+        <img src='../assets/images/auth/zhopingo-splash.jpeg' alt='Zhopingo' className="w-100 h-100" style={{ objectFit: 'cover' }} />
       </div>
 
       <div className='auth-right py-32 px-24 d-flex flex-column justify-content-center vh-100' style={{ flex: '1' }}>
         <div className='max-w-464-px mx-auto w-100'>
-          <Link to='/' className='mb-24 d-block'><img src='assets/images/logo.png' alt='Logo' /></Link>
+          <div className="text-center mb-24">
+            <Link to='/' className='mb-16 d-inline-block'><img src='assets/images/logo.png' alt='Logo' style={{height: '40px'}} /></Link>
+            {step < 3 && <h4 className='mb-8 mt-2'>Seller Registration</h4>}
+          </div>
           
-          {step < 4 && (
-            <>
-              <h4 className='mb-12'>Sign Up to your Account</h4>
-              <p className='mb-24 text-secondary-light text-lg'>Join Zhopingo as a {role}</p>
-            </>
-          )}
-
-          <form onSubmit={handleFinalSubmit}>
-            {/* ROLE DROPDOWN - Aligned */}
-            {step < 4 && (
-              <div className='mb-24'>
-                <label className="form-label fw-semibold text-secondary-light text-sm">Register as</label>
-                <div className="icon-field">
-                    <span className='icon top-50 translate-middle-y'><Icon icon='solar:user-rounded-bold' /></span>
-                    <select 
-                      className="form-select h-56-px radius-12 bg-neutral-50 ps-48" 
-                      value={role} 
-                      onChange={handleRoleChange}
-                    >
-                      <option value="admin">Admin</option>
-                      <option value="seller">Seller</option>
-                    </select>
-                </div>
-              </div>
-            )}
-
-            {role === "seller" ? (
-              <>
-                {/* SELLER STEP 1: OTP */}
-                {step === 1 && (
-                  <div className="animate__animated animate__fadeIn">
-                    <div className="icon-field mb-16">
-                      <span className='icon top-50 translate-middle-y'><Icon icon='solar:phone-linear' /></span>
-                      <input type='text' className='form-control h-56-px bg-neutral-50 radius-12 ps-48' placeholder='Enter Mobile Number' required />
-                    </div>
-                    <button type="button" onClick={() => setStep(1.5)} className="btn btn-primary w-100 h-56-px radius-12 fw-semibold">Send OTP</button>
-                  </div>
-                )}
-
-                {step === 1.5 && (
-                  <div className="animate__animated animate__fadeIn text-center">
-                    <div className="icon-field mb-16">
-                         <span className='icon top-50 translate-middle-y'><Icon icon='solar:shield-check-linear' /></span>
-                         <input type='text' className='form-control h-56-px bg-neutral-50 radius-12 ps-48 text-center fw-bold' placeholder='0 0 0 0' maxLength="4" />
-                    </div>
-                    <button type="button" onClick={() => setStep(2)} className="btn btn-success-600 text-white w-100 h-56-px radius-12 fw-semibold">Verify OTP</button>
-                  </div>
-                )}
-
-                {/* SELLER STEP 2: PROFILE - Aligned with Icons */}
-                {step === 2 && (
-                  <div className="row gy-3 animate__animated animate__fadeIn">
-                    <div className="icon-field"><span className='icon top-50 translate-middle-y'><Icon icon='f7:person' /></span>
-                        <input type='text' className='form-control h-56-px bg-neutral-50 radius-12 ps-48' placeholder='Full Name' required />
-                    </div>
-                    <div className="icon-field"><span className='icon top-50 translate-middle-y'><Icon icon='solar:shop-linear' /></span>
-                        <input type='text' className='form-control h-56-px bg-neutral-50 radius-12 ps-48' placeholder='Shop Name' required />
-                    </div>
-                    <div className="icon-field"><span className='icon top-50 translate-middle-y'><Icon icon='mage:email' /></span>
-                        <input type='email' className='form-control h-56-px bg-neutral-50 radius-12 ps-48' placeholder='Email' required />
-                    </div>
-                    <div className="icon-field"><span className='icon top-50 translate-middle-y'><Icon icon='solar:lock-password-outline' /></span>
-                        <input type='password' d="p1" className='form-control h-56-px bg-neutral-50 radius-12 ps-48' placeholder='Create Password' required />
-                    </div>
-                    <div className="icon-field"><span className='icon top-50 translate-middle-y'><Icon icon='solar:lock-password-bold' /></span>
-                        <input type='password' d="p2" className='form-control h-56-px bg-neutral-50 radius-12 ps-48' placeholder='Confirm Password' required />
-                    </div>
-                    <button type="button" onClick={() => setStep(3)} className="btn btn-primary w-100 h-56-px radius-12 mt-12 fw-semibold">Next: Upload Documents</button>
-                  </div>
-                )}
-
-                {/* SELLER STEP 3: DOCS - Neat Layout */}
-                {step === 3 && (
-                  <div className="row gy-3 animate__animated animate__fadeIn overflow-y-auto pe-4" style={{maxHeight: '400px'}}>
-                    <div>
-                      <label className="form-label text-xs fw-bold text-secondary-light">MSME DOCUMENT (PDF/DOCX)</label>
-                      <input type="file" className="form-control radius-12 bg-neutral-50 h-44-px" accept=".pdf,.docx" required />
-                    </div>
-                    <div>
-                      <label className="form-label text-xs fw-bold text-secondary-light">PAN NUMBER & CARD</label>
-                      <input type="text" className="form-control mb-2 radius-12 bg-neutral-50 h-44-px" placeholder="Enter PAN Number" required />
-                      <input type="file" className="form-control radius-12 bg-neutral-50 h-44-px" accept=".pdf,.docx,image/*" required />
-                    </div>
-                    <div className="p-16 border radius-12 bg-neutral-50 mt-12 shadow-sm">
-                      <p className="text-xs fw-bold text-warning-main mb-8 text-uppercase">Optional Documents</p>
-                      <label className="text-xs mb-1">GST DOCUMENT</label>
-                      <input type="file" className="form-control mb-8 bg-white radius-8" />
-                      <label className="text-xs mb-1">FSSAI LICENSE</label>
-                      <input type="file" className="form-control bg-white radius-8" />
-                    </div>
-                    <button type="submit" className="btn btn-success-600 text-white w-100 h-56-px radius-12 mt-12 fw-bold shadow-sm">Submit Documents</button>
-                  </div>
-                )}
-
-                {/* SELLER STEP 4: WAITING */}
-                {step === 4 && (
-                  <div className="text-center p-32 bg-info-50 radius-24 border border-info-200 animate__animated animate__bounceIn">
-                    <Icon icon="solar:clock-circle-bold" className="text-6xl text-info-600 mb-16" />
-                    <h5 className="mb-12">Waiting for Admin Approval</h5>
-                    <p className="text-sm text-secondary-light">Unga shop verify panna Admin-ku request poiduchi. Approval kidaitha piragu thaan dashboard open aagum.</p>
-                    <Link to="/" className="btn btn-primary w-100 mt-24 radius-12 h-56-px d-flex align-items-center justify-content-center fw-bold">Back to Login</Link>
-                  </div>
-                )}
-              </>
-            ) : (
-              /* ADMIN SIGNUP UI - Aligned */
+          <form>
+            {/* STEP 1: PROFILE DETAILS */}
+            {step === 1 && (
               <div className="row gy-3 animate__animated animate__fadeIn">
                 <div className="icon-field">
-                  <span className='icon top-50 translate-middle-y'><Icon icon='f7:person' /></span>
-                  <input type='text' className='form-control h-56-px bg-neutral-50 radius-12 ps-48' placeholder='Username' required />
+                  <span className='icon top-50 translate-middle-y ms-16' style={{ left: 0 }}><Icon icon='f7:person' /></span>
+                  <input type='text' name="name" className='form-control h-56-px ps-48' placeholder='Full Name *' onChange={handleInputChange} required />
                 </div>
                 <div className="icon-field">
-                  <span className='icon top-50 translate-middle-y'><Icon icon='mage:email' /></span>
-                  <input type='email' className='form-control h-56-px bg-neutral-50 radius-12 ps-48' placeholder='Email' required />
+                  <span className='icon top-50 translate-middle-y ms-16' style={{ left: 0 }}><Icon icon='solar:shop-linear' /></span>
+                  <input type='text' name="shopName" className='form-control h-56-px ps-48' placeholder='Shop Name *' onChange={handleInputChange} required />
                 </div>
                 <div className="icon-field">
-                  <span className='icon top-50 translate-middle-y'><Icon icon='solar:lock-password-outline' /></span>
-                  <input type='password' class="form-control h-56-px bg-neutral-50 radius-12 ps-48" placeholder="Password" required />
+                  <span className='icon top-50 translate-middle-y ms-16' style={{ left: 0 }}><Icon icon='mage:email' /></span>
+                  <input type='email' name="email" className='form-control h-56-px ps-48' placeholder='Email ID (Used for Login) *' onChange={handleInputChange} required />
                 </div>
-                <button type="button" onClick={() => navigate("/dashboard")} className="btn btn-primary w-100 h-56-px radius-12 mt-12 fw-bold shadow">Sign Up Admin</button>
+                <div className="icon-field">
+                  <span className='icon top-50 translate-middle-y ms-16' style={{ left: 0 }}><Icon icon='solar:phone-linear' /></span>
+                  <input type='text' name="phone" className='form-control h-56-px ps-48' placeholder='Phone Number' onChange={handleInputChange} />
+                </div>
+                
+                <div className="icon-field position-relative">
+                  <span className='icon top-50 translate-middle-y ms-16' style={{ left: 0 }}><Icon icon='solar:lock-password-outline' /></span>
+                  <input type={showPassword ? 'text' : 'password'} name="password" className='form-control h-56-px ps-48 radius-12' placeholder='Create Password *' onChange={handleInputChange} required />
+                  <span className="position-absolute end-0 top-50 translate-middle-y me-16 cursor-pointer text-secondary-light" style={{ left: "auto" }} onClick={() => setShowPassword(!showPassword)}>
+                    <Icon icon={showPassword ? "solar:eye-bold" : "solar:eye-closed-bold"} className="text-xl" />
+                  </span>
+                </div>
+
+                <div className="icon-field position-relative">
+                  <span className='icon top-50 translate-middle-y ms-16' style={{ left: 0 }}><Icon icon='solar:lock-password-bold' /></span>
+                  <input type={showConfirmPassword ? 'text' : 'password'} name="confirmPassword" className='form-control h-56-px ps-48 radius-12' placeholder='Confirm Password *' onChange={handleInputChange} required />
+                  <span className="position-absolute end-0 top-50 translate-middle-y me-16 cursor-pointer text-secondary-light" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    <Icon icon={showConfirmPassword ? "solar:eye-bold" : "solar:eye-closed-bold"} className="text-xl" />
+                  </span>
+                </div>
+
+                <button type="button" onClick={handleRegisterDetails} disabled={isSubmitting} className="btn btn-primary w-100 h-56-px radius-12 fw-bold mt-3">
+                  {isSubmitting ? "Saving..." : "PROCEED TO KYC"}
+                </button>
               </div>
             )}
-            
-            {step < 4 && (
-              <div className='mt-32 text-center text-sm'>
-                <p className='mb-0 text-secondary-light'>Already have an account? <Link to='/' className='text-primary-600 fw-bold'>Sign In</Link></p>
+
+            {/* STEP 2: KYC UPLOAD (Matches your uploadKyc controller) */}
+            {step === 2 && (
+              <div className="row gy-3 animate__animated animate__fadeIn overflow-y-auto pe-2" style={{maxHeight: '500px'}}>
+                <div className="p-16 border radius-12 bg-neutral-50">
+                  <p className="text-xs fw-bold text-danger-main mb-12">COMPULSORY DOCUMENTS *</p>
+                  
+                  <label className="text-xs mb-1">PAN NUMBER</label>
+                  <input type="text" name="panNumber" className="form-control mb-12 h-44-px" placeholder="ABCDE1234F" onChange={handleInputChange} />
+                  
+                  <label className="text-xs mb-1">PAN CARD PHOTO</label>
+                  <input type="file" className="form-control mb-12" onChange={(e) => setFiles({...files, pan_doc: e.target.files[0]})} />
+
+                  <label className="text-xs mb-1">GST NUMBER</label>
+                  <input type="text" name="gstNumber" className="form-control mb-12 h-44-px" placeholder="22AAAAA0000A1Z5" onChange={handleInputChange} />
+
+                  <label className="text-xs mb-1">GST DOCUMENT</label>
+                  <input type="file" className="form-control mb-12" onChange={(e) => setFiles({...files, gst_doc: e.target.files[0]})} />
+                  
+                  <label className="text-xs mb-1">MSME CERTIFICATE (PDF)</label>
+                  <input type="file" className="form-control mb-12" onChange={(e) => setFiles({...files, msme_doc: e.target.files[0]})} />
+                </div>
+
+                <div className="p-16 border radius-12 bg-neutral-50 shadow-sm">
+                  <p className="text-xs fw-bold text-warning-main mb-12">OPTIONAL DOCUMENTS</p>
+                  <label className="text-xs mb-1">FSSAI LICENSE NO</label>
+                  <input type="text" name="fssaiNumber" className="form-control mb-12 h-44-px" placeholder="14-digit License No" onChange={handleInputChange} />
+                  
+                  <label className="text-xs mb-1">FSSAI DOCUMENT</label>
+                  <input type="file" className="form-control mb-12" onChange={(e) => setFiles({...files, fssai_doc: e.target.files[0]})} />
+                </div>
+
+                <button type="button" onClick={handleKycUpload} className="btn btn-primary w-100 h-56-px radius-12 fw-bold mt-3 mb-4" disabled={isSubmitting}>
+                  {isSubmitting ? "Uploading Documents..." : "COMPLETE REGISTRATION"}
+                </button>
+              </div>
+            )}
+
+            {/* STEP 3: SUCCESS MESSAGE */}
+            {step === 3 && (
+              <div className="text-center p-32 bg-info-50 radius-24 border border-info-200 animate__animated animate__bounceIn">
+                <Icon icon="solar:clock-circle-bold" className="text-6xl text-info-600 mb-16" />
+                <h5 className="mb-12">Application Submitted!</h5>
+                <p className="text-sm text-secondary-light">KYC documents submitted. Waiting for Admin Approval...</p>
+                <button onClick={() => navigate("/")} className="btn btn-primary w-100 mt-24 radius-12 h-56-px fw-bold">Back to Login</button>
               </div>
             )}
           </form>
+
+          {step < 3 && (
+            <div className='mt-24 text-center text-sm'>
+              <p className='mb-0 text-secondary-light'>Already have a shop? <Link to='/' className='text-primary-600 fw-bold'>Sign In</Link></p>
+            </div>
+          )}
         </div>
       </div>
     </section>
   );
 };
+
 export default SignUpLayer;

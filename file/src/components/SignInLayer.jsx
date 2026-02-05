@@ -1,118 +1,148 @@
+import { useState } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
-
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { toast, ToastContainer } from "react-toastify";
 
 const SignInLayer = () => {
+  // Backend ippo email thaan base panniruku, so namba 'email' nu identifier vechikuvom
+  const [loginData, setLoginData] = useState({ email: "", password: "" });
+  const navigate = useNavigate();
+
+  const API_BASE = "http://54.157.210.26/api/v1";
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleInputChange = (e) => setLoginData({ ...loginData, [e.target.name]: e.target.value });
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    try {
+      /**
+       * STEP 1: ADMIN LOGIN CHECK
+       * Admin controller expects: { email, password }
+       */
+      try {
+        const adminRes = await axios.post(`${API_BASE}/admin/login`, {
+          email: loginData.email,
+          password: loginData.password
+        });
+
+        if (adminRes.data.success) {
+          localStorage.setItem("userToken", adminRes.data.token);
+          localStorage.setItem("userRole", "admin");
+          localStorage.setItem("userData", JSON.stringify(adminRes.data.user));
+          toast.success("Welcome back, Admin!");
+          return navigate("/dashboard"); 
+        }
+      } catch (adminErr) {
+        // Admin illana mattum next seller check-ku pogum
+        if (adminErr.response && adminErr.response.status !== 401) {
+          throw adminErr; 
+        }
+      }
+
+      /**
+       * STEP 2: SELLER LOGIN CHECK (Updated as per your new Backend)
+       * Seller controller expects: { email, password }
+       */
+      const sellerRes = await axios.post(`${API_BASE}/seller/login`, {
+        email: loginData.email, // Unga puthu backend logic-padi inga 'email' thaan poganum
+        password: loginData.password
+      });
+
+      if (sellerRes.data.success) {
+        const { token, seller } = sellerRes.data;
+        
+        // Admin verification check (isVerified true-ah irukanum)
+        // Unga backend-la 'isVerified' check panni error message anupuriga, 
+        // athu catch-laye handle aagidum. Inga additional safety check.
+        
+        localStorage.setItem("userToken", token);
+        localStorage.setItem("userRole", "seller");
+        localStorage.setItem("userData", JSON.stringify(seller));
+
+        toast.success(`Welcome back, ${seller.name}!`);
+        return navigate("/seller-dashboard"); 
+      }
+
+    } catch (err) {
+      // Backend-la irunthu vara exact message-ai toast-la katrom
+      const errMsg = err.response?.data?.message || "Invalid credentials or Server Error";
+      toast.error(errMsg);
+    }
+  };
+
   return (
-    <section className='auth bg-base d-flex flex-wrap'>
-     <div className='auth-left d-lg-block d-none'>
-  <div className='d-flex align-items-center flex-column h-100 justify-content-center'>
-    {/* Neenga mark panna idathula ippo Zhopingo Green Image varum */}
-    <img 
-      src='../assets/images/auth/zhopingo-splash.jpeg' // Unga image file name inga podunga
-      alt='Zhopingo' 
-      style={{ width: '100%', height: '100vh', objectFit: 'cover' }} 
-    />
-  </div>
-</div>
-      <div className='auth-right py-32 px-24 d-flex flex-column justify-content-center'>
+    <section className='auth bg-base d-flex flex-wrap vh-100'>
+      <ToastContainer position="top-right" theme="colored" />
+      
+      <div className='auth-left d-lg-block d-none vh-100' style={{ flex: '0 0 50%' }}>
+        <img 
+          src='../assets/images/auth/zhopingo-splash.jpeg' 
+          alt='Zhopingo' 
+          style={{ width: '100%', height: '100vh', objectFit: 'cover' }} 
+        />
+      </div>
+
+      <div className='auth-right py-32 px-24 d-flex flex-column justify-content-center vh-100' style={{ flex: '1' }}>
         <div className='max-w-464-px mx-auto w-100'>
-          <div>
-            <Link to='/index' className='mb-40 max-w-290-px'>
-              <img src='assets/images/logo.png' alt='WowDash React Vite' />
-            </Link>
-            <h4 className='mb-12'>Sign In to your Account</h4>
-            <p className='mb-32 text-secondary-light text-lg'>
-              Welcome back! please enter your detail
-            </p>
+          <div className="text-center mb-32">
+            <img src='assets/images/logo.png' alt='Logo' className="mb-24" />
+            <h4 className='mb-12'>Sign In to Zhopingo</h4>
+            <p className="text-secondary-light">Please enter your registered email to access dashboard</p>
           </div>
-          <form action='#'>
-            <div className='icon-field mb-16'>
+
+          <form onSubmit={handleLogin}>
+           {/* Email Input Section */}
+{/* Email Input Section */}
+<div className='icon-field mb-16'>
+  <span className='icon top-50 translate-middle-y' style={{ left: 0 }}><Icon icon='mage:email' /></span>
+  <input 
+    type='email' 
+    name="email" 
+    className='form-control h-56-px ps-48 radius-12' 
+    placeholder='Enter Registered Email' 
+    value={loginData.email}
+    onChange={handleInputChange} 
+    required 
+  />
+</div>
+
+            <div className='icon-field mb-20 position-relative'>
               <span className='icon top-50 translate-middle-y'>
-                <Icon icon='mage:email' />
+                <Icon icon='solar:lock-password-outline' />
               </span>
-              <input
-                type='email'
-                className='form-control h-56-px bg-neutral-50 radius-12'
-                placeholder='Email'
+              
+              <input 
+                type={showPassword ? 'text' : 'password'} 
+                name="password" 
+                className='form-control h-56-px ps-48 radius-12' 
+                placeholder='Enter Password' 
+                value={loginData.password}
+                onChange={handleInputChange} 
+                required 
               />
+
+              <span 
+                className="position-absolute end-0 top-50 translate-middle-y me-16 cursor-pointer text-secondary-light"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                <Icon icon={showPassword ? "solar:eye-bold" : "solar:eye-closed-bold"} className="text-xl" />
+              </span>
             </div>
-            <div className='position-relative mb-20'>
-              <div className='icon-field'>
-                <span className='icon top-50 translate-middle-y'>
-                  <Icon icon='solar:lock-password-outline' />
-                </span>
-                <input
-                  type='password'
-                  className='form-control h-56-px bg-neutral-50 radius-12'
-                  id='your-password'
-                  placeholder='Password'
-                />
-              </div>
-              <span
-                className='toggle-password ri-eye-line cursor-pointer position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light'
-                data-toggle='#your-password'
-              />
-            </div>
-            <div className=''>
-              <div className='d-flex justify-content-between gap-2'>
-                <div className='form-check style-check d-flex align-items-center'>
-                  <input
-                    className='form-check-input border border-neutral-300'
-                    type='checkbox'
-                    defaultValue=''
-                    id='remeber'
-                  />
-                  <label className='form-check-label' htmlFor='remeber'>
-                    Remember me{" "}
-                  </label>
-                </div>
-                <Link to='#' className='text-primary-600 fw-medium'>
-                  Forgot Password?
-                </Link>
-              </div>
-            </div>
-            <button
-              type='submit'
-              className='btn btn-primary text-sm btn-sm px-12 py-16 w-100 radius-12 mt-32'
-            >
-              {" "}
+
+            <button type='submit' className='btn btn-primary h-56-px w-100 radius-12 fw-bold'>
               Sign In
             </button>
-            <div className='mt-32 center-border-horizontal text-center'>
-              <span className='bg-base z-1 px-4'>Or sign in with</span>
-            </div>
-            <div className='mt-32 d-flex align-items-center gap-3'>
-              <button
-                type='button'
-                className='fw-semibold text-primary-light py-16 px-24 w-50 border radius-12 text-md d-flex align-items-center justify-content-center gap-12 line-height-1 bg-hover-primary-50'
-              >
-                <Icon
-                  icon='ic:baseline-facebook'
-                  className='text-primary-600 text-xl line-height-1'
-                />
-                Google
-              </button>
-              <button
-                type='button'
-                className='fw-semibold text-primary-light py-16 px-24 w-50 border radius-12 text-md d-flex align-items-center justify-content-center gap-12 line-height-1 bg-hover-primary-50'
-              >
-                <Icon
-                  icon='logos:google-icon'
-                  className='text-primary-600 text-xl line-height-1'
-                />
-                Google
-              </button>
-            </div>
-            <div className='mt-32 text-center text-sm'>
-              <p className='mb-0'>
-                Don’t have an account?{" "}
-                <Link to='/sign-up' className='text-primary-600 fw-semibold'>
-                  Sign Up
-                </Link>
-              </p>
-            </div>
           </form>
+
+          <div className='mt-32 text-center text-sm'>
+            <p className='mb-0 text-secondary-light'>
+              Don’t have a shop? 
+              <Link to='/sign-up' className='text-primary-600 fw-semibold ps-1'>Sign Up as Seller</Link>
+            </p>
+          </div>
         </div>
       </div>
     </section>
