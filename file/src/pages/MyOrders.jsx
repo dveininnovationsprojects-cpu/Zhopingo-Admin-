@@ -15,7 +15,7 @@ const MyOrders = () => {
   const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
   const sellerId = sellerData.id || sellerData._id;
   
-  const API_BASE = "http://54.157.210.26/api/v1";
+  const API_BASE = "https://api.zhopingo.in/api/v1";
 
   // 1. FETCH ORDERS (Neenga kudutha dynamic seller ID API logic)
   const fetchOrders = async () => {

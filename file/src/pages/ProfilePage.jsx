@@ -15,7 +15,7 @@ const ProfilePage = ({ onLogout }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Production API URL (உங்கள் மற்ற பக்கங்களில் உள்ள அதே URL)
-  const API_URL = "http://54.157.210.26/api/v1/admin/sellers";
+  const API_URL = "https://api.zhopingo.in/api/v1/admin/sellers";
 
   // 1. FETCH DYNAMIC SELLER DATA
   const fetchCurrentSellerData = async () => {

@@ -2085,9 +2085,9 @@ const MasterLayout = ({ children }) => {
           <Icon icon='radix-icons:cross-2' />
         </button>
         <div>
-          <Link to='/' className='sidebar-logo'>
+          <Link className='sidebar-logo'>
             <img
-              src='assets/images/logo.png'
+              src='../assets/images/auth/logo-dash.png'
               alt='site logo'
               className='light-logo'
             />
@@ -2109,7 +2109,7 @@ const MasterLayout = ({ children }) => {
             {/* Dashboard - Updated: Removed dropdown and submenu */}
             <li>
               <NavLink 
-                to='/' 
+                to='/dashboard' 
                 className={(navData) => (navData.isActive ? "active-page" : "")}
               >
                 <Icon
@@ -2122,7 +2122,7 @@ const MasterLayout = ({ children }) => {
 
             <li className='sidebar-menu-group-title'>Zhopingo Operations</li>
 
-            {/* Banner Management (From Carousel) */}
+            {/* Banner Management (From Carousel) 
             <li>
               <NavLink
                 to='/carousel'
@@ -2131,7 +2131,7 @@ const MasterLayout = ({ children }) => {
                 <Icon icon='solar:gallery-wide-outline' className='menu-icon' />
                 <span>Banners</span>
               </NavLink>
-            </li>
+            </li>*/}
 
             {/* Users Dropdown */}
             <li className='dropdown'>
@@ -2376,7 +2376,7 @@ const MasterLayout = ({ children }) => {
               </ul>
             </li>
 
-            {/* Configuration Dropdown */}
+            {/*
             <li className='dropdown'>
               <Link to='#'>
                 <Icon
@@ -2431,8 +2431,7 @@ const MasterLayout = ({ children }) => {
                   </NavLink>
                 </li>
               </ul>
-            </li>
-
+            </li> */}
             <li className='sidebar-menu-group-title'>System Settings</li>
 
             {/* Authentication Dropdown */}
@@ -2467,7 +2466,7 @@ const MasterLayout = ({ children }) => {
               </ul>
             </li>
 
-            <li>
+          {/* <li>
               <NavLink
                 to='/faq'
                 className={(navData) => (navData.isActive ? "active-page" : "")}
@@ -2490,7 +2489,7 @@ const MasterLayout = ({ children }) => {
               </NavLink>
             </li>
 
-            {/* Settings Dropdown */}
+            
             <li className='dropdown'>
               <Link to='#'>
                 <Icon
@@ -2545,7 +2544,7 @@ const MasterLayout = ({ children }) => {
                   </NavLink>
                 </li>
               </ul>
-            </li>
+            </li>*/}
           </ul>
         </div>
       </aside>

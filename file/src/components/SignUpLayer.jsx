@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react"; // ✅ useEffect-ai inga add pannunga
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -124,7 +124,7 @@ const SignUpLayer = () => {
       <div className='auth-right py-32 px-24 d-flex flex-column justify-content-center vh-100' style={{ flex: '1' }}>
         <div className='max-w-464-px mx-auto w-100'>
           <div className="text-center mb-24">
-            <Link to='/' className='mb-16 d-inline-block'><img src='assets/images/logo.png' alt='Logo' style={{height: '40px'}} /></Link>
+            <Link to='/' className='mb-16 d-inline-block'>{/*<img src='assets/images/logo.png' alt='Logo' style={{height: '40px'}} />*/}</Link>
             {step < 3 && <h4 className='mb-8 mt-2'>Seller Registration</h4>}
           </div>
           

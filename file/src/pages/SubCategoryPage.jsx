@@ -26,8 +26,8 @@ const SubCategoryPage = () => {
     gstRate: ""
   });
 
-  const BASE_URL = "http://54.157.210.26/api/v1/catalog";
-  const IMAGE_BASE_URL = "http://54.157.210.26/uploads/";
+  const BASE_URL = "https://api.zhopingo.in/api/v1/catalog";
+  const IMAGE_BASE_URL = "https://api.zhopingo.in/uploads/";
 
   const fetchParentCategories = async () => {
     try {

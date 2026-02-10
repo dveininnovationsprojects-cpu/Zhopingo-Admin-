@@ -17,7 +17,7 @@ const AddProduct = () => {
   const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
   const token = localStorage.getItem("userToken");
   
-  const API_BASE = "http://54.157.210.26/api/v1";
+  const API_BASE = "https://api.zhopingo.in/api/v1";
 
   // Form States (Matching Backend req.body)
   const [formData, setFormData] = useState({

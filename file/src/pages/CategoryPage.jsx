@@ -21,9 +21,9 @@ const CategoryPage = () => {
   const [categories, setCategories] = useState([]);
   const [hsnList, setHsnList] = useState([]); // Store HSN Master data
 
-  const API_BASE_URL = "http://54.157.210.26/api/v1/catalog/categories";
-  const HSN_API_URL = "http://54.157.210.26/api/v1/catalog/hsn-master";
-  const IMAGE_BASE_URL = "http://54.157.210.26/uploads/";
+  const API_BASE_URL = "https://api.zhopingo.in/api/v1/catalog/categories";
+  const HSN_API_URL = "https://api.zhopingo.in/api/v1/catalog/hsn-master";
+  const IMAGE_BASE_URL = "https://api.zhopingo.in/uploads/";
 
   const fetchCategories = async () => {
     setIsLoading(true);

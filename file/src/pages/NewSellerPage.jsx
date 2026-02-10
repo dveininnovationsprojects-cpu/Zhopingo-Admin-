@@ -13,7 +13,7 @@ const NewSellerPage = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Production API Base URL
-  const API_BASE_URL = "http://54.157.210.26/api/v1/admin";
+  const API_BASE_URL = "https://api.zhopingo.in/api/v1/admin";
   
   // 🌟 Base URL for direct file access
   const FILE_BASE_URL = "http://54.157.210.26"; 

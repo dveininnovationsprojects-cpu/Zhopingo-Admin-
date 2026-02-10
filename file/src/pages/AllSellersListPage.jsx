@@ -11,7 +11,7 @@ const AllSellersListPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Production API Base URL
-  const API_BASE_URL = "http://54.157.210.26/api/v1/admin/sellers";
+  const API_BASE_URL = "https://api.zhopingo.in/api/v1/admin/sellers";
 
   // 1. FETCH ALL SELLERS
   const fetchAllSellers = async () => {

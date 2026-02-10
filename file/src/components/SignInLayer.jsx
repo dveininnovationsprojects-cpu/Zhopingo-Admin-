@@ -5,31 +5,27 @@ import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 
 const SignInLayer = () => {
-  // Backend ippo email thaan base panniruku, so namba 'email' nu identifier vechikuvom
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const navigate = useNavigate();
 
-  const API_BASE = "http://54.157.210.26/api/v1";
+  // ✅ Step 1: HTTPS URL-ku mathunga
+  const API_BASE = "https://api.zhopingo.in/api/v1"; 
   const [showPassword, setShowPassword] = useState(false);
 
   const handleInputChange = (e) => setLoginData({ ...loginData, [e.target.name]: e.target.value });
-  const isSellerDomain = window.location.hostname === 'seller.zhopingo.in';
+  
+  const currentHost = window.location.hostname;
+  const isSellerDomain = currentHost === 'seller.zhopingo.in' || currentHost === 'localhost';
 
-const handleLogin = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-
-    // STEP 0: Domain Check
-    const currentHost = window.location.hostname; // Example: 'seller.zhopingo.in' or 'admin.zhopingo.in'
 
     try {
       /**
        * STEP 1: ADMIN LOGIN CHECK
        */
-      // Seller domain-la irundha admin login-ai stop pannunga
-      if (currentHost === 'seller.zhopingo.in') {
-        // Inga admin check-aiye skip pannidalam, direct-ah seller check-ku pogum
-        console.log("On Seller domain, skipping admin login check.");
-      } else {
+      // Admin domain-la irundha mattum admin check pannunga
+      if (currentHost === 'admin.zhopingo.in') {
         try {
           const adminRes = await axios.post(`${API_BASE}/admin/login`, {
             email: loginData.email,
@@ -44,35 +40,31 @@ const handleLogin = async (e) => {
             return navigate("/dashboard"); 
           }
         } catch (adminErr) {
-          if (adminErr.response && adminErr.response.status !== 401) {
-            throw adminErr; 
-          }
+          // Credentials thappuna mattum error toast kaatunga
+          toast.error(adminErr.response?.data?.message || "Invalid Admin Credentials");
+          return;
         }
       }
 
       /**
        * STEP 2: SELLER LOGIN CHECK
        */
-      // Admin domain-la irundha seller login-ai allow panna koodathu nuna idhai use pannunga
-      if (currentHost === 'admin.zhopingo.in') {
-         toast.error("Sellers cannot login through Admin portal!");
-         return;
-      }
+      // Seller domain-la irundha admin credentials-ah thadukkum
+      if (currentHost === 'seller.zhopingo.in') {
+        const sellerRes = await axios.post(`${API_BASE}/seller/login`, {
+          email: loginData.email,
+          password: loginData.password
+        });
 
-      const sellerRes = await axios.post(`${API_BASE}/seller/login`, {
-        email: loginData.email,
-        password: loginData.password
-      });
+        if (sellerRes.data.success) {
+          const { token, seller } = sellerRes.data;
+          localStorage.setItem("userToken", token);
+          localStorage.setItem("userRole", "seller");
+          localStorage.setItem("userData", JSON.stringify(seller));
 
-      if (sellerRes.data.success) {
-        const { token, seller } = sellerRes.data;
-        
-        localStorage.setItem("userToken", token);
-        localStorage.setItem("userRole", "seller");
-        localStorage.setItem("userData", JSON.stringify(seller));
-
-        toast.success(`Welcome back, ${seller.name}!`);
-        return navigate("/seller-dashboard"); 
+          toast.success(`Welcome back, ${seller.name}!`);
+          return navigate("/seller-dashboard"); 
+        }
       }
 
     } catch (err) {
@@ -80,6 +72,7 @@ const handleLogin = async (e) => {
       toast.error(errMsg);
     }
   };
+
 
   return (
     <section className='auth bg-base d-flex flex-wrap vh-100'>
@@ -96,7 +89,7 @@ const handleLogin = async (e) => {
       <div className='auth-right py-32 px-24 d-flex flex-column justify-content-center vh-100' style={{ flex: '1' }}>
         <div className='max-w-464-px mx-auto w-100'>
           <div className="text-center mb-32">
-            <img src='assets/images/logo.png' alt='Logo' className="mb-24" />
+            {/*<img src='assets/images/logo.png' alt='Logo' className="mb-24" />*/}
             <h4 className='mb-12'>Sign In to Zhopingo</h4>
             <p className="text-secondary-light">Please enter your registered email to access dashboard</p>
           </div>
@@ -158,7 +151,7 @@ const handleLogin = async (e) => {
   )}
   {!isSellerDomain && (
     <p className='mb-0 text-secondary-light'>
-      Zhopingo Admin Portal
+      
     </p>
   )}
 </div>

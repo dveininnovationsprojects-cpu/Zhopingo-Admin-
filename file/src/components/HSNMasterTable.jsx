@@ -22,7 +22,7 @@ const HSNMasterTable = () => {
 };
 
   // 🌟 API URL Configuration (Check for correct prefix)
-  const API_URL = "http://54.157.210.26/api/v1/catalog/hsn-master";
+  const API_URL = "https://api.zhopingo.in/api/v1/catalog/hsn-master";
 
   // 1. GET METHOD: Fetch all HSN codes from MongoDB
   const fetchHsnData = async () => {
