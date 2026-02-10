@@ -88,12 +88,6 @@ const triggerLoading = () => {
               <option>Last 30 Days</option>
               <option>Month</option>
             </select>
-
-            <select className="form-select w-auto radius-8">
-              <option>whatsapp</option>
-              <option>website</option>
-              <option>offline</option>
-            </select>
           </div>
 
           <button onClick={() => { setIsDrawerOpen(true); setOrderStep(1); }} className="btn btn-primary-600 text-sm d-flex align-items-center gap-2 text-nowrap">

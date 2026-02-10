@@ -17,61 +17,56 @@ const SignInLayer = () => {
   const currentHost = window.location.hostname;
   const isSellerDomain = currentHost === 'seller.zhopingo.in' || currentHost === 'localhost';
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+const handleLogin = async (e) => {
+  e.preventDefault();
+  const currentHost = window.location.hostname;
+  const isLocal = currentHost === 'localhost';
 
-    try {
-      /**
-       * STEP 1: ADMIN LOGIN CHECK
-       */
-      // Admin domain-la irundha mattum admin check pannunga
-      if (currentHost === 'admin.zhopingo.in') {
-        try {
-          const adminRes = await axios.post(`${API_BASE}/admin/login`, {
-            email: loginData.email,
-            password: loginData.password
-          });
-
-          if (adminRes.data.success) {
-            localStorage.setItem("userToken", adminRes.data.token);
-            localStorage.setItem("userRole", "admin");
-            localStorage.setItem("userData", JSON.stringify(adminRes.data.user));
-            toast.success("Welcome back, Admin!");
-            return navigate("/dashboard"); 
-          }
-        } catch (adminErr) {
-          // Credentials thappuna mattum error toast kaatunga
+  try {
+    /**
+     * STEP 1: ADMIN LOGIN CHECK
+     * Local-la irundhaa email-ah check pannum (Example: Admin email 'admin' nu start aagalaam)
+     */
+    const isAdminDomain = currentHost === 'admin.zhopingo.in';
+    // Localhost-la admin-ah test panna:
+    if (isAdminDomain || (isLocal && loginData.email.toLowerCase().includes('admin'))) {
+      try {
+        const adminRes = await axios.post(`${API_BASE}/admin/login`, loginData);
+        if (adminRes.data.success) {
+          localStorage.setItem("userToken", adminRes.data.token);
+          localStorage.setItem("userRole", "admin");
+          localStorage.setItem("userData", JSON.stringify(adminRes.data.user));
+          toast.success("Welcome back, Admin!");
+          return navigate("/dashboard");
+        }
+      } catch (adminErr) {
+        // Local-la seller-ah check panna allow pannanum na 'return' pannaatheenga
+        if (!isLocal) {
           toast.error(adminErr.response?.data?.message || "Invalid Admin Credentials");
           return;
         }
       }
-
-      /**
-       * STEP 2: SELLER LOGIN CHECK
-       */
-      // Seller domain-la irundha admin credentials-ah thadukkum
-      if (currentHost === 'seller.zhopingo.in') {
-        const sellerRes = await axios.post(`${API_BASE}/seller/login`, {
-          email: loginData.email,
-          password: loginData.password
-        });
-
-        if (sellerRes.data.success) {
-          const { token, seller } = sellerRes.data;
-          localStorage.setItem("userToken", token);
-          localStorage.setItem("userRole", "seller");
-          localStorage.setItem("userData", JSON.stringify(seller));
-
-          toast.success(`Welcome back, ${seller.name}!`);
-          return navigate("/seller-dashboard"); 
-        }
-      }
-
-    } catch (err) {
-      const errMsg = err.response?.data?.message || "Invalid credentials or Server Error";
-      toast.error(errMsg);
     }
-  };
+
+    /**
+     * STEP 2: SELLER LOGIN CHECK
+     */
+    const isSellerDomainCheck = currentHost === 'seller.zhopingo.in' || isLocal;
+    if (isSellerDomainCheck) {
+      const sellerRes = await axios.post(`${API_BASE}/seller/login`, loginData);
+      if (sellerRes.data.success) {
+        const { token, seller } = sellerRes.data;
+        localStorage.setItem("userToken", token);
+        localStorage.setItem("userRole", "seller");
+        localStorage.setItem("userData", JSON.stringify(seller));
+        toast.success(`Welcome back, ${seller.name}!`);
+        return navigate("/seller-dashboard");
+      }
+    }
+  } catch (err) {
+    toast.error(err.response?.data?.message || "Invalid credentials or Server Error");
+  }
+};
 
 
   return (
