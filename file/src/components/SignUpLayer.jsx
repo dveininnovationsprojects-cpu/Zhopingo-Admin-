@@ -6,10 +6,23 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const SignUpLayer = () => {
-  // 1: Details Entry, 2: KYC Upload, 3: Success
-  const [step, setStep] = useState(1); 
   const navigate = useNavigate();
-  const API_BASE = "http://54.157.210.26/api/v1";
+  const [step, setStep] = useState(1); 
+  
+  // ===========================================================
+  // SAFETY CHECK: Admin domain-la register-ah block panna
+  // ===========================================================
+  useEffect(() => {
+    if (window.location.hostname === 'admin.zhopingo.in') {
+      toast.error("Registration is not allowed on Admin domain");
+      navigate("/"); // Login page-ku thiruppi anupirum
+    }
+  }, [navigate]);
+  // ===========================================================
+
+  const API_BASE = "https://api.zhopingo.in/api/v1"; // ✅ HTTPS URL-ah mathiteengala-nu check pannunga
+  
+  // ... matha states ellam inge irukkum
 
   // Form States
   const [formData, setFormData] = useState({

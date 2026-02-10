@@ -13,50 +13,59 @@ const SignInLayer = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleInputChange = (e) => setLoginData({ ...loginData, [e.target.name]: e.target.value });
+  const isSellerDomain = window.location.hostname === 'seller.zhopingo.in';
 
-  const handleLogin = async (e) => {
+const handleLogin = async (e) => {
     e.preventDefault();
+
+    // STEP 0: Domain Check
+    const currentHost = window.location.hostname; // Example: 'seller.zhopingo.in' or 'admin.zhopingo.in'
 
     try {
       /**
        * STEP 1: ADMIN LOGIN CHECK
-       * Admin controller expects: { email, password }
        */
-      try {
-        const adminRes = await axios.post(`${API_BASE}/admin/login`, {
-          email: loginData.email,
-          password: loginData.password
-        });
+      // Seller domain-la irundha admin login-ai stop pannunga
+      if (currentHost === 'seller.zhopingo.in') {
+        // Inga admin check-aiye skip pannidalam, direct-ah seller check-ku pogum
+        console.log("On Seller domain, skipping admin login check.");
+      } else {
+        try {
+          const adminRes = await axios.post(`${API_BASE}/admin/login`, {
+            email: loginData.email,
+            password: loginData.password
+          });
 
-        if (adminRes.data.success) {
-          localStorage.setItem("userToken", adminRes.data.token);
-          localStorage.setItem("userRole", "admin");
-          localStorage.setItem("userData", JSON.stringify(adminRes.data.user));
-          toast.success("Welcome back, Admin!");
-          return navigate("/dashboard"); 
-        }
-      } catch (adminErr) {
-        // Admin illana mattum next seller check-ku pogum
-        if (adminErr.response && adminErr.response.status !== 401) {
-          throw adminErr; 
+          if (adminRes.data.success) {
+            localStorage.setItem("userToken", adminRes.data.token);
+            localStorage.setItem("userRole", "admin");
+            localStorage.setItem("userData", JSON.stringify(adminRes.data.user));
+            toast.success("Welcome back, Admin!");
+            return navigate("/dashboard"); 
+          }
+        } catch (adminErr) {
+          if (adminErr.response && adminErr.response.status !== 401) {
+            throw adminErr; 
+          }
         }
       }
 
       /**
-       * STEP 2: SELLER LOGIN CHECK (Updated as per your new Backend)
-       * Seller controller expects: { email, password }
+       * STEP 2: SELLER LOGIN CHECK
        */
+      // Admin domain-la irundha seller login-ai allow panna koodathu nuna idhai use pannunga
+      if (currentHost === 'admin.zhopingo.in') {
+         toast.error("Sellers cannot login through Admin portal!");
+         return;
+      }
+
       const sellerRes = await axios.post(`${API_BASE}/seller/login`, {
-        email: loginData.email, // Unga puthu backend logic-padi inga 'email' thaan poganum
+        email: loginData.email,
         password: loginData.password
       });
 
       if (sellerRes.data.success) {
         const { token, seller } = sellerRes.data;
-        
-        // Admin verification check (isVerified true-ah irukanum)
-        // Unga backend-la 'isVerified' check panni error message anupuriga, 
-        // athu catch-laye handle aagidum. Inga additional safety check.
         
         localStorage.setItem("userToken", token);
         localStorage.setItem("userRole", "seller");
@@ -67,7 +76,6 @@ const SignInLayer = () => {
       }
 
     } catch (err) {
-      // Backend-la irunthu vara exact message-ai toast-la katrom
       const errMsg = err.response?.data?.message || "Invalid credentials or Server Error";
       toast.error(errMsg);
     }
@@ -137,12 +145,23 @@ const SignInLayer = () => {
             </button>
           </form>
 
-          <div className='mt-32 text-center text-sm'>
-            <p className='mb-0 text-secondary-light'>
-              Don’t have a shop? 
-              <Link to='/sign-up' className='text-primary-600 fw-semibold ps-1'>Sign Up as Seller</Link>
-            </p>
-          </div>
+       {/* Domain check logic */}
+
+
+{/* Return section-la intha maari mathunga */}
+<div className='mt-32 text-center text-sm'>
+  {isSellerDomain && (
+    <p className='mb-0 text-secondary-light'>
+      Don’t have a shop? 
+      <Link to='/sign-up' className='text-primary-600 fw-semibold ps-1'>Sign Up as Seller</Link>
+    </p>
+  )}
+  {!isSellerDomain && (
+    <p className='mb-0 text-secondary-light'>
+      Zhopingo Admin Portal
+    </p>
+  )}
+</div>
         </div>
       </div>
     </section>
