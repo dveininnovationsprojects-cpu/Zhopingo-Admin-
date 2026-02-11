@@ -24,7 +24,7 @@ const LatestRegisteredOne = () => {
                   aria-controls='pills-to-do-list'
                   aria-selected='true'
                 >
-                  Latest Registered
+                  Latest Seller
                   <span className='text-sm fw-semibold py-6 px-12 bg-neutral-500 rounded-pill text-white line-height-1 ms-12 notification-alert'>
                     35
                   </span>
@@ -42,7 +42,7 @@ const LatestRegisteredOne = () => {
                   aria-selected='false'
                   tabIndex={-1}
                 >
-                  Latest Subscribe
+                  Latest  Customer
                   <span className='text-sm fw-semibold py-6 px-12 bg-neutral-500 rounded-pill text-white line-height-1 ms-12 notification-alert'>
                     35
                   </span>
@@ -69,7 +69,7 @@ const LatestRegisteredOne = () => {
                 <table className='table bordered-table sm-table mb-0'>
                   <thead>
                     <tr>
-                      <th scope='col'>Users </th>
+                      <th scope='col'>Sellers</th>
                       <th scope='col'>Registered On</th>
                       <th scope='col'>Plan</th>
                       <th scope='col' className='text-center'>

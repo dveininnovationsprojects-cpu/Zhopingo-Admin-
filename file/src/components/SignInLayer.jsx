@@ -23,12 +23,7 @@ const handleLogin = async (e) => {
   const isLocal = currentHost === 'localhost';
 
   try {
-    /**
-     * STEP 1: ADMIN LOGIN CHECK
-     * Local-la irundhaa email-ah check pannum (Example: Admin email 'admin' nu start aagalaam)
-     */
     const isAdminDomain = currentHost === 'admin.zhopingo.in';
-    // Localhost-la admin-ah test panna:
     if (isAdminDomain || (isLocal && loginData.email.toLowerCase().includes('admin'))) {
       try {
         const adminRes = await axios.post(`${API_BASE}/admin/login`, loginData);
@@ -40,7 +35,6 @@ const handleLogin = async (e) => {
           return navigate("/dashboard");
         }
       } catch (adminErr) {
-        // Local-la seller-ah check panna allow pannanum na 'return' pannaatheenga
         if (!isLocal) {
           toast.error(adminErr.response?.data?.message || "Invalid Admin Credentials");
           return;
@@ -48,9 +42,6 @@ const handleLogin = async (e) => {
       }
     }
 
-    /**
-     * STEP 2: SELLER LOGIN CHECK
-     */
     const isSellerDomainCheck = currentHost === 'seller.zhopingo.in' || isLocal;
     if (isSellerDomainCheck) {
       const sellerRes = await axios.post(`${API_BASE}/seller/login`, loginData);
@@ -63,9 +54,16 @@ const handleLogin = async (e) => {
         return navigate("/seller-dashboard");
       }
     }
-  } catch (err) {
-    toast.error(err.response?.data?.message || "Invalid credentials or Server Error");
+} catch (err) {
+  let errMsg = err.response?.data?.message || "Invalid credentials or Server Error";
+
+ 
+  if (errMsg.toLowerCase().includes("verification pending")) {
+    errMsg = "Verification Pending ! Waiting For Admin Approval...";
   }
+
+  toast.error(errMsg);
+}
 };
 
 
@@ -133,10 +131,6 @@ const handleLogin = async (e) => {
             </button>
           </form>
 
-       {/* Domain check logic */}
-
-
-{/* Return section-la intha maari mathunga */}
 <div className='mt-32 text-center text-sm'>
   {isSellerDomain && (
     <p className='mb-0 text-secondary-light'>

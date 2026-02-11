@@ -1979,15 +1979,21 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import ThemeToggleButton from "../helper/ThemeToggleButton";
 
 
 const MasterLayout = ({ children }) => {
   let [sidebarActive, seSidebarActive] = useState(false);
   let [mobileMenu, setMobileMenu] = useState(false);
-  const location = useLocation(); // Hook to get the current route
+  const location = useLocation();
+  const navigate = useNavigate(); // Hook to get the current route
 
+  const handleLogout = () => {
+    localStorage.removeItem("userToken");
+    localStorage.removeItem("userData");
+    navigate("/"); // ✅ Sign-in page-ku pogum
+  };
   useEffect(() => {
     const handleDropdownClick = (event) => {
       event.preventDefault();
@@ -2234,7 +2240,7 @@ const MasterLayout = ({ children }) => {
               <ul className='sidebar-submenu'>
                 <li>
                   <NavLink
-                    to='/list'
+                    to='/product-list'
                     className={(navData) =>
                       navData.isActive ? "active-page" : ""
                     }
@@ -2245,7 +2251,7 @@ const MasterLayout = ({ children }) => {
                 </li>
                 <li>
                   <NavLink
-                    to='/form'
+                    to='/add-product'
                     className={(navData) =>
                       navData.isActive ? "active-page" : ""
                     }
@@ -2303,7 +2309,7 @@ const MasterLayout = ({ children }) => {
             {/* Reels Management - Row 11-16 */}
             <li>
               <NavLink
-                to='/videos'
+                to='/admin-reels'
                 className={(navData) =>
                   navData.isActive ? "active-page" : ""
                 }
@@ -2582,6 +2588,41 @@ const MasterLayout = ({ children }) => {
             <div className='col-auto'>
               <div className='d-flex flex-wrap align-items-center gap-3'>
                 <ThemeToggleButton />
+                {/* 🌟 Profile Dropdown Start (Inge thaan poda num) */}
+                <div className="dropdown">
+                  <button 
+                    className="d-flex align-items-center" 
+                    type="button" 
+                    data-bs-toggle="dropdown" 
+                    aria-expanded="false"
+                  >
+                   <img 
+      src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" 
+      alt="admin" 
+      className="w-40-px h-40-px rounded-circle border shadow-sm bg-white" 
+    />
+                  </button>
+
+                  <ul className="dropdown-menu dropdown-menu-end shadow border-0 radius-12 p-12 mt-3">
+                    <li className="mb-8 p-12 border-bottom">
+                        <h6 className="text-sm mb-0">Zhopingo Admin</h6>
+                        <span className="text-xs text-secondary">Administrator</span>
+                    </li>
+                    <li>
+                      <Link className="dropdown-item radius-8 d-flex align-items-center gap-2 py-8" to="/admin-profile">
+                        <Icon icon="solar:user-bold" className="text-lg" /> My Profile
+                      </Link>
+                    </li>
+                    <li>
+                      <button 
+                        onClick={handleLogout}
+                        className="dropdown-item radius-8 d-flex align-items-center gap-2 py-8 text-danger fw-semibold"
+                      >
+                        <Icon icon="solar:logout-3-bold" className="text-lg" /> Log Out
+                      </button>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
@@ -2593,11 +2634,6 @@ const MasterLayout = ({ children }) => {
           <div className='row align-items-center justify-content-between'>
             <div className='col-auto'>
               <p className='mb-0'>© 2026 Zhopingo. All Rights Reserved.</p>
-            </div>
-            <div className='col-auto'>
-              <p className='mb-0'>
-                Powered by <span className='text-primary-600'>Solution Stack</span>
-              </p>
             </div>
           </div>
         </footer>

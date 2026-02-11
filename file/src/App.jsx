@@ -334,6 +334,11 @@ import AttributesPage from "./pages/AttributesPage";
 import NewSellerPage from "./pages/NewSellerPage";
 import AllSellersListPage from './pages/AllSellersListPage';
 import SellerDashboard from "./pages/SellerDashboard";
+import ProductListPage from "./pages/ProductListPage";
+import AddProductPage from "./pages/AddProductPage";
+import AdminReels from "./pages/AdminReels";
+import AdminProfile from "./pages/AdminProfile";
+
 
 
 function App() {
@@ -490,6 +495,10 @@ function App() {
         <Route exact path='/new-seller' element={<NewSellerPage />} />
         <Route exact path="/all-sellers" element={<AllSellersListPage />} />
         <Route exact path='/seller-dashboard' element={<SellerDashboard />} />
+        <Route exact path='/product-list' element={<ProductListPage />} />
+        <Route exact path='/add-product' element={<AddProductPage />} />
+        <Route exact path='/admin-reels' element={<AdminReels />} />
+        <Route exact path='/admin-profile' element={<AdminProfile />} />
 
       </Routes>
     </BrowserRouter>

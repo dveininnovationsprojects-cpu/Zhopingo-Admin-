@@ -90,9 +90,9 @@ const triggerLoading = () => {
             </select>
           </div>
 
-          <button onClick={() => { setIsDrawerOpen(true); setOrderStep(1); }} className="btn btn-primary-600 text-sm d-flex align-items-center gap-2 text-nowrap">
+         {/* <button onClick={() => { setIsDrawerOpen(true); setOrderStep(1); }} className="btn btn-primary-600 text-sm d-flex align-items-center gap-2 text-nowrap">
             <Icon icon="lucide:plus" /> Create Order
-          </button>
+          </button>*/}
         </div>
         
         <div className='card-body p-24 position-relative' style={{ minHeight: '400px' }}>

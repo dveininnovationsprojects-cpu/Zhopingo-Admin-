@@ -201,17 +201,24 @@ const SignUpLayer = () => {
                   <label className="text-xs mb-1">FSSAI DOCUMENT</label>
                   <input type="file" className="form-control mb-12" onChange={(e) => setFiles({...files, fssai_doc: e.target.files[0]})} />
                 </div>
-
+<div style={{
+    position: 'sticky', 
+    bottom: '0', 
+    backgroundColor: 'white', 
+    padding: '16px 0', 
+    zIndex: '10',
+    borderTop: '1px solid #f0f0f0' // Oru chinna line difference-kaga
+}}>
                 <button type="button" onClick={handleKycUpload} className="btn btn-primary w-100 h-56-px radius-12 fw-bold mt-3 mb-4" disabled={isSubmitting}>
                   {isSubmitting ? "Uploading Documents..." : "COMPLETE REGISTRATION"}
                 </button>
+                </div>
               </div>
             )}
 
             {/* STEP 3: SUCCESS MESSAGE */}
             {step === 3 && (
               <div className="text-center p-32 bg-info-50 radius-24 border border-info-200 animate__animated animate__bounceIn">
-                <Icon icon="solar:clock-circle-bold" className="text-6xl text-info-600 mb-16" />
                 <h5 className="mb-12">Application Submitted!</h5>
                 <p className="text-sm text-secondary-light">KYC documents submitted. Waiting for Admin Approval...</p>
                 <button onClick={() => navigate("/")} className="btn btn-primary w-100 mt-24 radius-12 h-56-px fw-bold">Back to Login</button>

@@ -32,7 +32,7 @@ const CustomerPage = () => {
                   <th scope='col'>Email</th>
                   <th scope='col'>Cart</th>
                   <th scope='col'>Address</th>
-                  <th scope='col' className="text-center">Change Password</th>
+                 
                 </tr>
               </thead>
               <tbody>
@@ -52,15 +52,7 @@ const CustomerPage = () => {
                     <td>
                       <button onClick={() => { setModalType('address'); setSelectedUser(item); }} className="btn btn-primary-100 text-primary-600 px-16 py-4 radius-4">View</button>
                     </td>
-                    <td className="text-center">
-                      {/* FIX: Change Password button now matches View button style */}
-                      <button 
-                        onClick={() => setModalType('password')} 
-                        className="btn btn-primary-100 text-primary-600 px-16 py-4 radius-4"
-                      >
-                         Change Password
-                      </button>
-                    </td>
+
                   </tr>
                 ))}
               </tbody>

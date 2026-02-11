@@ -7,7 +7,7 @@ const UnitCountOne = () => {
           <div className='card-body p-20'>
             <div className='d-flex flex-wrap align-items-center justify-content-between gap-3'>
               <div>
-                <p className='fw-medium text-primary-light mb-1'>Total Users</p>
+                <p className='fw-medium text-primary-light mb-1'>Total Sellers</p>
                 <h6 className='mb-0'>20,000</h6>
               </div>
               <div className='w-50-px h-50-px bg-cyan rounded-circle d-flex justify-content-center align-items-center'>
@@ -33,7 +33,7 @@ const UnitCountOne = () => {
             <div className='d-flex flex-wrap align-items-center justify-content-between gap-3'>
               <div>
                 <p className='fw-medium text-primary-light mb-1'>
-                  Total Subscription
+                  New Sellers
                 </p>
                 <h6 className='mb-0'>15,000</h6>
               </div>
@@ -60,7 +60,7 @@ const UnitCountOne = () => {
             <div className='d-flex flex-wrap align-items-center justify-content-between gap-3'>
               <div>
                 <p className='fw-medium text-primary-light mb-1'>
-                  Total Free Users
+                  Total Customers
                 </p>
                 <h6 className='mb-0'>5,000</h6>
               </div>
@@ -87,7 +87,7 @@ const UnitCountOne = () => {
             <div className='d-flex flex-wrap align-items-center justify-content-between gap-3'>
               <div>
                 <p className='fw-medium text-primary-light mb-1'>
-                  Total Income
+                  Total Incomes
                 </p>
                 <h6 className='mb-0'>$42,000</h6>
               </div>
@@ -114,7 +114,7 @@ const UnitCountOne = () => {
             <div className='d-flex flex-wrap align-items-center justify-content-between gap-3'>
               <div>
                 <p className='fw-medium text-primary-light mb-1'>
-                  Total Expense
+                 Total Payout
                 </p>
                 <h6 className='mb-0'>$30,000</h6>
               </div>

@@ -9,7 +9,7 @@ const SalesStatisticOne = () => {
       <div className='card h-100'>
         <div className='card-body'>
           <div className='d-flex flex-wrap align-items-center justify-content-between'>
-            <h6 className='text-lg mb-0'>Sales Statistic</h6>
+            <h6 className='text-lg mb-0'>Total Incomes</h6>
             <select
               className='form-select bg-base form-select-sm w-auto'
               defaultValue='Yearly'
