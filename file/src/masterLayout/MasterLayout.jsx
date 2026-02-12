@@ -2074,15 +2074,8 @@ const MasterLayout = ({ children }) => {
   return (
     <section className={mobileMenu ? "overlay active" : "overlay "}>
       {/* sidebar */}
-      <aside
-        className={
-          sidebarActive
-            ? "sidebar active "
-            : mobileMenu
-            ? "sidebar sidebar-open"
-            : "sidebar"
-        }
-      >
+      
+     <aside className={`sidebar ${sidebarActive ? "active" : ""} ${mobileMenu ? "sidebar-open" : ""}`}>
         <button
           onClick={mobileMenuControl}
           type='button'
@@ -2561,31 +2554,19 @@ const MasterLayout = ({ children }) => {
       >
         <div className='navbar-header'>
           <div className='row align-items-center justify-content-between'>
-            <div className='col-auto'>
-              <div className='d-flex flex-wrap align-items-center gap-4'>
-                <button
-                  type='button'
-                  className='sidebar-toggle'
-                  onClick={sidebarControl}
-                >
-                  {sidebarActive ? (
-                    <Icon
-                      icon='iconoir:arrow-right'
-                      className='icon text-2xl non-active'
-                    />
-                  ) : (
-                    <Icon
-                      icon='heroicons:bars-3-solid'
-                      className='icon text-2xl non-active '
-                    />
-                  )}
-                </button>
-               {/* <form className='navbar-search'>
-                  <input type='text' name='search' placeholder='Search Orders/Sellers...' />
-                  <Icon icon='ion:search-outline' className='icon' />
-                </form>*/}
-              </div>
-            </div>
+<div className='col-auto'>
+  <div className='d-flex flex-wrap align-items-center gap-4'>
+    {/* 🌟 1. Mobile Menu Button (D-LG-NONE na mobile-la mattum theriyaum) */}
+    <button type='button' className='sidebar-mobile-toggle d-lg-none border-0 bg-transparent' onClick={mobileMenuControl}>
+      <Icon icon='heroicons:bars-3-solid' className='icon text-2xl' />
+    </button>
+
+    {/* 🌟 2. Desktop Toggle Button (D-NONE D-LG-BLOCK na desktop-la mattum theriyaum) */}
+    <button type='button' className='sidebar-toggle d-none d-lg-block' onClick={sidebarControl}>
+      <Icon icon={sidebarActive ? 'iconoir:arrow-right' : 'heroicons:bars-3-solid'} className='icon text-2xl' />
+    </button>
+  </div>
+</div>
             <div className='col-auto'>
               <div className='d-flex flex-wrap align-items-center gap-3'>
                 <ThemeToggleButton />

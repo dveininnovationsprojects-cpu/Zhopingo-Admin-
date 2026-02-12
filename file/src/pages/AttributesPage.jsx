@@ -1,494 +1,161 @@
-const Product = require('../models/Product');
-const Seller = require('../models/Seller');
-const SubCategory = require('../models/SubCategory');
+import React, { useState } from "react";
+import MasterLayout from "../masterLayout/MasterLayout";
+import { Icon } from "@iconify/react";
 
+const AttributesPage = () => {
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  
+  // State for Form Fields
+  const [formData, setFormData] = useState({ id: "", name: "", options: [""] });
+  const [searchShop, setSearchShop] = useState("");
 
-// 🌟 Helper: இமேஜ் மற்றும் வீடியோ லிங்க்குகளை முழுமையான URL ஆக மாற்ற
-const formatProductMedia = (product, req) => {
-    const baseUrl = `${req.protocol}://${req.get('host')}/uploads/`;
-    // Mongoose ஆப்ஜெக்ட்டை சுத்தமான JSON ஆக மாற்றுதல்
-    const doc = product.toObject ? product.toObject() : product;
+  const [attributes, setAttributes] = useState([
+    { id: 1, name: "Grams", options: ["10g", "50g", "100g"], shop: "Tuty Store" },
+    { id: 2, name: "Kilograms", options: ["1 kg", "2 kg", "3 kg"], shop: "Doms" },
+    { id: 3, name: "Liter", options: ["1 Liter", "2 Liter", "3 Liter"], shop: "Tuty Store" },
+  ]);
 
-    return {
-        ...doc,
-        images: (doc.images || []).map(img => 
-            (img && img.startsWith('http')) ? img : baseUrl + img
-        ),
-        video: doc.video ? 
-            (doc.video.startsWith('http') ? doc.video : baseUrl + doc.video) 
-            : ""
-    };
+  // Handle Edit - Fills details in Drawer
+  const handleEdit = (item) => {
+    setIsEditMode(true);
+    setFormData({ id: item.id, name: item.name, options: item.options });
+    setIsDrawerOpen(true);
+  };
+
+  // Handle Delete Popup
+  const handleDeleteClick = (id) => {
+    setDeleteId(id);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = () => {
+    setAttributes(attributes.filter(item => item.id !== deleteId));
+    setShowDeleteModal(false);
+  };
+
+  // Dynamic Option Fields Logic
+  const addOptionField = () => setFormData({ ...formData, options: [...formData.options, ""] });
+  const handleOptionChange = (index, value) => {
+    const newOptions = [...formData.options];
+    newOptions[index] = value;
+    setFormData({ ...formData, options: newOptions });
+  };
+
+  // Filter Logic based on Search Shop
+  const filteredData = attributes.filter((item) => 
+    searchShop === "" || item.shop === searchShop
+  );
+
+  return (
+    <MasterLayout>
+      <div className='card h-100 p-0 radius-12'>
+        <div className='card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between flex-wrap gap-3'>
+          <h6 className='text-lg fw-semibold mb-0'>Attributes</h6>
+          
+          {/* SEARCH SHOP FILTER */}
+          <div className="position-relative d-flex align-items-center justify-content-center flex-grow-1" style={{ maxWidth: '250px' }}>
+             <select className="form-select w-100 radius-8" value={searchShop} onChange={(e) => setSearchShop(e.target.value)}>
+                <option value="">Search Shop</option>
+                <option value="Tuty Store">Tuty Store</option>
+                <option value="Doms">Doms</option>
+             </select>
+          </div>
+
+          <button onClick={() => { setIsEditMode(false); setFormData({id:"", name:"", options:[""]}); setIsDrawerOpen(true); }} 
+                  className="btn btn-primary-600 text-sm d-flex align-items-center gap-2">
+            <Icon icon="lucide:plus" /> Add New Attributes
+          </button>
+        </div>
+        
+        <div className='card-body p-24'>
+          <div className='table-responsive'>
+            <table className='table basic-border-table mb-0 text-nowrap'>
+              <thead>
+                <tr>
+                  <th>S.No</th><th>Name</th><th>Options</th><th>Shop</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredData.map((item, index) => (
+                  <tr key={item.id}>
+                    <td>{index + 1}</td>
+                    <td className="fw-medium text-primary-600">{item.name}</td>
+                    <td>{item.options.join(", ")}</td>
+                    <td>{item.shop || "-"}</td>
+                    <td>
+                      <div className="d-flex align-items-center gap-3">
+                        <button onClick={() => handleEdit(item)} className="text-info-600 text-xl border-0 bg-transparent cursor-pointer"><Icon icon="lucide:edit" /></button>
+                        <button onClick={() => handleDeleteClick(item.id)} className="text-danger-600 text-xl border-0 bg-transparent cursor-pointer"><Icon icon="lucide:trash-2" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* DRAWER FOR CREATE/EDIT */}
+      <div className={`offcanvas offcanvas-end ${isDrawerOpen ? 'show' : ''}`} 
+           style={{ visibility: isDrawerOpen ? 'visible' : 'hidden', width: '450px', zIndex: 1060 }}
+           tabIndex='-1'>
+        <div className='offcanvas-header border-bottom px-24 py-16 d-flex align-items-center justify-content-between'>
+          <h6 className='offcanvas-title fw-semibold'>{isEditMode ? 'Edit Attributes' : 'Create Attributes'}</h6>
+          <button type='button' className='btn-close' onClick={() => setIsDrawerOpen(false)}></button>
+        </div>
+        <div className='offcanvas-body p-24'>
+          <form className="row gy-4">
+            <div className="col-12">
+              <label className="form-label fw-semibold">Name</label>
+              <input type="text" className="form-control" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="Enter Name" />
+            </div>
+            <div className="col-12">
+               <label className="form-label fw-semibold">Options</label>
+               {formData.options.map((opt, idx) => (
+                 <div key={idx} className="position-relative mb-12">
+                    <input type="text" className="form-control" value={opt} onChange={(e) => handleOptionChange(idx, e.target.value)} placeholder={`Option ${idx + 1}`} />
+                 </div>
+               ))}
+               <button type="button" onClick={addOptionField} className="btn btn-outline-secondary w-100 border-dashed py-12 radius-8 mt-8">
+                  <Icon icon="lucide:plus" className="me-8" /> Add Option
+               </button>
+            </div>
+            <div className="col-12 d-flex gap-3 mt-32">
+               <button type="button" className="btn btn-outline-primary-600 flex-grow-1" onClick={() => setIsDrawerOpen(false)}>Cancel</button>
+               <button type="submit" className="btn btn-primary-600 flex-grow-1">{isEditMode ? 'Update' : 'Submit'}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* PROFESSIONAL DELETE POPUP */}
+      {showDeleteModal && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1100 }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content radius-16 border-0">
+              <div className="modal-body text-center p-40">
+                <div className="w-80-px h-80-px bg-danger-focus text-danger-600 rounded-circle d-inline-flex justify-content-center align-items-center mb-24">
+                  <Icon icon="lucide:trash-2" className="text-4xl" />
+                </div>
+                <h5 className="mb-8 fw-semibold">Delete Attribute</h5>
+                <p className="text-secondary-light mb-32">Are you sure you want to delete this attribute? This action cannot be undone.</p>
+                <div className="d-flex justify-content-center gap-3">
+                  <button onClick={() => setShowDeleteModal(false)} className="btn btn-outline-secondary-light px-32 radius-8">Cancel</button>
+                  <button onClick={confirmDelete} className="btn btn-danger-600 px-32 radius-8">Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isDrawerOpen && <div className="offcanvas-backdrop fade show" style={{ zIndex: 1050 }} onClick={() => setIsDrawerOpen(false)}></div>}
+    </MasterLayout>
+  );
 };
 
-exports.createProduct = async (req, res) => {
-    try {
-        // 1. Get Seller ID from Token (req.user.id) or Request Body (for testing)
-        const sellerId = req.user?.id || req.body.seller;
-
-        if (!sellerId) {
-            return res.status(400).json({ success: false, message: "Seller ID is missing in token or body" });
-        }
-
-        // 2. Validate Seller
-        const seller = await Seller.findById(sellerId);
-        
-        // 💡 DEBUG LOG: Check this in your terminal to see which ID is being sent
-        console.log("Attempting to create product for Seller ID:", sellerId);
-
-        if (!seller) {
-            return res.status(404).json({ 
-                success: false, 
-                message: "Seller not found. Ensure your User ID is registered as a Seller.",
-                receivedId: sellerId 
-            });
-        }
-
-        // 3. Validate SubCategory
-        const subCat = await SubCategory.findById(req.body.subCategory);
-        if (!subCat) return res.status(400).json({ success: false, message: "Invalid SubCategory ID" });
-
-        const taxRate = subCat.gstRate || subCat.gstPercentage || 0;
-
-        // 4. Media Handling
-        const images = req.files && req.files['images'] ? req.files['images'].map(f => f.filename) : [];
-        const video = req.files && req.files['video'] ? req.files['video'][0].filename : "";
-
-        // 5. Discount Calculation
-        const discount = req.body.mrp > req.body.price 
-            ? Math.round(((req.body.mrp - req.body.price) / req.body.mrp) * 100) 
-            : 0;
-
-        // 6. Save Product
-        const product = new Product({
-            ...req.body,
-            hsnCode: subCat.hsnCode, 
-            gstPercentage: taxRate,
-            discountPercentage: discount,
-            images,
-            video,
-            seller: seller._id,
-            variants: req.body.variants ? (typeof req.body.variants === 'string' ? JSON.parse(req.body.variants) : req.body.variants) : [] 
-        });
-
-        await product.save();
-        res.status(201).json({ success: true, data: product });
-
-    } catch (err) { 
-        console.error("Create Product Error:", err);
-        res.status(400).json({ success: false, error: err.message }); 
-    }
-};
-
-// --- 🌟 GET ALL PRODUCTS (Optimized for Large Scale) ---
-exports.getAllProducts = async (req, res) => {
-    try {
-        // 1. Get page and limit from query, default to page 1, limit 20
-        const { category, subCategory, search, page = 1, limit = 20 } = req.query;
-        
-        let query = { isArchived: { $ne: true } };
-        if (category) query.category = category;
-        if (subCategory) query.subCategory = subCategory;
-        if (search) query.name = { $regex: search, $options: "i" };
-
-        // 2. Calculate how many items to skip
-        const skip = (parseInt(page) - 1) * parseInt(limit);
-
-        // 3. Use .lean() to get plain JS objects instead of heavy Mongoose documents
-        const products = await Product.find(query)
-            .populate("category subCategory", "name image")
-            .populate("seller", "shopName name address")
-            .sort({ createdAt: -1 })
-            .skip(skip)   // Skip previous pages
-            .limit(parseInt(limit)) // Only fetch 20
-            .lean(); 
-
-        const baseUrl = `${req.protocol}://${req.get('host')}/uploads/`;
-        
-        const data = products.map(p => ({
-            ...p,
-            images: p.images ? p.images.map(img => 
-                (img && img.startsWith('http')) ? img : baseUrl + img
-            ) : [],
-            video: p.video ? (p.video.startsWith('http') ? p.video : baseUrl + p.video) : ""
-        }));
-
-        res.status(200).json({ 
-            success: true, 
-            count: data.length,
-            currentPage: Number(page),
-            data 
-        });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-};
-
-// --- 🌟 3. GET PRODUCT BY ID ---
-exports.getProductById = async (req, res) => {
-    try {
-        const product = await Product.findById(req.params.id)
-            .populate('category subCategory')
-            .populate('seller', 'name shopName phone address');
-
-        if (!product) return res.status(404).json({ success: false, message: "Product not found" });
-
-        const data = formatProductMedia(product, req);
-        res.status(200).json({ success: true, data });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-};
-
-exports.getMyProducts = async (req, res) => {
-    try {
-        // 1. Check matching with Step 1 (req.user.id)
-        if (!req.user || !req.user.id) {
-            return res.status(401).json({ success: false, message: "Seller ID missing in token" });
-        }
-
-        // 2. Query matching the field name
-        const products = await Product.find({ 
-            seller: req.user.id, 
-            isArchived: { $ne: true } 
-        }).populate('category subCategory').lean();
-
-        // 3. Image URL Fix (Avoiding double domains)
-        const baseUrl = `${req.protocol}://${req.get('host')}/uploads/products/`;
-
-        const data = products.map(p => ({
-            ...p,
-            images: p.images ? p.images.map(img => 
-                (img && (img.startsWith('http') || img.includes('zhopingo.in'))) 
-                ? img 
-                : baseUrl + img
-            ) : []
-        }));
-
-        res.json({ success: true, count: data.length, data });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-};
-// --- 🌟 5. UPDATE & DELETE ---
-exports.updateProduct = async (req, res) => {
-    try {
-        const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        res.json({ success: true, data: updated });
-    } catch (err) { res.status(400).json({ success: false, error: err.message }); }
-};
-
-exports.deleteProduct = async (req, res) => {
-    try {
-        // 1. முதலில் அந்த தயாரிப்பைக் கண்டறியவும்
-        const product = await Product.findById(req.params.id);
-        
-        if (!product) {
-            return res.status(404).json({ success: false, message: "Product not found" });
-        }
-
-        // 2. இமேஜ்களை சர்வரில் இருந்து நீக்குதல்
-        if (product.images && product.images.length > 0) {
-            product.images.forEach(imgName => {
-                // உங்கள் multerConfig படி பாத்: public/uploads/
-                const imagePath = path.join(__dirname, '../public/uploads/', imgName);
-                if (fs.existsSync(imagePath)) {
-                    fs.unlinkSync(imagePath); // ஃபைலை டெலீட் செய்யும்
-                }
-            });
-        }
-
-        // 3. வீடியோவை சர்வரில் இருந்து நீக்குதல்
-        if (product.video) {
-            const videoPath = path.join(__dirname, '../public/uploads/', product.video);
-            if (fs.existsSync(videoPath)) {
-                fs.unlinkSync(videoPath); // வீடியோவை டெலீட் செய்யும்
-            }
-        }
-
-        // 4. இப்போது டேட்டாபேஸில் இருந்து நீக்கவும் (முழுமையாக நீக்க Delete பயன்படுத்தவும்)
-        await Product.findByIdAndDelete(req.params.id);
-
-        res.json({ success: true, message: "Product and its media files deleted successfully!" });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-};exports.getSimilarProducts = async (req, res) => {
-    try {
-        const { id } = req.params; // தற்போது பார்க்கும் தயாரிப்பின் ID
-        const { category } = req.query; // URL-ல் வரும் Category ID
-
-        // ஐடி செக் செய்தல்
-        if (!category || category === 'undefined') {
-            return res.status(400).json({ success: false, message: "Valid Category ID is required" });
-        }
-
-        // 🌟 லாஜிக்: அதே பிரிவில் இருக்க வேண்டும், ஆனால் அதே தயாரிப்பாக இருக்கக்கூடாது
-        const similarProducts = await Product.find({
-            category: category,
-            _id: { $ne: id }, // $ne = Not Equal (தற்போதைய தயாரிப்பைத் தவிர்க்க)
-            isArchived: { $ne: true }
-        })
-        .limit(6) // 6 தயாரிப்புகள் போதும்
-        .populate('category subCategory', 'name')
-        .lean();
-
-        const baseUrl = `${req.protocol}://${req.get('host')}/uploads/`;
-        
-        // இமேஜ் URL-களைச் சேர்த்தல்
-        const data = similarProducts.map(p => ({
-            ...p,
-            images: p.images ? p.images.map(img => 
-                (img && img.startsWith('http')) ? img : baseUrl + img
-            ) : []
-        }));
-
-        res.json({
-            success: true,
-            count: data.length,
-            data: data
-        });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-};
-
-
-// const Product = require('../models/Product');
-// const Seller = require('../models/Seller');
-// const SubCategory = require('../models/SubCategory');
-
-// // 🌟 1. CREATE PRODUCT (With Inheritance & Media)
-// exports.createProduct = async (req, res) => {
-//     try {
-//         // 🌟 லாகின் செய்யாமல் டெஸ்ட் செய்யும்போது செல்லர் ஐடியை பாடியில் இருந்து எடுக்கும் வசதி
-//         const sellerId = req.user?.id || req.body.seller; 
-//         const seller = await Seller.findById(sellerId);
-//         if (!seller) return res.status(404).json({ success: false, message: "Seller not found" });
-
-//         const subCat = await SubCategory.findById(req.body.subCategory);
-//         if (!subCat) return res.status(400).json({ success: false, message: "Invalid SubCategory" });
-
-//         // 🌟 செக்: சப்-கேட்டகரியில் gstRate அல்லது gstPercentage எது இருந்தாலும் அதை எடுக்கும்படி மாற்றுங்கள்
-//         const taxRate = subCat.gstRate || subCat.gstPercentage;
-        
-//         if (!taxRate) {
-//             return res.status(400).json({ 
-//                 success: false, 
-//                 message: "Selected SubCategory does not have a GST rate. Please check HSN Master." 
-//             });
-//         }
-
-//         const images = req.files['images'] ? req.files['images'].map(f => f.filename) : [];
-//         const video = req.files['video'] ? req.files['video'][0].filename : "";
-
-//         const discount = req.body.mrp > req.body.price 
-//             ? Math.round(((req.body.mrp - req.body.price) / req.body.mrp) * 100) 
-//             : 0;
-
-//         const product = new Product({
-//             ...req.body,
-//             hsnCode: subCat.hsnCode, 
-//             gstPercentage: taxRate, // 🌟 இப்போது இது காலியாக இருக்காது
-//             discountPercentage: discount,
-//             images,
-//             video,
-//             seller: seller._id,
-//             variants: req.body.variants ? JSON.parse(req.body.variants) : [] 
-//         });
-
-//         await product.save();
-//         res.status(201).json({ success: true, data: product });
-//     } catch (err) { 
-//         res.status(400).json({ success: false, error: err.message }); 
-//     }
-// };
-// // 🌟 GET ALL PRODUCTS (Customer View)
-// // 🌟 2. GET ALL PRODUCTS (முழுமையான 5000+ தயாரிப்புகளை எடுக்கும்)
-// exports.getAllProducts = async (req, res) => {
-//     try {
-//         const { category, subCategory, search } = req.query;
-        
-//         // 🌟 திருத்தம்: isArchived 'true' இல்லாத அனைத்தையும் எடுக்கும் (சீட் டேட்டாவையும் சேர்த்து)
-//         let query = { isArchived: { $ne: true } }; 
-
-//         if (category) query.category = category;
-//         if (subCategory) query.subCategory = subCategory;
-//         if (search) query.name = { $regex: search, $options: 'i' };
-
-//         const products = await Product.find(query)
-//             .populate('category subCategory', 'name image')
-//             .populate('seller', 'shopName name address')
-//             .sort({ createdAt: -1 });
-
-//         const baseUrl = `${req.protocol}://${req.get('host')}/uploads/`;
-        
-//         const data = products.map(p => {
-//             const doc = p._doc;
-//             return {
-//                 ...doc,
-//                 images: doc.images ? doc.images.map(img => formatMediaUrl(img, baseUrl)) : [],
-//                 video: formatMediaUrl(doc.video, baseUrl)
-//             };
-//         });
-
-//         res.json({ success: true, count: data.length, data: data });
-//     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-// };
-
-// // 🌟 3. GET PRODUCT BY ID (Detailed View)
-// exports.getProductById = async (req, res) => {
-//     try {
-//         const product = await Product.findById(req.params.id)
-//             .populate('category subCategory')
-//             .populate('seller', 'name shopName phone address fssaiNumber');
-
-//         if (!product) return res.status(404).json({ success: false, message: "Product not found" });
-
-//         const baseUrl = `${req.protocol}://${req.get('host')}/uploads/`;
-//         const updatedProduct = {
-//             ...product._doc,
-//             images: product.images ? product.images.map(img => formatMediaUrl(img, baseUrl)) : [],
-//             video: formatMediaUrl(product.video, baseUrl)
-//         };
-
-//         res.status(200).json({ success: true, data: updatedProduct });
-//     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-// };
-
-// // 🌟 4. GET MY PRODUCTS (Seller Dashboard)
-// exports.getMyProducts = async (req, res) => {
-//     try {
-//         const products = await Product.find({ seller: req.user.id, isArchived: { $ne: true } })
-//             .populate('category subCategory');
-//         res.json({ success: true, data: products });
-//     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-// };
-
-// // 🌟 5. GET SIMILAR PRODUCTS (ரேண்டம் தயாரிப்புகளுடன்)
-// exports.getSimilarProducts = async (req, res) => {
-//     try {
-//         const { category } = req.query;
-//         let query = { isArchived: { $ne: true }, _id: { $ne: req.params.id } };
-
-//         // கேட்டகிரி இருந்தால் அதே கேட்டகிரி, இல்லையென்றால் ரேண்டம் தயாரிப்புகள்
-//         if (category) query.category = category;
-
-//         const products = await Product.find(query).limit(10).sort({ createdAt: -1 });
-
-//         const baseUrl = `${req.protocol}://${req.get('host')}/uploads/`;
-//         const data = products.map(p => ({
-//             ...p._doc,
-//             images: p.images ? p.images.map(img => formatMediaUrl(img, baseUrl)) : []
-//         }));
-
-//         res.json({ success: true, data });
-//     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-// };
-
-// // 🌟 6. UPDATE & ARCHIVE (CRUD)
-// exports.updateProduct = async (req, res) => {
-//     try {
-//         const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-//         res.json({ success: true, data: updated });
-//     } catch (err) { res.status(400).json({ success: false, error: err.message }); }
-// };
-
-// exports.deleteProduct = async (req, res) => {
-//     try {
-//         await Product.findByIdAndUpdate(req.params.id, { isArchived: true });
-//         res.json({ success: true, message: "Product Archived successfully" });
-//     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-// };
-
-// // 🌟 7. RATE PRODUCT
-// exports.rateProduct = async (req, res) => {
-//     try {
-//         const { rating, comment } = req.body;
-//         const product = await Product.findById(req.params.id);
-        
-//         product.ratings.push({ userId: req.user.id, rating, comment });
-//         const total = product.ratings.reduce((acc, curr) => acc + curr.rating, 0);
-//         product.averageRating = (total / product.ratings.length).toFixed(1);
-
-//         await product.save();
-//         res.json({ success: true, averageRating: product.averageRating });
-//     } catch (err) { res.status(500).json({ error: err.message }); }
-// };// const express = require('express');
-// const router = express.Router();
-// const productCtrl = require('../controllers/productController');
-// const { protect } = require('../middleware/authMiddleware');
-// const upload = require('../middleware/multerConfig'); 
-
-// // Public Routes (Customer App)
-// router.get('/all', productCtrl.getAllProducts);
-// router.get('/detail/:id', productCtrl.getProductById);
-// router.get('/similar/:id', productCtrl.getSimilarProducts);
-
-// // Protected Routes (Seller Dashboard)
-// router.get('/my-products', protect, productCtrl.getMyProducts);
-// router.post('/add', protect, upload.fields([
-//     { name: 'images', maxCount: 5 },
-//     { name: 'video', maxCount: 1 }
-// ]), productCtrl.createProduct);
-
-// router.put('/update/:id', protect, productCtrl.updateProduct);
-// router.delete('/delete/:id', protect, productCtrl.deleteProduct);
-
-// // User Interaction
-// router.post('/rate/:id', protect, productCtrl.rateProduct);
-
-// module.exports = router;
-
-
-// const express = require('express');
-// const router = express.Router();
-// const productCtrl = require('../controllers/productController');
-// const { protect } = require('../middleware/authMiddleware');
-// const { upload, processImages } = require('../middleware/multerConfig');
-
-// // 🔓 பொதுவான ரூட்கள் (Customer)
-// router.get('/all', productCtrl.getAllProducts);
-// router.get('/detail/:id', productCtrl.getProductById);
-
-// // 🔒 பாதுகாக்கப்பட்ட ரூட்கள் (Seller)
-// router.get('/my-products', protect, productCtrl.getMyProducts);
-
-// // 🌟 மல்டிபிள் இமேஜ் அப்லோடு வசதியுடன் கூடிய ஆட் ரூட்
-// router.post('/add', protect, upload.fields([
-//     { name: 'images', maxCount: 5 },
-//     { name: 'video', maxCount: 1 }
-// ]), productCtrl.createProduct);
-
-// router.put('/update/:id', protect, productCtrl.updateProduct);
-// router.delete('/delete/:id', protect, productCtrl.deleteProduct);
-// // router.get('/similar/:id', productCtrl.getSimilarProducts);
-
-// module.exports = router;
-
-
-
-
-const express = require('express');
-const router = express.Router();
-const productCtrl = require('../controllers/productController');
-const { protect } = require('../middleware/authMiddleware');
-
-// 🌟 UPDATE THIS IMPORT: Use curly braces to get both upload and processImages
-const { upload, processImages } = require('../middleware/multerConfig'); 
-
-router.get('/all', productCtrl.getAllProducts);
-router.get('/detail/:id', productCtrl.getProductById);
-router.get('/my-products', protect, productCtrl.getMyProducts);
-
-// 🌟 UPDATE THIS ROUTE: Add processImages after upload.fields
-router.post('/add', protect, upload.fields([
-    { name: 'images', maxCount: 5 },
-    { name: 'video', maxCount: 1 }
-]), processImages, productCtrl.createProduct); // 🌟 Added processImages here
-
-router.put('/update/:id', protect, productCtrl.updateProduct);
-router.delete('/delete/:id', protect, productCtrl.deleteProduct);
-// router.post('/rate/:id', protect, productCtrl.rateProduct);
-router.get('/similar/:id', productCtrl.getSimilarProducts);
-
-module.exports = router;
+export default AttributesPage;
