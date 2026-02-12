@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import MasterLayout from "../masterLayout/MasterLayout";
 import { Icon } from "@iconify/react";
 import axios from "axios";
-// Toast notification components
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -14,16 +13,17 @@ const CategoryPage = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Updated formData to include HSN and GST
   const [formData, setFormData] = useState({ 
     id: "", name: "", description: "", image: null, hsnCode: "", gstRate: "" 
   });
   const [categories, setCategories] = useState([]);
-  const [hsnList, setHsnList] = useState([]); // Store HSN Master data
+  const [hsnList, setHsnList] = useState([]);
 
   const API_BASE_URL = "https://api.zhopingo.in/api/v1/catalog/categories";
   const HSN_API_URL = "https://api.zhopingo.in/api/v1/catalog/hsn-master";
-  const IMAGE_BASE_URL = "https://api.zhopingo.in/uploads/";
+  
+  // 🌟 UPDATED: Base URL for Category specific uploads
+  const IMAGE_DOMAIN = "https://api.zhopingo.in/uploads/categories/";
 
   const fetchCategories = async () => {
     setIsLoading(true);
@@ -55,7 +55,6 @@ const CategoryPage = () => {
     fetchHsnData();
   }, []);
 
-  // Handle HSN selection to auto-fill GST
   const handleHsnChange = (e) => {
     const selectedCode = e.target.value;
     const hsnObj = hsnList.find(item => item.hsnCode === selectedCode);
@@ -103,7 +102,6 @@ const CategoryPage = () => {
       setIsLoading(false);
     }
   };
-  
 
   const confirmDelete = async () => {
     setIsLoading(true);
@@ -134,11 +132,13 @@ const CategoryPage = () => {
     setIsDrawerOpen(true);
   };
 
+  // 🌟 UPDATED: Helper to prevent double URLs and fix folder path
   const getImageUrl = (imagePath) => {
     if (!imagePath) return "assets/images/default.png";
-    if (imagePath.startsWith('http')) return imagePath;
+    
+    // If it's already a full URL, we just want the filename to attach our clean domain
     const fileName = imagePath.split('/').pop();
-    return `${IMAGE_BASE_URL}${fileName}`;
+    return `${IMAGE_DOMAIN}${fileName}`;
   };
 
   const handleImageError = (e) => {
@@ -235,7 +235,6 @@ const CategoryPage = () => {
               <input type="text" className="form-control" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
             </div>
 
-            {/* HSN Selection Field */}
             <div className="col-12">
               <label className="form-label fw-semibold">HSN Code</label>
               <select className="form-select" value={formData.hsnCode} onChange={handleHsnChange} required>

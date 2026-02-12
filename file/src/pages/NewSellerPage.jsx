@@ -197,22 +197,28 @@ const NewSellerPage = () => {
               </div>
 
               {/* FSSAI - Folder /fssai/ */}
-              <div className="col-12 d-flex justify-content-between align-items-center bg-neutral-50 p-16 radius-12 border">
-                 <div>
-                     <h6 className="text-sm mb-0">FSSAI License</h6>
-                     <small className="text-secondary">{selectedSeller.fssaiNumber || "N/A"}</small>
-                 </div>
-                 {selectedSeller.kycDocuments?.fssaiDoc?.fileName && (
-                   <a 
-                    href={`${FILE_BASE_URL}/uploads/kyc/fssai/${selectedSeller.kycDocuments.fssaiDoc.fileName}`} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="btn btn-sm btn-outline-primary radius-8 d-flex align-items-center gap-1"
-                   >
-                     <Icon icon="bi:file-earmark-pdf" /> View PDF
-                   </a>
-                 )}
-              </div>
+ {/* FSSAI License Section */}
+<div className="col-12 d-flex justify-content-between align-items-center bg-neutral-50 p-16 radius-12 border">
+    <div>
+        <h6 className="text-sm mb-0">FSSAI License</h6>
+        <h6 className="text-primary-600 mb-0 mt-1">{selectedSeller.fssaiNumber || "N/A"}</h6>
+    </div>
+    
+    {/* 🌟 Document Fetching Logic */}
+    {selectedSeller.kycDocuments?.fssaiDoc?.fileName ? (
+      <a 
+        href={`${FILE_BASE_URL}/uploads/kyc/fssai/${selectedSeller.kycDocuments.fssaiDoc.fileName}`} 
+        target="_blank" 
+        rel="noreferrer" 
+        className="btn btn-sm btn-outline-primary radius-8 d-flex align-items-center gap-2 px-12"
+      >
+        <Icon icon="bi:file-earmark-pdf" className="text-lg" /> 
+        <span>View FSSAI</span>
+      </a>
+    ) : (
+      <span className="text-xs text-secondary-light italic">No Document Uploaded</span>
+    )}
+</div>
               
               <div className="col-12 mt-32 d-flex gap-3">
                  <button className="btn btn-danger-600 flex-grow-1 py-12" onClick={() => updateSellerStatus("rejected")}>Reject Request</button>

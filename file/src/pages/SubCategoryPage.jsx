@@ -27,7 +27,8 @@ const SubCategoryPage = () => {
   });
 
   const BASE_URL = "https://api.zhopingo.in/api/v1/catalog";
-  const IMAGE_BASE_URL = "https://api.zhopingo.in/uploads/";
+  // 🌟 CLEAN URL CONFIG: Points to categories folder as per your setup
+  const IMAGE_DOMAIN = "https://api.zhopingo.in/uploads/categories/";
 
   const fetchParentCategories = async () => {
     try {
@@ -59,7 +60,6 @@ const SubCategoryPage = () => {
     const catId = e.target.value;
     const selectedParent = categories.find(c => c._id === catId);
     
-    // Auto-fetch HSN and GST only from the selected backend category object
     setFormData({
       ...formData,
       categoryId: catId,
@@ -68,7 +68,7 @@ const SubCategoryPage = () => {
     });
   };
 
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -76,17 +76,12 @@ const handleSubmit = async (e) => {
     data.append("name", formData.name);
     data.append("category", formData.categoryId); 
     data.append("description", formData.description);
-    
-    // ----------- INTHA RENDU LINE-AH ADD PANNUNGA -----------
     data.append("hsnCode", formData.hsnCode);
     data.append("gstRate", formData.gstRate);
-    // -------------------------------------------------------
 
     if (formData.image) {
       data.append("image", formData.image);
     }
-    
-    // ... matha axios code laam apdiye irukattum
 
     try {
       let res;
@@ -143,10 +138,12 @@ const handleSubmit = async (e) => {
     setIsDrawerOpen(true);
   };
 
+  // 🌟 UPDATED: Clean URL helper for Sub-Categories
   const getImageUrl = (path) => {
     if (!path) return "assets/images/default.png";
+    // If backend sends full URL, extract only filename to avoid double URLs
     const fileName = path.split('/').pop();
-    return `${IMAGE_BASE_URL}${fileName}`;
+    return `${IMAGE_DOMAIN}${fileName}`;
   };
 
   const filteredData = subCategories.filter((item) => 
@@ -160,6 +157,13 @@ const handleSubmit = async (e) => {
       <div className='card h-100 p-0 radius-12 overflow-hidden'>
         <div className='card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between flex-wrap gap-3'>
           <h6 className='text-lg fw-semibold mb-0'>Sub Category Details</h6>
+          <div className="position-relative d-flex align-items-center" style={{ maxWidth: '250px' }}>
+            <input 
+               type="text" className="form-control radius-8" 
+               placeholder="Search Sub Category..." 
+               value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} 
+            />
+          </div>
           <button onClick={() => { setIsEditMode(false); setFormData({id:"", name:"", categoryId:"", description:"", image:null, hsnCode:"", gstRate:""}); setIsDrawerOpen(true); }} 
                   className="btn btn-primary-600 text-sm d-flex align-items-center gap-2">
             <Icon icon="lucide:plus" /> Add New Sub Category
@@ -192,11 +196,15 @@ const handleSubmit = async (e) => {
                   <tr key={item._id}>
                     <td>{index + 1}</td>
                     <td>
-                      <img src={getImageUrl(item.image)} className="w-40-px h-40-px radius-8 object-fit-cover shadow-sm" 
-                           onError={(e) => { e.target.onerror = null; e.target.src="assets/images/default.png"; }} />
+                      <img 
+                        src={getImageUrl(item.image)} 
+                        className="w-40-px h-40-px radius-8 object-fit-cover shadow-sm" 
+                        onError={(e) => { e.target.onerror = null; e.target.src="assets/images/default.png"; }} 
+                        alt=""
+                      />
                     </td>
                     <td className="text-primary-600 fw-medium">{item.name}</td>
-                    <td>{item.category?.name || "N/A"}</td> 
+                    <td><span className="badge bg-secondary-focus text-secondary-light">{item.category?.name || "N/A"}</span></td> 
                     <td className="fw-semibold text-secondary-light">{item.hsnCode || "---"}</td>
                     <td>
                         <span className="badge bg-info-focus text-info-main px-12 py-4 radius-4">
@@ -242,24 +250,24 @@ const handleSubmit = async (e) => {
               </select>
             </div>
 
-           <div className="col-6">
-  <label className="form-label fw-semibold">HSN</label>
-  <input 
-    type="text" 
-    className="form-control bg-light" 
-    value={formData.hsnCode} // Backend categories-la irunthu fetch aagura value inga irukum
-    readOnly 
-  />
-</div>
-<div className="col-6">
-  <label className="form-label fw-semibold">GST %</label>
-  <input 
-    type="text" 
-    className="form-control bg-light" 
-    value={formData.gstRate ? `${formData.gstRate}%` : ""} 
-    readOnly 
-  />
-</div>
+            <div className="col-6">
+                <label className="form-label fw-semibold">HSN</label>
+                <input 
+                    type="text" 
+                    className="form-control bg-light" 
+                    value={formData.hsnCode} 
+                    readOnly 
+                />
+            </div>
+            <div className="col-6">
+                <label className="form-label fw-semibold">GST %</label>
+                <input 
+                    type="text" 
+                    className="form-control bg-light" 
+                    value={formData.gstRate ? `${formData.gstRate}%` : ""} 
+                    readOnly 
+                />
+            </div>
 
             <div className="col-12">
               <label className="form-label fw-semibold">Description</label>

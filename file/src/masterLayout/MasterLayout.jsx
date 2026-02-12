@@ -2098,12 +2098,12 @@ const MasterLayout = ({ children }) => {
               className='light-logo'
             />
             <img
-              src='assets/images/logo-light.png'
+              src='../assets/images/auth/logo-dash.png'
               alt='site logo'
               className='dark-logo'
             />
             <img
-              src='assets/images/logo-icon.png'
+              src='../assets/images/auth/logo-dash.png'
               alt='site logo'
               className='logo-icon'
             />
@@ -2126,7 +2126,7 @@ const MasterLayout = ({ children }) => {
               </NavLink>
             </li>
 
-            <li className='sidebar-menu-group-title'>Zhopingo Operations</li>
+            {/* <li className='sidebar-menu-group-title'>Zhopingo Operations</li>*/}
 
             {/* Banner Management (From Carousel) 
             <li>
@@ -2146,7 +2146,7 @@ const MasterLayout = ({ children }) => {
                   icon='flowbite:users-group-outline'
                   className='menu-icon'
                 />
-                <span>Users & Sellers</span>
+                <span>Sellers</span>
               </Link>
               <ul className='sidebar-submenu'>
                 <li>
@@ -2173,7 +2173,7 @@ const MasterLayout = ({ children }) => {
                     <i className='ri-circle-fill circle-icon text-primary-600 w-auto' />{" "}
                     Sellers List
                   </NavLink>
-                </li>*/}
+                </li>
                 <li>
                   <NavLink
                     to='/users-grid'
@@ -2184,8 +2184,8 @@ const MasterLayout = ({ children }) => {
                     <i className='ri-circle-fill circle-icon text-warning-main w-auto' />{" "}
                     Customers List
                   </NavLink>
-                </li>
-                <li>
+                </li>*/}
+              {/*  <li>
                   <NavLink
                     to='/add-user'
                     className={(navData) =>
@@ -2195,7 +2195,7 @@ const MasterLayout = ({ children }) => {
                     <i className='ri-circle-fill circle-icon text-info-main w-auto' />{" "}
                     Add Seller (Manual)
                   </NavLink>
-                </li>
+                </li>*/}
                {/*} <li>
                   <NavLink
                     to='/view-profile'
@@ -2227,7 +2227,7 @@ const MasterLayout = ({ children }) => {
     className={(navData) => (navData.isActive ? "active-page" : "")}
   >
     <Icon icon='solar:users-group-rounded-linear' className='menu-icon' />
-    <span>Customer</span>
+    <span>Customers List</span>
   </NavLink>
 </li>
 
@@ -2307,20 +2307,21 @@ const MasterLayout = ({ children }) => {
 </li>
 
             {/* Reels Management - Row 11-16 */}
-            <li>
-              <NavLink
-                to='/admin-reels'
-                className={(navData) =>
-                  navData.isActive ? "active-page" : ""
-                }
-              >
-                <i className='ri-circle-fill circle-icon text-cyan w-auto' />{" "}
-                Reels Manager
-              </NavLink>
-            </li>
+           <li>
+  <NavLink
+    to='/admin-reels'
+    className={(navData) =>
+      navData.isActive ? "active-page" : ""
+    }
+  >
+    {/* 🌟 Inga andha blue dot-ku badhila professional Reels icon vachurukkaen */}
+    <i className='ri-play-circle-line text-cyan w-auto' style={{ fontSize: '18px' }} />{" "}  
+     <span className="ms-2"> Reels Manager</span>
+  </NavLink>
+</li>
 
             {/* Invoice & Logistics Dropdown */}
-            <li className='dropdown'>
+            {/* <li className='dropdown'>
               <Link to='#'>
                 <Icon icon='hugeicons:invoice-03' className='menu-icon' />
                 <span>Logistics & Orders</span>
@@ -2362,7 +2363,7 @@ const MasterLayout = ({ children }) => {
               </ul>
             </li>
 
-            {/* Support & Tickets Dropdown */}
+            
             <li className='dropdown'>
               <Link to='#'>
                 <Icon icon='bi:chat-dots' className='menu-icon' />
@@ -2380,7 +2381,7 @@ const MasterLayout = ({ children }) => {
                   </NavLink>
                 </li>
               </ul>
-            </li>
+            </li>*/}
 
             {/*
             <li className='dropdown'>
@@ -2438,7 +2439,7 @@ const MasterLayout = ({ children }) => {
                 </li>
               </ul>
             </li> */}
-            <li className='sidebar-menu-group-title'>System Settings</li>
+           {/* <li className='sidebar-menu-group-title'>System Settings</li>*/}
 
             {/* Authentication Dropdown */}
             <li className='dropdown'>
@@ -2458,7 +2459,7 @@ const MasterLayout = ({ children }) => {
                     Sign In
                   </NavLink>
                 </li>
-                <li>
+             {/*   <li>
                   <NavLink
                     to='/forgot-password'
                     className={(navData) =>
@@ -2468,7 +2469,7 @@ const MasterLayout = ({ children }) => {
                     <i className='ri-circle-fill circle-icon text-info-main w-auto' />{" "}
                     Forgot Password
                   </NavLink>
-                </li>
+                </li>*/}
               </ul>
             </li>
 
@@ -2579,10 +2580,10 @@ const MasterLayout = ({ children }) => {
                     />
                   )}
                 </button>
-                <form className='navbar-search'>
+               {/* <form className='navbar-search'>
                   <input type='text' name='search' placeholder='Search Orders/Sellers...' />
                   <Icon icon='ion:search-outline' className='icon' />
-                </form>
+                </form>*/}
               </div>
             </div>
             <div className='col-auto'>

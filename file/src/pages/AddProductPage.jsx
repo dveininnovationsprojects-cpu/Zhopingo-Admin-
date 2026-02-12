@@ -7,7 +7,8 @@ import { toast, ToastContainer } from "react-toastify";
 const AddProductPage = () => {
     const [sellers, setSellers] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [subCategories, setSubCategories] = useState([]);
+    const [allSubCategories, setAllSubCategories] = useState([]); // Master list
+    const [filteredSubCategories, setFilteredSubCategories] = useState([]); // UI dropdown
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -15,7 +16,7 @@ const AddProductPage = () => {
     const token = localStorage.getItem("userToken");
 
     const [formData, setFormData] = useState({
-        seller: "", 
+        seller: "", // 🌟 Admin select pannura actual Seller ID
         name: "",
         category: "",
         subCategory: "",
@@ -29,22 +30,25 @@ const AddProductPage = () => {
 
     const [files, setFiles] = useState({ images: [], video: null });
 
-    // 1. Load All Sellers (Admin can see all) & Categories
+    // 1. Initial Load: Sellers, Categories and ALL Sub-Categories
     useEffect(() => {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
                 const config = { headers: { Authorization: `Bearer ${token}` } };
-                // Using the specific admin seller endpoint you provided
-                const [sellerRes, catRes] = await Promise.all([
+                
+                // 🌟 Admin specific sellers endpoint
+                const [sellerRes, catRes, subRes] = await Promise.all([
                     axios.get(`${API_BASE}/admin/sellers`, config),
-                    axios.get(`${API_BASE}/catalog/categories`, config)
+                    axios.get(`${API_BASE}/catalog/categories`, config),
+                    axios.get(`${API_BASE}/catalog/sub-categories/all`, config)
                 ]);
                 
                 if (sellerRes.data.success) setSellers(sellerRes.data.data);
                 if (catRes.data.success) setCategories(catRes.data.data);
+                if (subRes.data.success) setAllSubCategories(subRes.data.data);
             } catch (err) {
-                toast.error("Failed to load Sellers list. Check Admin Login.");
+                toast.error("Failed to load Data. Check Admin Token.");
             } finally {
                 setIsLoading(false);
             }
@@ -52,40 +56,36 @@ const AddProductPage = () => {
         fetchInitialData();
     }, [token]);
 
-    // 2. Sub-Category fetch and Sync HSN
-    const handleCategoryChange = async (catId) => {
+    // 2. Filter Sub-Categories when Main Category changes (Seller Logic)
+    const handleCategoryChange = (catId) => {
         setFormData({ ...formData, category: catId, subCategory: "", hsnCode: "" });
-        try {
-            const res = await axios.get(`${API_BASE}/catalog/sub-categories/all`);
-            if (res.data.success) {
-                const filtered = res.data.data.filter(s => s.category === catId || s.category?._id === catId);
-                setSubCategories(filtered);
-            }
-        } catch (err) { console.error("Sub-cat error"); }
+        const filtered = allSubCategories.filter(s => s.category === catId || s.category?._id === catId);
+        setFilteredSubCategories(filtered);
     };
 
+    // 3. Auto-fill HSN when Sub-Category is selected (Seller Logic)
     const handleSubCatChange = (subId) => {
-        const selectedSub = subCategories.find(s => s._id === subId);
+        const selectedSub = allSubCategories.find(s => s._id === subId);
         setFormData({ ...formData, subCategory: subId, hsnCode: selectedSub?.hsnCode || "" });
     };
 
-    // 3. Submit Logic (Syncing to Seller Account)
+    // 4. Submit Logic (Syncing to specific Seller)
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        // 🌟 CRITICAL FIX: Seller ID-ah dummy value anuppaama thadukkurom
-        if (!formData.seller || formData.seller === "" || formData.seller === "static_admin_id") {
-            return toast.error("Please select a target Seller first!");
+        if (!formData.seller || formData.seller === "static_admin_id") {
+            return toast.error("Please select a real Seller account from the dropdown!");
         }
 
         setIsSubmitting(true);
         const data = new FormData();
         
-        // Form field mapping
+        // Form field data append
         Object.keys(formData).forEach(key => {
             if (formData[key]) data.append(key, formData[key]);
         });
         
+        // Media files
         if (files.images.length > 0) {
             files.images.forEach(img => data.append("images", img));
         }
@@ -98,17 +98,18 @@ const AddProductPage = () => {
                 } 
             };
 
+            // 🌟 Path matching your backend router: router.post('/add', ...)
             const res = await axios.post(`${API_BASE}/products/add`, data, config);
 
             if (res.data.success) {
-                toast.success("Product successfully pushed to Seller account!");
-                // Clear state
+                toast.success("Product added to selected Seller Store!");
+                // Reset form
                 setFormData({ seller: "", name: "", category: "", subCategory: "", price: "", mrp: "", stock: "", description: "", lowStockAlert: "", hsnCode: "" });
                 setFiles({ images: [], video: null });
             }
         } catch (err) {
-            // Backend error message handling
-            const backendMsg = err.response?.data?.message || err.response?.data?.error || "Request Failed (400)";
+            // Error handling from backend
+            const backendMsg = err.response?.data?.message || err.response?.data?.error || "Listing Failed";
             toast.error(backendMsg);
         } finally {
             setIsSubmitting(false);
@@ -120,7 +121,7 @@ const AddProductPage = () => {
             <ToastContainer position="top-right" theme="colored" />
             <div className="card h-100 p-0 radius-12 overflow-hidden shadow-sm">
                 <div className="card-header border-bottom bg-base py-16 px-24">
-                    <h6 className="text-lg fw-semibold mb-0">Add Product (Assign to Seller)</h6>
+                    <h6 className="text-lg fw-semibold mb-0 text-primary-600">Admin: Assign Product to Seller</h6>
                 </div>
                 
                 <div className="card-body p-24">
@@ -128,22 +129,24 @@ const AddProductPage = () => {
                         <div className="text-center py-50"><div className="spinner-border text-primary"></div></div>
                     ) : (
                         <form onSubmit={handleSubmit} className="row gy-4">
-                            {/* 🌟 SELLER DROPDOWN (Real ID logic) */}
-                            <div className="col-12 mb-8 p-16 radius-12 bg-light border shadow-sm">
-                                <label className="form-label fw-bold text-primary-600">Select Seller Account *</label>
-                                <select className="form-select h-52-px radius-8" 
+                            {/* 🌟 SELLER SELECTION (With Shop Name + ID in Brackets) */}
+                            <div className="col-12 mb-8 p-16 radius-12 bg-primary-50 border border-primary-100 shadow-sm">
+                                <label className="form-label fw-bold text-primary-700">Target Seller Account *</label>
+                                <select className="form-select h-52-px radius-8 border-primary-200" 
                                     value={formData.seller} 
                                     onChange={(e) => setFormData({...formData, seller: e.target.value})} required>
-                                    <option value="">-- Choose Seller to receive this product --</option>
+                                    <option value="">-- Click to choose Seller (Shop Name + ID) --</option>
                                     {sellers.map(s => (
-                                        <option key={s._id} value={s._id}>{s.shopName || s.name} ({s.phone})</option>
+                                        <option key={s._id} value={s._id}>
+                                            {s.shopName || s.name} ({s._id})
+                                        </option>
                                     ))}
                                 </select>
                             </div>
 
                             <div className="col-md-6">
                                 <label className="form-label fw-bold">Product Name *</label>
-                                <input type="text" className="form-control h-48-px radius-8" placeholder="Item name..." 
+                                <input type="text" className="form-control h-48-px radius-8" placeholder="e.g. Marie Gold" 
                                     value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
                             </div>
 
@@ -171,9 +174,9 @@ const AddProductPage = () => {
                             <div className="col-md-6">
                                 <label className="form-label fw-bold">Sub Category *</label>
                                 <select className="form-select h-48-px radius-8" value={formData.subCategory}
-                                    disabled={!subCategories.length} onChange={(e) => handleSubCatChange(e.target.value)} required>
+                                    disabled={!filteredSubCategories.length} onChange={(e) => handleSubCatChange(e.target.value)} required>
                                     <option value="">Select Sub-Category</option>
-                                    {subCategories.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                                    {filteredSubCategories.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
                                 </select>
                             </div>
 
@@ -183,7 +186,7 @@ const AddProductPage = () => {
                             </div>
 
                             <div className="col-md-4">
-                                <label className="form-label fw-bold">Stock Inventory *</label>
+                                <label className="form-label fw-bold">Total Stock *</label>
                                 <input type="number" className="form-control h-48-px radius-8" value={formData.stock}
                                     onChange={(e) => setFormData({...formData, stock: e.target.value})} required />
                             </div>
@@ -195,7 +198,7 @@ const AddProductPage = () => {
                             </div>
 
                             <div className="col-12">
-                                <label className="form-label fw-bold">Description</label>
+                                <label className="form-label fw-bold">Product Description</label>
                                 <textarea className="form-control radius-8" rows="3" value={formData.description}
                                     onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea>
                             </div>
@@ -207,9 +210,9 @@ const AddProductPage = () => {
                             </div>
 
                             <div className="col-12 mt-16">
-                                <button type="submit" disabled={isSubmitting} className="btn btn-primary-600 w-100 h-52-px radius-8 fw-bold">
+                                <button type="submit" disabled={isSubmitting} className="btn btn-primary-600 w-100 h-52-px radius-8 fw-bold shadow">
                                     {isSubmitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <Icon icon="solar:upload-minimalistic-bold" className="me-2 text-xl" />}
-                                    {isSubmitting ? "PROCESSING..." : "PUSH PRODUCT TO SELLER"}
+                                    {isSubmitting ? "PUSHING TO SELLER..." : "PUSH PRODUCT TO SELLER"}
                                 </button>
                             </div>
                         </form>

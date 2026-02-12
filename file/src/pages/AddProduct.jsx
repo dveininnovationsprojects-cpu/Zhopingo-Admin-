@@ -8,7 +8,8 @@ const THEME_GREEN = "#064E3B";
 const AddProduct = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [subCategories, setSubCategories] = useState([]);
+  const [allSubCategories, setAllSubCategories] = useState([]); // Master list
+  const [filteredSubCategories, setFilteredSubCategories] = useState([]); // UI dropdown list
   const [showAddModal, setShowAddModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -17,9 +18,11 @@ const AddProduct = () => {
   const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
   const token = localStorage.getItem("userToken");
   
+  // 🌟 Updated API Base
   const API_BASE = "https://api.zhopingo.in/api/v1";
+  const IMAGE_BASE = "https://api.zhopingo.in/uploads/";
 
-  // Form States (Matching Backend req.body)
+  // Form States
   const [formData, setFormData] = useState({
     name: "",
     category: "",
@@ -34,21 +37,28 @@ const AddProduct = () => {
 
   const [files, setFiles] = useState({ images: [], video: null });
 
-  // 1. Initial Fetch: My Products & Master Categories
+  // 1. Fetch Data
   const fetchData = async () => {
+    if (!token) return;
     setIsLoading(true);
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       
-      // Fetch Seller specific products
+      // My Products
       const prodRes = await axios.get(`${API_BASE}/products/my-products`, config);
       if (prodRes.data.success) setProducts(prodRes.data.data);
 
-      // Fetch all Categories for dropdown
+      // Categories
       const catRes = await axios.get(`${API_BASE}/catalog/categories`);
       if (catRes.data.success) setCategories(catRes.data.data);
+
+      // Sub-Categories Master
+      const subRes = await axios.get(`${API_BASE}/catalog/sub-categories/all`);
+      if (subRes.data.success) setAllSubCategories(subRes.data.data);
+
     } catch (err) {
       console.error("Fetch error:", err);
+      toast.error("Failed to load catalog data");
     } finally {
       setIsLoading(false);
     }
@@ -56,27 +66,17 @@ const AddProduct = () => {
 
   useEffect(() => { fetchData(); }, []);
 
-  // 2. Fetch Sub-Categories when Main Category changes
-  const handleCategoryChange = async (catId) => {
+  // 2. Handle Main Category Change
+  const handleCategoryChange = (catId) => {
     setFormData({ ...formData, category: catId, subCategory: "", hsnCode: "" });
-    setSubCategories([]); // Clear previous subs
-    
-    if (!catId) return;
-
-    try {
-      // Backend should have an endpoint to fetch subs by parent cat id
-      const res = await axios.get(`${API_BASE}/catalog/sub-categories/all`);
-      if (res.data.success) {
-        setSubCategories(res.data.data);
-      }
-    } catch (err) {
-      console.error("Sub-category fetch failed");
-    }
+    // Filter sub-categories based on parent category ID
+    const filtered = allSubCategories.filter(sub => sub.category === catId || sub.category?._id === catId);
+    setFilteredSubCategories(filtered);
   };
 
-  // 3. Auto-fill HSN when Sub-Category is selected
+  // 3. Handle Sub-Category Change (Auto-fill HSN)
   const handleSubCatChange = (subId) => {
-    const selectedSub = subCategories.find(s => s._id === subId);
+    const selectedSub = allSubCategories.find(s => s._id === subId);
     setFormData({ 
       ...formData, 
       subCategory: subId, 
@@ -84,12 +84,10 @@ const AddProduct = () => {
     });
   };
 
-  // 4. File selection handlers
+  // 4. File handlers
   const handleImageChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
-    if (selectedFiles.length > 5) {
-      return toast.error("Maximum 5 images allowed");
-    }
+    if (selectedFiles.length > 5) return toast.error("Max 5 images allowed");
     setFiles({ ...files, images: selectedFiles });
   };
 
@@ -97,21 +95,23 @@ const AddProduct = () => {
     setFiles({ ...files, video: e.target.files[0] });
   };
 
-  // 5. Submit Form to Backend
+  // 5. Submit Form
   const handlePublish = async (e) => {
     e.preventDefault();
-    if (!formData.category || !formData.subCategory || !formData.price) {
-      return toast.error("Mandatory fields missing!");
+    const currentSellerId = sellerData.id || sellerData._id;
+
+    if (!formData.category || !formData.subCategory || !formData.price || !currentSellerId) {
+      return toast.error("Mandatory fields or Seller Session missing!");
     }
 
     setIsSubmitting(true);
     const data = new FormData();
     
-    // Append Text Data
+    // Append fields
     Object.keys(formData).forEach(key => data.append(key, formData[key]));
-    data.append("seller", sellerData.id || sellerData._id); // From LocalStorage
+    data.append("seller", currentSellerId);
 
-    // Append Files (Keys must match your Backend req.files['images'] and req.files['video'])
+    // Append Files
     files.images.forEach(file => data.append("images", file));
     if (files.video) data.append("video", files.video);
 
@@ -128,53 +128,59 @@ const AddProduct = () => {
       if (res.data.success) {
         toast.success("Product listed successfully!");
         setShowAddModal(false);
-        fetchData(); // Refresh Catalog
-        // Reset local state
+        fetchData(); 
         setFormData({ name: "", category: "", subCategory: "", price: "", mrp: "", stock: "", description: "", lowStockAlert: "", hsnCode: "" });
         setFiles({ images: [], video: null });
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Listing failed. Check HSN Master.");
+      toast.error(err.response?.data?.message || "Listing failed.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="animate__animated animate__fadeIn">
+    <div className="animate__animated animate__fadeIn p-3">
       <ToastContainer position="top-right" autoClose={2000} theme="colored" />
       
       {/* HEADER */}
-      <div className="d-flex justify-content-between align-items-center mb-24">
+      <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h5 className="fw-bold mb-0">Product Catalog</h5>
-          <p className="text-secondary text-sm"></p>
+          <h4 className="fw-bold mb-0">Product Catalog</h4>
+          <p className="text-secondary small">Manage your store inventory</p>
         </div>
         <button onClick={() => setShowAddModal(true)} 
-          className="btn text-white radius-12 px-24 py-12 fw-bold d-flex align-items-center gap-2 shadow-sm"
+          className="btn text-white rounded-3 px-4 py-2 fw-bold d-flex align-items-center gap-2 shadow-sm"
           style={{ backgroundColor: THEME_GREEN }}>
-          <Icon icon="solar:add-circle-bold" className="text-xl" /> ADD NEW ITEM
+          <Icon icon="solar:add-circle-bold" className="fs-5" /> ADD NEW ITEM
         </button>
       </div>
 
       {/* CATALOG GRID */}
-      <div className="row gy-4">
+      <div className="row g-4">
         {isLoading ? (
-          <div className="text-center py-50"><div className="spinner-border text-primary"></div></div>
+          <div className="text-center py-5 w-100"><div className="spinner-border text-success"></div></div>
         ) : products.length > 0 ? (
           products.map((item) => (
-            <div className="col-sm-6 col-md-4 col-xl-3" key={item._id}>
-              <div className="card radius-20 border-0 shadow-sm overflow-hidden h-100 bg-white">
-                <img src={`http://54.157.210.26/uploads/${item.images[0]}`} 
-                  alt={item.name} className="w-100" style={{ height: "160px", objectFit: "cover" }} 
-                  onError={(e) => e.target.src = "https://via.placeholder.com/200"} />
-                <div className="p-16">
-                  <h6 className="fw-bold mb-4 text-dark text-truncate">{item.name}</h6>
-                  <p className="text-xxs text-secondary mb-12 uppercase">{item.category?.name} • {item.subCategory?.name}</p>
+            <div className="col-6 col-md-4 col-xl-3" key={item._id}>
+              <div className="card rounded-4 border-0 shadow-sm overflow-hidden h-100 bg-white">
+                <img 
+                  // 🌟 Fixed Image URL Logic
+                  src={item.images?.[0]?.startsWith('http') ? item.images[0] : `${IMAGE_BASE}${item.images?.[0]}`} 
+                  alt={item.name} 
+                  className="w-100" 
+                  style={{ height: "180px", objectFit: "cover" }} 
+                  onError={(e) => e.target.src = "https://via.placeholder.com/300x200?text=No+Image"} 
+                />
+                <div className="p-3">
+                  <h6 className="fw-bold mb-1 text-dark text-truncate">{item.name}</h6>
+                  <p className="small text-muted mb-2 text-uppercase" style={{fontSize: '10px'}}>
+                    {item.category?.name || 'No Cat'} • {item.subCategory?.name || 'No Sub'}
+                  </p>
                   <div className="d-flex justify-content-between align-items-center">
-                    <h5 className="fw-900 mb-0" style={{ color: THEME_GREEN }}>₹{item.price}</h5>
-                    <span className={`badge radius-8 px-8 py-4 text-xs ${item.stock < 5 ? 'bg-danger-focus text-danger' : 'bg-success-focus text-success'}`}>
-                      {item.stock} in stock
+                    <h5 className="fw-bold mb-0 text-success">₹{item.price}</h5>
+                    <span className={`badge rounded-pill px-2 py-1 ${item.stock < 10 ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'}`} style={{fontSize: '10px'}}>
+                      {item.stock} Left
                     </span>
                   </div>
                 </div>
@@ -182,8 +188,8 @@ const AddProduct = () => {
             </div>
           ))
         ) : (
-          <div className="text-center py-50 bg-white radius-20 shadow-sm w-100 mx-3">
-             <Icon icon="solar:box-minimalistic-linear" className="text-6xl text-neutral-200 mb-16" />
+          <div className="text-center py-5 bg-white rounded-4 shadow-sm w-100 mx-2">
+             <Icon icon="solar:box-minimalistic-linear" className="display-1 text-light mb-3" />
              <p className="text-secondary fw-bold">Empty Catalog! Start adding products.</p>
           </div>
         )}
@@ -191,101 +197,99 @@ const AddProduct = () => {
 
       {/* ADD PRODUCT MODAL */}
       {showAddModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1050 }}>
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1050 }}>
           <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content radius-24 border-0 shadow-lg">
-              <div className="modal-header border-bottom p-24">
-                <h5 className="fw-bold mb-0">Product Details</h5>
+            <div className="modal-content rounded-4 border-0 shadow-lg">
+              <div className="modal-header border-bottom p-4">
+                <h5 className="fw-bold mb-0">New Product Details</h5>
                 <button onClick={() => setShowAddModal(false)} className="btn-close shadow-none"></button>
               </div>
-              <form onSubmit={handlePublish} className="modal-body p-24 overflow-y-auto" style={{maxHeight: '75vh'}}>
+              <form onSubmit={handlePublish} className="modal-body p-4" style={{maxHeight: '70vh', overflowY: 'auto'}}>
                 <div className="row">
-                  {/* Media Uploads */}
-                  <div className="col-12 mb-24">
-                    <label className="text-xs fw-bold text-secondary uppercase mb-12 d-block">Media Slots (Compulsory)</label>
+                  {/* Media */}
+                  <div className="col-12 mb-4">
+                    <label className="small fw-bold text-muted text-uppercase mb-2 d-block">Media Slots</label>
                     <div className="d-flex gap-3">
-                       {/* Multiple Image Slot */}
-                       <label className="border radius-16 d-flex flex-column align-items-center justify-content-center cursor-pointer bg-neutral-50 shadow-sm" style={{width:'110px', height:'110px', borderStyle:'dashed'}}>
+                       <label className="border rounded-4 d-flex flex-column align-items-center justify-content-center cursor-pointer bg-light shadow-sm" style={{width:'100px', height:'100px', borderStyle:'dashed'}}>
                           <input type="file" multiple accept="image/*" hidden onChange={handleImageChange} />
-                          <Icon icon="solar:gallery-add-bold" className="text-3xl text-primary-600 mb-1"/>
-                          <span className="text-xxs fw-bold">5 Images</span>
+                          <Icon icon="solar:gallery-add-bold" className="fs-2 text-primary mb-1"/>
+                          <span className="small fw-bold" style={{fontSize: '10px'}}>Images</span>
                        </label>
-                       {/* Single Video Slot */}
-                       <label className="border radius-16 d-flex flex-column align-items-center justify-content-center cursor-pointer bg-neutral-50 shadow-sm" style={{width:'110px', height:'110px', borderStyle:'dashed'}}>
+                       <label className="border rounded-4 d-flex flex-column align-items-center justify-content-center cursor-pointer bg-light shadow-sm" style={{width:'100px', height:'100px', borderStyle:'dashed'}}>
                           <input type="file" accept="video/*" hidden onChange={handleVideoChange} />
-                          <Icon icon="solar:videocamera-add-bold" className="text-3xl text-warning-main mb-1"/>
-                          <span className="text-xxs fw-bold">1 Video</span>
+                          <Icon icon="solar:videocamera-add-bold" className="fs-2 text-warning mb-1"/>
+                          <span className="small fw-bold" style={{fontSize: '10px'}}>Video</span>
                        </label>
                     </div>
-                    <div className="mt-12 d-flex gap-2">
-                        {files.images.length > 0 && <span className="badge bg-success-focus text-success radius-4">{files.images.length} Photos ready</span>}
-                        {files.video && <span className="badge bg-warning-focus text-warning-main radius-4">Video attached</span>}
+                    <div className="mt-2 d-flex gap-2">
+                        {files.images.length > 0 && <span className="badge bg-success text-white small">{files.images.length} Photos</span>}
+                        {files.video && <span className="badge bg-warning text-dark small">Video OK</span>}
                     </div>
                   </div>
 
-                  <div className="col-md-6 mb-16">
-                    <label className="form-label text-xs fw-bold">PRODUCT NAME *</label>
-                    <input type="text" className="form-control radius-12 h-48-px" placeholder="e.g. Organic Millet Flour" 
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label small fw-bold">PRODUCT NAME *</label>
+                    <input type="text" className="form-control rounded-3 py-2" placeholder="Item name" 
                       onChange={(e) => setFormData({...formData, name: e.target.value})} required />
                   </div>
 
-                  <div className="col-md-3 mb-16">
-                    <label className="form-label text-xs fw-bold">SELLING PRICE (₹) *</label>
-                    <input type="number" className="form-control radius-12 h-48-px" placeholder="Price" 
+                  <div className="col-md-3 mb-3">
+                    <label className="form-label small fw-bold">PRICE (₹) *</label>
+                    <input type="number" className="form-control rounded-3 py-2" placeholder="0.00" 
                       onChange={(e) => setFormData({...formData, price: e.target.value})} required />
                   </div>
 
-                  <div className="col-md-3 mb-16">
-                    <label className="form-label text-xs fw-bold">MRP PRICE (₹)</label>
-                    <input type="number" className="form-control radius-12 h-48-px" placeholder="Retail Price" 
+                  <div className="col-md-3 mb-3">
+                    <label className="form-label small fw-bold">MRP (₹)</label>
+                    <input type="number" className="form-control rounded-3 py-2" placeholder="0.00" 
                       onChange={(e) => setFormData({...formData, mrp: e.target.value})} />
                   </div>
 
-                  <div className="col-md-6 mb-16">
-                    <label className="form-label text-xs fw-bold">MAIN CATEGORY *</label>
-                    <select className="form-select radius-12 h-48-px" required onChange={(e) => handleCategoryChange(e.target.value)}>
-                      <option value="">Select Category</option>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label small fw-bold">MAIN CATEGORY *</label>
+                    <select className="form-select rounded-3 py-2" required onChange={(e) => handleCategoryChange(e.target.value)}>
+                      <option value="">Select</option>
                       {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                     </select>
                   </div>
 
-                  <div className="col-md-6 mb-16">
-                    <label className="form-label text-xs fw-bold">SUB CATEGORY *</label>
-                    <select className="form-select radius-12 h-48-px" required disabled={!subCategories.length} onChange={(e) => handleSubCatChange(e.target.value)}>
-                      <option value="">Select Sub-Category</option>
-                      {subCategories.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label small fw-bold">SUB CATEGORY *</label>
+                    <select className="form-select rounded-3 py-2" required disabled={!filteredSubCategories.length} onChange={(e) => handleSubCatChange(e.target.value)}>
+                      <option value="">Select</option>
+                      {filteredSubCategories.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
                     </select>
                   </div>
 
-                  <div className="col-md-4 mb-16">
-                    <label className="form-label text-xs fw-bold">HSN CODE (AUTO)</label>
-                    <input type="text" className="form-control radius-12 bg-light h-48-px fw-bold text-primary-600" value={formData.hsnCode} readOnly />
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label small fw-bold text-muted">HSN CODE</label>
+                    <input type="text" className="form-control rounded-3 bg-light py-2 fw-bold text-primary" value={formData.hsnCode} readOnly />
                   </div>
 
-                  <div className="col-md-4 mb-16">
-                    <label className="form-label text-xs fw-bold">TOTAL STOCK *</label>
-                    <input type="number" className="form-control radius-12 h-48-px" placeholder="0" 
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label small fw-bold">STOCK *</label>
+                    <input type="number" className="form-control rounded-3 py-2" placeholder="0" 
                       onChange={(e) => setFormData({...formData, stock: e.target.value})} required />
                   </div>
 
-                  <div className="col-md-4 mb-16">
-                    <label className="form-label text-xs fw-bold">LOW STOCK ALERT</label>
-                    <input type="number" className="form-control radius-12 h-48-px border-warning-main" placeholder="Min level" 
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label small fw-bold">LOW STOCK ALERT</label>
+                    <input type="number" className="form-control rounded-3 py-2" placeholder="5" 
                       onChange={(e) => setFormData({...formData, lowStockAlert: e.target.value})} />
                   </div>
 
-                  <div className="col-12 mb-24">
-                    <label className="form-label text-xs fw-bold">DESCRIPTION</label>
-                    <textarea className="form-control radius-12" rows="3" placeholder="Explain product benefits..." 
+                  <div className="col-12 mb-4">
+                    <label className="form-label small fw-bold">DESCRIPTION</label>
+                    <textarea className="form-control rounded-3" rows="3" placeholder="Product details..." 
                       onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea>
                   </div>
                 </div>
 
                 <button type="submit" disabled={isSubmitting} 
-                  className="btn w-100 py-16 radius-16 text-white fw-bold shadow-lg mt-8"
+                  className="btn w-100 py-3 rounded-4 text-white fw-bold shadow-lg"
                   style={{ backgroundColor: THEME_GREEN }}>
                   {isSubmitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <Icon icon="solar:upload-minimalistic-bold" className="me-2" />}
-                  {isSubmitting ? "LISTING TO STORE..." : "PUBLISH TO ZHOPINGO"}
+                  {isSubmitting ? "PUBLISHING..." : "PUBLISH PRODUCT"}
                 </button>
               </form>
             </div>

@@ -70,7 +70,7 @@ const SignUpLayer = () => {
         setStep(2); // Moving to KYC step
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Registration failed");
+      toast.error(err.response?.data?.message || "Already Registered");
     } finally {
       setIsSubmitting(false);
     }
