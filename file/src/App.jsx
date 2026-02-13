@@ -227,9 +227,8 @@
 // }
 
 // export default App;
-
-
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import React, { useMemo } from "react";
 import HomePageOne from "./pages/HomePageOne";
 // import HomePageTwo from "./pages/HomePageTwo";
 // import HomePageThree from "./pages/HomePageThree";
@@ -341,19 +340,50 @@ import AdminProfile from "./pages/AdminProfile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
+  // 🌟 Logic: Storage-la irundhu fresh data-va eppovum edukka useMemo use panrom
+  const authData = useMemo(() => {
+    const token = localStorage.getItem("userToken")?.trim();
+    const role = localStorage.getItem("userRole"); // SignIn-la namma set pannura andha role
+    const userDataRaw = localStorage.getItem("userData");
+    const userData = userDataRaw ? JSON.parse(userDataRaw) : {};
+    return { token, role: role || userData.role, userData };
+  }, []);
+
+  // 🌟 Dynamic Redirection Path Logic
+  const getDashboardPath = () => {
+    if (!authData.token || authData.token === "undefined") return "/sign-in";
+    
+    // Role-ah vachu decide pannuvom
+    if (authData.role === "seller") return "/seller-dashboard";
+    if (authData.role === "admin") return "/dashboard";
+    
+    return "/dashboard";
+  };
   return (
 <BrowserRouter>
       <RouteScrollToTop />
       <Routes>
-        {/* ================= PUBLIC ROUTES ================= */}
-        <Route exact path='/' element={<SignInPage />} />
-        <Route exact path='/sign-in' element={<SignInPage />} />
+   {/* ================= PUBLIC ROUTES ================= */}
+<Route 
+          path="/" 
+          element={authData.token ? <Navigate to={getDashboardPath()} replace /> : <SignInPage />} 
+        />
+        
+        <Route 
+          path="/sign-in" 
+          element={authData.token ? <Navigate to={getDashboardPath()} replace /> : <SignInPage />} 
+        />
         <Route exact path='/sign-up' element={<SignUpPage />} />
         <Route exact path='/forgot-password' element={<ForgotPasswordPage />} />
 
         {/* ================= PROTECTED ROUTES (Login Required) ================= */}
-        {/* 🌟 Intha Wrapper thaan ella page-aiyum check pannum */}
         <Route element={<ProtectedRoute />}>
+       <Route 
+            path='/dashboard' 
+            element={authData.role === 'seller' ? <Navigate to="/seller-dashboard" replace /> : <HomePageOne />} 
+          />
+          
+          <Route exact path='/seller-dashboard' element={<SellerDashboard />} />
           <Route exact path='/dashboard' element={<HomePageOne />} />
           <Route exact path='/sub-category' element={<SubCategoryPage />} />
           <Route exact path='/category' element={<CategoryPage />} />
@@ -362,7 +392,6 @@ function App() {
           <Route exact path='/attributes' element={<AttributesPage />} />
           <Route exact path='/new-seller' element={<NewSellerPage />} />
           <Route exact path="/all-sellers" element={<AllSellersListPage />} />
-          <Route exact path='/seller-dashboard' element={<SellerDashboard />} />
           <Route exact path='/product-list' element={<ProductListPage />} />
           <Route exact path='/add-product' element={<AddProductPage />} />
           <Route exact path='/admin-reels' element={<AdminReels />} />

@@ -23,6 +23,9 @@ const SellerDashboard = () => {
     const [activeTab, setActiveTab] = useState("dashboard");
     const [isLoading, setIsLoading] = useState(false);
     
+    // 🌟 New: Live Seller Profile State
+    const [sellerProfile, setSellerProfile] = useState(null);
+    
     const [stats, setStats] = useState({
         new: 0, pending: 0, packed: 0, shipped: 0, delivered: 0, returns: 0, revenue: 0
     });
@@ -34,36 +37,47 @@ const SellerDashboard = () => {
     const sellerId = sellerData.id || sellerData._id;
     const token = localStorage.getItem("userToken");
 
-    const API_BASE = "https://api.zhopingo.in/api/v1/orders/all";
+    const API_BASE = "https://api.zhopingo.in/api/v1";
+    // 🌟 Image Base path for sellers
+    const IMAGE_BASE = "https://api.zhopingo.in/uploads/";
 
     useEffect(() => {
-        if (sellerId) fetchSellerLiveStats();
+        if (sellerId) {
+            fetchSellerLiveStats();
+            fetchSellerProfile(); // 🌟 Load profile details on mount
+        }
     }, [sellerId]);
+
+    // 🌟 1. Fetch Latest Profile (For Image & Shop Details)
+    const fetchSellerProfile = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const res = await axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config);
+            if (res.data.success) {
+                setSellerProfile(res.data.data);
+            }
+        } catch (err) {
+            console.error("Profile Fetch Error", err);
+        }
+    };
 
     const fetchSellerLiveStats = async () => {
         setIsLoading(true);
         try {
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            const res = await axios.get(API_BASE, config);
+            const res = await axios.get(`${API_BASE}/orders/all`, config);
             
             if (res.data.success) {
-                // 🌟 Filter orders belonging to this specific seller
                 const myOrders = res.data.data.filter(order => 
                     order.sellerSplitData?.some(split => split.sellerId === sellerId)
                 );
                 
-                // 🌟 1. SELLER REVENUE CALCULATION LOGIC
-                // Admin totalAmount-ku badhila, sellerSplitData-la ulla 'sellerSubtotal'-ah mattum sum pannuvom
                 let sellerOnlyRevenue = 0;
-
                 myOrders.filter(o => o.status === "Delivered").forEach(order => {
                     const sellerShare = order.sellerSplitData.find(s => s.sellerId === sellerId);
-                    if (sellerShare) {
-                        sellerOnlyRevenue += (sellerShare.sellerSubtotal || 0);
-                    }
+                    if (sellerShare) sellerOnlyRevenue += (sellerShare.sellerSubtotal || 0);
                 });
 
-                // 2. Status Counts
                 setStats({
                     new: myOrders.filter(o => o.status === "Placed").length,
                     pending: myOrders.filter(o => o.status === "Pending").length,
@@ -71,10 +85,9 @@ const SellerDashboard = () => {
                     shipped: myOrders.filter(o => o.status === "Shipped").length,
                     delivered: myOrders.filter(o => o.status === "Delivered").length,
                     returns: myOrders.filter(o => o.status === "Cancelled").length,
-                    revenue: sellerOnlyRevenue // 🌟 Updated to Seller Share
+                    revenue: sellerOnlyRevenue
                 });
 
-                // 3. Top Products Calculation
                 const productMap = {};
                 myOrders.forEach(order => {
                     order.items.forEach(item => {
@@ -85,7 +98,6 @@ const SellerDashboard = () => {
                 });
                 setTopProducts(Object.values(productMap).sort((a, b) => b.count - a.count).slice(0, 7));
 
-                // 4. Weekly Sales Chart
                 const dailyCounts = [0, 0, 0, 0, 0, 0, 0];
                 myOrders.forEach(order => {
                     const day = new Date(order.createdAt).getDay();
@@ -104,6 +116,15 @@ const SellerDashboard = () => {
     const mobileMenuControl = () => setMobileMenu(!mobileMenu);
     const handleLogout = () => { localStorage.clear(); navigate("/"); };
 
+    // Helper: Profile Image Logic
+    const getProfileImg = () => {
+        if (sellerProfile?.profileImage && sellerProfile.profileImage !== "sellers/default-avatar.png") {
+            return `${IMAGE_BASE}${sellerProfile.profileImage}`;
+        }
+        // Professional Icon Placeholder if no image
+        return `https://api.dicebear.com/7.x/initials/svg?seed=${sellerProfile?.shopName || 'Seller'}&backgroundColor=064e3b`;
+    };
+
     const lineData = { 
         labels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], 
         datasets: [{ 
@@ -120,7 +141,6 @@ const SellerDashboard = () => {
                 <StatCard label="Packed" val={stats.packed} color="info" />
                 <StatCard label="Shipped" val={stats.shipped} color="secondary" />
                 <StatCard label="Delivered" val={stats.delivered} color="success" />
-                {/* 🌟 This Revenue now shows only Seller's earnings */}
                 <StatCard label="Revenue" val={`₹${stats.revenue.toLocaleString()}`} color="success" />
             </div>
 
@@ -185,16 +205,24 @@ const SellerDashboard = () => {
                         <div className='col-auto d-flex align-items-center gap-3'>
                             <ThemeToggleButton />
                             <div className="dropdown">
-                                <button className="border-0 bg-transparent" data-bs-toggle="dropdown">
-                                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Seller" className="w-40-px h-40-px rounded-circle border shadow-sm" alt="profile" />
+                                <button className="border-0 bg-transparent p-0" data-bs-toggle="dropdown">
+                                    {/* 🌟 DYNAMIC PROFILE IMAGE LOGIC */}
+                                    <div className="w-44-px h-44-px rounded-circle border-2 border-primary-100 shadow-sm overflow-hidden bg-light d-flex align-items-center justify-content-center">
+                                        <img 
+                                            src={getProfileImg()} 
+                                            className="w-100 h-100 object-fit-cover" 
+                                            alt="profile" 
+                                            onError={(e) => { e.target.src = "https://api.dicebear.com/7.x/initials/svg?seed=Seller"; }}
+                                        />
+                                    </div>
                                 </button>
                                 <ul className="dropdown-menu dropdown-menu-end shadow border-0 radius-12 p-12">
                                     <li className="p-12 border-bottom">
-                                        <h6 className="text-sm mb-0">{sellerData.shopName || "Seller Store"}</h6>
-                                        <small className="text-success fw-bold text-xxs">Verified Seller</small>
+                                        <h6 className="text-sm mb-0 text-dark fw-bold">{sellerProfile?.shopName || "Loading..."}</h6>
+<small className="text-primary-600 fw-bold text-xxs">Verified Seller</small>
                                     </li>
-                                    <li><button onClick={() => setActiveTab("profile")} className="dropdown-item radius-8 py-8 mt-2">My Profile</button></li>
-                                    <li><button onClick={handleLogout} className="dropdown-item text-danger py-8">Log Out</button></li>
+                                    <li><button onClick={() => setActiveTab("profile")} className="dropdown-item radius-8 py-8 mt-2 d-flex align-items-center gap-2"><Icon icon="solar:user-bold" /> My Profile</button></li>
+                                    <li><button onClick={handleLogout} className="dropdown-item text-danger py-8 d-flex align-items-center gap-2"><Icon icon="solar:logout-3-bold" /> Log Out</button></li>
                                 </ul>
                             </div>
                         </div>
@@ -202,6 +230,10 @@ const SellerDashboard = () => {
                 </div>
 
                 <div className='dashboard-main-body p-24'>
+                    <div className="mb-24">
+                        <h5 className="fw-bold mb-0">Welcome back, {sellerProfile?.name || "Seller"}!</h5>
+                        <p className="text-secondary text-sm mb-0">Monitoring your shop performance.</p>
+                    </div>
                     {isLoading && <div className="text-center py-20"><div className="spinner-border text-primary"></div></div>}
                     {activeTab === "dashboard" && renderDashboard()}
                     {activeTab === "orders" && <MyOrders />} 

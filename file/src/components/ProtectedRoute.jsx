@@ -1,15 +1,18 @@
 import { Navigate, Outlet } from 'react-router-dom';
 
 const ProtectedRoute = () => {
-  // 🌟 Trim panni check pannurom, appo thaan empty space irundhaalum kulla vidaadhu
-  const token = localStorage.getItem("userToken")?.trim();
+  // 🌟 Har-coded data-ku badhila current storage-ah check pannurom
+  const token = localStorage.getItem("userToken")?.trim();
+  const userDataRaw = localStorage.getItem("userData");
+  const userData = userDataRaw ? JSON.parse(userDataRaw) : {};
 
-  // Token illana direct-ah Sign-in page-ku thiruppi vidum
-  if (!token || token === "" || token === "undefined") {
-    return <Navigate to="/sign-in" replace />;
-  }
+  // 1. Token illana sign-in page
+  if (!token || token === "" || token === "undefined") {
+    return <Navigate to="/sign-in" replace />;
+  }
 
-  return <Outlet />;
+  // 2. Token irundha kulla vidaalam
+  return <Outlet />;
 };
 
 export default ProtectedRoute;
