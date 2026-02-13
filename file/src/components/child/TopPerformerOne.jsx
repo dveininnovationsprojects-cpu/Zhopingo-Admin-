@@ -7,17 +7,8 @@ const TopPerformerOne = () => {
     const [topProducts, setTopProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
 
-    // 🌟 API Config - Plural 'orders' synced with your routes
-    const DOMAIN = "https://api.zhopingo.in";
-    const ORDERS_API = `${DOMAIN}/api/v1/orders/all`; 
-    const IMAGE_BASE = `${DOMAIN}/uploads/products/`;
-
-    // 🌟 Working Image Path Logic from ProductListPage
-    const getCleanImageUrl = (backendPath) => {
-        if (!backendPath) return "assets/images/default-product.png";
-        const fileName = backendPath.split('/').pop();
-        return `${IMAGE_BASE}${fileName}`;
-    };
+    // 🌟 API Config
+    const API_BASE = "https://api.zhopingo.in/api/v1/orders/all"; 
 
     useEffect(() => {
         calculateTopSellingProducts();
@@ -29,34 +20,29 @@ const TopPerformerOne = () => {
             const token = localStorage.getItem("userToken");
             const config = { headers: { Authorization: `Bearer ${token}` } };
             
-            // 1. Get All Orders
-            const res = await axios.get(ORDERS_API, config);
+            const res = await axios.get(API_BASE, config);
             
             if (res.data.success) {
                 const allOrders = res.data.data;
                 const productSales = {};
 
-                // 2. Aggregate sales count and store product details
+                // Aggregate sales count
                 allOrders.forEach(order => {
                     order.items.forEach(item => {
-                        // Backend nested structure handling
                         const productId = item.productId?._id || item.productId;
-                        
                         if (!productSales[productId]) {
                             productSales[productId] = {
                                 ...item,
                                 totalQty: 0,
-                                // Ensuing details for display
                                 name: item.name,
-                                price: item.price,
-                                images: item.productId?.images || [] 
+                                price: item.price
                             };
                         }
                         productSales[productId].totalQty += item.quantity;
                     });
                 });
 
-                // 3. Sort by total quantity and take Top 7
+                // Sort by total quantity and take Top 7
                 const sorted = Object.values(productSales)
                     .sort((a, b) => b.totalQty - a.totalQty)
                     .slice(0, 7);
@@ -90,30 +76,21 @@ const TopPerformerOne = () => {
                             <div className="text-center py-20"><div className="spinner-border spinner-border-sm text-primary"></div></div>
                         ) : topProducts.length > 0 ? (
                             topProducts.map((p, index) => (
-                                <div key={index} className='d-flex align-items-center justify-content-between gap-3 mb-20 last-child-0'>
-                                    <div className='d-flex align-items-center overflow-hidden'>
-                                        <img
-                                            /* 🌟 Correct URL synced with ProductListPage */
-                                            src={getCleanImageUrl(p.images?.[0])}
-                                            alt={p.name}
-                                            className='w-44-px h-44-px radius-8 flex-shrink-0 me-12 border bg-light object-fit-cover'
-                                            onError={(e) => {
-                                                e.target.onerror = null;
-                                                e.target.src = "https://via.placeholder.com/44x44?text=P";
-                                            }}
-                                        />
-                                        <div className='flex-grow-1 overflow-hidden'>
-                                            <h6 className='text-sm mb-1 fw-bold text-dark text-truncate'>{p.name}</h6>
+                                <div key={index} className='d-flex align-items-center justify-content-between gap-3 mb-20 last-child-0 border-bottom pb-12'>
+                                    <div className='flex-grow-1 overflow-hidden'>
+                                        {/* 🌟 Removed Image, only Text & Sales Count */}
+                                        <h6 className='text-sm mb-1 fw-bold text-dark text-truncate'>{p.name}</h6>
+                                        <div className="d-flex align-items-center gap-2">
                                             <span className='text-xxs text-primary-600 fw-medium d-flex align-items-center gap-1'>
                                                 <Icon icon="solar:shop-bold" className="text-xs" />
-                                                {/* Displaying Shop name from items or placeholder */}
                                                 {p.shopName || "Verified Seller"}
                                             </span>
+                                            <span className="text-xxs text-secondary opacity-50">|</span>
+                                            <span className="text-xxs text-secondary fw-bold">{p.totalQty} Sold</span>
                                         </div>
                                     </div>
                                     <div className="text-end">
                                         <span className='text-success-main text-sm fw-900'>₹{p.price}</span>
-                                        <div className="text-xxs text-secondary">{p.totalQty} Sold</div>
                                     </div>
                                 </div>
                             ))

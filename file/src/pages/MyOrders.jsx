@@ -3,165 +3,142 @@ import axios from "axios";
 import { Icon } from "@iconify/react";
 import { toast, ToastContainer } from "react-toastify";
 
-const THEME_GREEN = "#064E3B";
-const ACCENT_MINT = "#10B981";
-
 const MyOrders = () => {
-  const [orders, setOrders] = useState([]);
-  const [activeFilter, setActiveFilter] = useState("Placed"); // Backend status: 'Placed', 'Shipped', 'Delivered'
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Login panna seller details-ah edukkarom
-  const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
-  const sellerId = sellerData.id || sellerData._id;
-  
-  const API_BASE = "https://api.zhopingo.in/api/v1";
-
-  // 1. FETCH ORDERS (Neenga kudutha dynamic seller ID API logic)
-  const fetchOrders = async () => {
-    if (!sellerId) return;
+    const [orders, setOrders] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
     
-    setIsLoading(true);
-    try {
-      /** * Neenga kudutha dynamic route use pannappadugirathu:
-       * router.get("/new-orders/:sellerId", sellerCtrl.getSellerNewOrders);
-       */
-      const response = await axios.get(`${API_BASE}/seller/new-orders/${sellerId}`);
-      
-      if (response.data.success) {
-        setOrders(response.data.data);
-      }
-    } catch (err) {
-      console.error("Fetch Error:", err);
-      toast.error("Waiting for orders to arrive!");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
+    const sellerId = sellerData.id || sellerData._id;
+    const token = localStorage.getItem("userToken");
+    
+    const API_BASE = "https://api.zhopingo.in/api/v1";
 
-  useEffect(() => {
-    fetchOrders();
-  }, [sellerId]);
+    const fetchOrders = async () => {
+        if (!sellerId) return;
+        setIsLoading(true);
+        try {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            // 🌟 Syncing with your plural order route
+            const response = await axios.get(`${API_BASE}/orders/all`, config);
+            
+            if (response.data.success) {
+                // Filter orders for this specific seller
+                const myOrders = response.data.data.filter(order => 
+                    order.sellerSplitData?.some(split => split.sellerId === sellerId)
+                );
+                setOrders(myOrders);
+            }
+        } catch (err) {
+            console.error("Fetch Error:", err);
+            toast.error("Failed to load orders!");
+        } finally { setIsLoading(false); }
+    };
 
-  // 2. UPDATE STATUS (Backend route: /update-order-status)
-  const handleUpdateStatus = async (orderId, newStatus) => {
-    try {
-      /**
-       * Neenga kudutha backend route:
-       * router.put("/update-order-status", sellerCtrl.updateSellerOrderStatus);
-       */
-      const res = await axios.put(`${API_BASE}/seller/update-order-status`, {
-        orderId: orderId,
-        status: newStatus
-      });
+    useEffect(() => { fetchOrders(); }, [sellerId]);
 
-      if (res.data.success) {
-        toast.success(`Order status ${newStatus}-ku maathiyachu!`);
-        fetchOrders(); // List-ai refresh pannuvom
-      }
-    } catch (err) {
-      toast.error("Status update failed!");
-    }
-  };
+    const handleUpdateStatus = async (orderId, newStatus) => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const res = await axios.put(`${API_BASE}/order/update-status/${orderId}`, {
+                status: newStatus
+            }, config);
 
-  // UI-la filter panna (Backend status-oda match aagum)
-  const filteredOrders = orders.filter(o => o.status === activeFilter);
+            if (res.data.success) {
+                toast.success(`Status updated to ${newStatus}`);
+                fetchOrders(); 
+            }
+        } catch (err) { toast.error("Status update failed!"); }
+    };
 
-  return (
-    <div className="animate__animated animate__fadeIn">
-      <ToastContainer position="top-right" autoClose={2000} theme="colored" />
-
-      {/* 🌟 Tab Navigation */}
-      <div className="d-flex gap-3 mb-24 bg-white p-8 radius-16 shadow-sm overflow-x-auto">
-        {[
-          { label: "New Orders", value: "Placed", icon: "solar:cart-large-minimalistic-bold" },
-          { label: "Shipped", value: "Shipped", icon: "solar:delivery-bold" },
-          { label: "Delivered", value: "Delivered", icon: "solar:check-circle-bold" }
-        ].map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setActiveFilter(tab.value)}
-            className={`btn d-flex align-items-center gap-2 px-20 py-10 radius-12 fw-bold transition-all ${
-              activeFilter === tab.value ? "text-white" : "text-secondary bg-neutral-100"
-            }`}
-            style={{ backgroundColor: activeFilter === tab.value ? THEME_GREEN : "" }}
-          >
-            <Icon icon={tab.icon} className="text-xl" /> {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* 🌟 Orders View */}
-      <div className="row gy-4">
-        {isLoading ? (
-          <div className="text-center py-50"><div className="spinner-border" style={{ color: THEME_GREEN }}></div></div>
-        ) : filteredOrders.length > 0 ? (
-          filteredOrders.map((order) => (
-            <div className="col-12" key={order._id}>
-              <div className="card radius-20 border-0 shadow-sm p-24 bg-white">
-                <div className="d-flex justify-content-between align-items-center mb-16 border-bottom pb-12">
-                  <div>
-                    <span className="text-xs fw-bold text-secondary uppercase ls-1">Order Ref</span>
-                    <h6 className="mb-0 fw-900 text-dark">#{order._id.slice(-8).toUpperCase()}</h6>
-                  </div>
-                  <span className="badge radius-8 px-12 py-6 text-xs fw-bold" 
-                    style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", color: THEME_GREEN }}>
-                    {order.paymentMethod}
-                  </span>
+    return (
+        <div className='card h-100 p-0 radius-12 border-0 shadow-sm animate__animated animate__fadeIn'>
+            <ToastContainer position="top-right" autoClose={2000} theme="colored" />
+            
+            <div className='card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between'>
+                <h6 className='text-lg fw-semibold mb-0'>Your Order Bookings</h6>
+                <div className="d-flex align-items-center gap-2">
+                    <span className="badge bg-primary-100 text-primary-600 px-12 py-6 radius-8">Total Orders: {orders.length}</span>
                 </div>
-
-                <div className="row align-items-center">
-                  <div className="col-md-6">
-                    {order.items.map((item, idx) => (
-                      <div key={idx} className="d-flex align-items-center gap-3 mb-8">
-                        <Icon icon="solar:box-bold" className="text-2xl" style={{ color: THEME_GREEN }} />
-                        <div>
-                          <p className="mb-0 fw-bold text-sm">{item.name}</p>
-                          <small className="text-secondary fw-medium">Qty: {item.quantity} • Price: ₹{item.price}</small>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="col-md-3 text-center border-start border-end">
-                    <span className="text-xs text-secondary d-block mb-4">Total Amount</span>
-                    <h5 className="fw-900 mb-0" style={{ color: THEME_GREEN }}>₹{order.totalAmount}</h5>
-                  </div>
-                  <div className="col-md-3 d-flex flex-column gap-2 ps-24">
-                    {/* Status Actions based on Controller logic */}
-                    {order.status === "Placed" && (
-                      <button onClick={() => handleUpdateStatus(order._id, "Shipped")} 
-                        className="btn text-white radius-12 fw-bold py-10 shadow-sm border-0" 
-                        style={{ backgroundColor: ACCENT_MINT }}>
-                        MARK AS SHIPPED
-                      </button>
-                    )}
-                    {order.status === "Shipped" && (
-                      <button onClick={() => handleUpdateStatus(order._id, "Delivered")} 
-                        className="btn text-white radius-12 fw-bold py-10 shadow-sm border-0" 
-                        style={{ backgroundColor: THEME_GREEN }}>
-                        MARK AS DELIVERED
-                      </button>
-                    )}
-                    {order.status === "Delivered" && (
-                       <div className="text-success fw-bold text-center border border-success radius-12 py-8 text-xs">
-                          <Icon icon="solar:check-circle-bold" className="me-1"/> DELIVERED
-                       </div>
-                    )}
-                    <button className="btn btn-outline-neutral radius-12 text-xs fw-bold py-8">VIEW DETAILS</button>
-                  </div>
-                </div>
-              </div>
             </div>
-          ))
-        ) : (
-          <div className="text-center py-80 bg-white radius-24 shadow-sm w-100 mx-3">
-            <Icon icon="solar:clipboard-remove-bold" className="text-6xl text-neutral-200 mb-16" />
-            <p className="text-secondary fw-bold h5">No {activeFilter} orders found.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+
+            <div className='card-body p-24'>
+                <div className='table-responsive'>
+                    <table className='table basic-border-table mb-0 text-nowrap align-middle'>
+                        <thead className="bg-light">
+                            <tr>
+                                <th>Booking ID</th>
+                                <th>Date</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Total Share</th>
+                                <th>Payment</th>
+                                <th>Status</th>
+                                <th className="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {isLoading ? (
+                                <tr><td colSpan="8" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
+                            ) : orders.length > 0 ? (
+                                orders.map((order) => {
+                                    const sellerShare = order.sellerSplitData?.find(s => s.sellerId === sellerId);
+                                    return (
+                                        <tr key={order._id}>
+                                            <td className="fw-bold">#{order._id.slice(-8).toUpperCase()}</td>
+                                            <td className="text-xs">{new Date(order.createdAt).toLocaleDateString('en-GB')}</td>
+                                            <td>
+                                                <div className="d-flex flex-column">
+                                                    <span className="text-sm fw-bold text-dark">{order.customerId?.name || "Zhopingo User"}</span>
+                                                    <span className="text-xxs text-secondary">{order.customerId?.phone}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div className="d-flex flex-column gap-1">
+                                                    {order.items.filter(i => (i.sellerId?._id || i.sellerId) === sellerId).map((item, idx) => (
+                                                        <span key={idx} className="text-xxs fw-medium text-dark-light">• {item.name} (x{item.quantity})</span>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span className="fw-900 text-primary-600 text-sm">₹{sellerShare?.sellerSubtotal || 0}</span>
+                                            </td>
+                                            <td>
+                                                <span className="badge bg-info-50 text-info-main text-xxs px-8 py-4 radius-4">{order.paymentMethod}</span>
+                                            </td>
+                                            <td>
+                                                <span className={`badge px-12 py-6 radius-pill text-xxs ${
+                                                    order.status === 'Delivered' ? 'bg-success-focus text-success-main' :
+                                                    order.status === 'Cancelled' ? 'bg-danger-focus text-danger-main' : 'bg-warning-focus text-warning-main'
+                                                }`}>{order.status}</span>
+                                            </td>
+                                            <td className="text-center">
+                                                <div className="d-flex gap-2 justify-content-center">
+                                                    {order.status === 'Placed' && (
+                                                        <button onClick={() => handleUpdateStatus(order._id, 'Shipped')} className="btn btn-primary-600 btn-xs radius-8 py-6 px-12 fw-bold text-white shadow-sm">Ship Now</button>
+                                                    )}
+                                                    {order.status === 'Shipped' && (
+                                                        <button onClick={() => handleUpdateStatus(order._id, 'Delivered')} className="btn btn-success-600 btn-xs radius-8 py-6 px-12 fw-bold text-white shadow-sm">Mark Delivered</button>
+                                                    )}
+                                                    <button className="btn btn-outline-neutral btn-xs radius-8 py-6 px-12"><Icon icon="solar:eye-bold" /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            ) : (
+                                <tr>
+                                    <td colSpan="8" className="text-center py-80">
+                                        <Icon icon="solar:clipboard-remove-bold" className="text-6xl text-neutral-200 mb-16" />
+                                        <p className="text-secondary fw-bold">No orders found for your shop.</p>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default MyOrders;
