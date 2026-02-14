@@ -1992,7 +1992,7 @@ const MasterLayout = ({ children }) => {
   const handleLogout = () => {
     localStorage.removeItem("userToken");
     localStorage.removeItem("userData");
-    navigate("/"); // ✅ Sign-in page-ku pogum
+    navigate("/sign-in"); // ✅ Sign-in page-ku pogum
   };
   useEffect(() => {
     const handleDropdownClick = (event) => {
@@ -2581,7 +2581,7 @@ const MasterLayout = ({ children }) => {
                    <img 
       src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" 
       alt="admin" 
-      className="w-40-px h-40-px rounded-circle border shadow-sm bg-white" 
+      className="w-40-px h-40-px rounded-circle border shadow-sm" 
     />
                   </button>
 

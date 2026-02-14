@@ -172,7 +172,7 @@ const SubCategoryPage = () => {
         
         <div className='card-body p-24 position-relative' style={{ minHeight: '400px' }}>
           {isLoading && (
-            <div className="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-white opacity-75 z-3">
+            <div className="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center opacity-75 z-3">
               <div className="spinner-border text-primary shadow-sm"></div>
             </div>
           )}
@@ -254,7 +254,7 @@ const SubCategoryPage = () => {
                 <label className="form-label fw-semibold">HSN</label>
                 <input 
                     type="text" 
-                    className="form-control bg-light" 
+                    className="form-control" 
                     value={formData.hsnCode} 
                     readOnly 
                 />
@@ -263,7 +263,7 @@ const SubCategoryPage = () => {
                 <label className="form-label fw-semibold">GST %</label>
                 <input 
                     type="text" 
-                    className="form-control bg-light" 
+                    className="form-control " 
                     value={formData.gstRate ? `${formData.gstRate}%` : ""} 
                     readOnly 
                 />

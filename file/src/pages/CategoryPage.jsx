@@ -171,7 +171,7 @@ const CategoryPage = () => {
 
         <div className='card-body p-24 position-relative' style={{ minHeight: '400px' }}>
           {isLoading && (
-            <div className="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-white opacity-75 z-3">
+            <div className="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center opacity-75 z-3">
               <div className="spinner-border text-primary shadow-sm"></div>
             </div>
           )}
@@ -224,7 +224,8 @@ const CategoryPage = () => {
 
       <div className={`offcanvas offcanvas-end ${isDrawerOpen ? 'show' : ''}`}
         style={{ visibility: isDrawerOpen ? 'visible' : 'hidden', width: '450px', zIndex: 1060 }} tabIndex='-1'>
-        <div className='offcanvas-header border-bottom px-24 py-16 d-flex align-items-center justify-content-between bg-base'>
+       {/* 🌟 'bg-base' remove panni 'bg-transparent' or custom class sethurukkaen */}
+<div className='offcanvas-header border-bottom px-24 py-16 d-flex align-items-center justify-content-between'>
           <h6 className='offcanvas-title fw-semibold'>{isEditMode ? 'Edit Category' : 'Create Category'}</h6>
           <button type='button' className='btn-close shadow-none' onClick={() => setIsDrawerOpen(false)}></button>
         </div>
@@ -247,7 +248,7 @@ const CategoryPage = () => {
 
             <div className="col-12">
               <label className="form-label fw-semibold">GST Rate (%)</label>
-              <input type="text" className="form-control bg-light" value={formData.gstRate} readOnly placeholder="Auto-filled from HSN" />
+              <input type="text" className="form-control" value={formData.gstRate} readOnly placeholder="Auto-filled from HSN" />
             </div>
 
             <div className="col-12">

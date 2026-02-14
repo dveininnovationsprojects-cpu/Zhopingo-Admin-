@@ -114,7 +114,7 @@ const SellerDashboard = () => {
 
     const sidebarControl = () => setSidebarActive(!sidebarActive);
     const mobileMenuControl = () => setMobileMenu(!mobileMenu);
-    const handleLogout = () => { localStorage.clear(); navigate("/"); };
+    const handleLogout = () => { localStorage.clear(); navigate("/sign-in"); };
 
     // Helper: Profile Image Logic
     const getProfileImg = () => {
@@ -146,7 +146,7 @@ const SellerDashboard = () => {
 
             <div className="row gy-4">
                 <div className="col-lg-8">
-                    <div className="card radius-12 border-0 shadow-sm p-24 bg-white h-100">
+                    <div className="card radius-12 border-0 shadow-sm p-24  h-100">
                         <h6 className="fw-bold mb-20 text-primary-light">Weekly Sales Overview</h6>
                         <div style={{ height: "300px" }}>
                             <Line data={lineData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
@@ -154,7 +154,7 @@ const SellerDashboard = () => {
                     </div>
                 </div>
                 <div className="col-lg-4">
-                    <div className="card radius-12 border-0 shadow-sm p-24 bg-white h-100">
+                    <div className="card radius-12 border-0 shadow-sm p-24  h-100">
                         <h6 className="fw-bold mb-20 text-primary-light">Top 7 Selling Items</h6>
                         {topProducts.length > 0 ? topProducts.map((p, i) => (
                             <div key={i} className="d-flex align-items-center justify-content-between mb-16 border-bottom-dashed pb-8">
@@ -195,7 +195,7 @@ const SellerDashboard = () => {
             </aside>
 
             <main className={sidebarActive ? "dashboard-main active" : "dashboard-main"}>
-                <div className='navbar-header px-24 py-16 bg-white border-bottom sticky-top'>
+                <div className='navbar-header px-24 py-16 border-bottom sticky-top'>
                     <div className='row align-items-center justify-content-between'>
                         <div className='col-auto d-flex align-items-center gap-3'>
                             <button className='sidebar-mobile-toggle d-lg-none border-0 bg-transparent' onClick={mobileMenuControl}><Icon icon='heroicons:bars-3-solid' className='text-2xl' /></button>
@@ -232,7 +232,6 @@ const SellerDashboard = () => {
                 <div className='dashboard-main-body p-24'>
                     <div className="mb-24">
                         <h5 className="fw-bold mb-0">Welcome back, {sellerProfile?.name || "Seller"}!</h5>
-                        <p className="text-secondary text-sm mb-0">Monitoring your shop performance.</p>
                     </div>
                     {isLoading && <div className="text-center py-20"><div className="spinner-border text-primary"></div></div>}
                     {activeTab === "dashboard" && renderDashboard()}
@@ -242,7 +241,7 @@ const SellerDashboard = () => {
                     {activeTab === "profile" && <ProfilePage />}
                 </div>
 
-                <footer className='d-footer p-24 border-top bg-white mt-auto'>
+                <footer className='d-footer p-24 border-top  mt-auto'>
                     <p className='mb-0 text-secondary text-sm'>© 2026 Zhopingo Seller Hub. All Rights Reserved.</p>
                 </footer>
             </main>
@@ -252,7 +251,7 @@ const SellerDashboard = () => {
 
 const StatCard = ({ label, val, btn, onClick, color }) => (
     <div className="col-xxl-2 col-sm-6 col-md-4">
-        <div className={`card radius-12 border-0 shadow-sm p-16 h-100 bg-white border-start border-4 border-${color}`}>
+        <div className={`card radius-12 border-0 shadow-sm p-16 h-100  border-start border-4 border-${color}`}>
             <small className="text-secondary fw-bold text-xxs uppercase">{label}</small>
             <h4 className="fw-bold my-12 text-dark">{val}</h4>
             {btn && <button onClick={onClick} className="btn btn-primary-600 btn-xs radius-8 w-100 py-8 fw-bold text-white" style={{fontSize: '10px'}}>{btn}</button>}

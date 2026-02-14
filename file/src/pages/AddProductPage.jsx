@@ -182,7 +182,7 @@ const AddProductPage = () => {
 
                             <div className="col-md-4">
                                 <label className="form-label fw-bold">HSN Code</label>
-                                <input type="text" className="form-control h-48-px radius-8 bg-light fw-bold text-primary-600" value={formData.hsnCode} readOnly />
+                                <input type="text" className="form-control h-48-px radius-8 fw-bold text-primary-600" value={formData.hsnCode} readOnly />
                             </div>
 
                             <div className="col-md-4">

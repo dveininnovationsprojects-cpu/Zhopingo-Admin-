@@ -2877,9 +2877,7 @@ th {
   background-color: transparent !important;
 }
 
-.hover-bg-white:hover {
-  background-color: var(--white) !important;
-}
+
 
 .bg-primary-light {
   background-color: var(--primary-light) !important;
