@@ -15,12 +15,10 @@ const ReelsPage = () => {
     const [description, setDescription] = useState("");
     const [selectedProductId, setSelectedProductId] = useState(""); 
     const [viewReel, setViewReel] = useState(null);
-    
-    // 🌟 Read More State
-    const [isExpanded, setIsExpanded] = useState(false);
-
-    // 🌟 Delete Popup State
     const [deleteModal, setDeleteModal] = useState({ show: false, id: null });
+
+    // 🌟 Read More State to handle vertical expansion
+    const [expandedDescriptions, setExpandedDescriptions] = useState({});
 
     const API_BASE = "https://api.zhopingo.in/api/v1"; 
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -51,6 +49,12 @@ const ReelsPage = () => {
             fetchSellerProducts();
         }
     }, [sellerId]);
+
+    // 🌟 Scrollable Toggle Function
+    const toggleDescription = (e, id) => {
+        e.stopPropagation(); // Prevents reel from opening/closing
+        setExpandedDescriptions(prev => ({ ...prev, [id]: !prev[id] }));
+    };
 
     const handleDeleteClick = (e, reelId) => {
         e.stopPropagation(); 
@@ -90,12 +94,7 @@ const ReelsPage = () => {
         formData.append("productId", selectedProductId);
 
         try {
-            const config = {
-                headers: { 
-                    "Content-Type": "multipart/form-data",
-                    "Authorization": `Bearer ${token}` 
-                }
-            };
+            const config = { headers: { "Content-Type": "multipart/form-data", "Authorization": `Bearer ${token}` } };
             const res = await axios.post(`${API_BASE}/reels/upload`, formData, config);
             if (res.data.success) {
                 toast.success("Reel Posted Successfully!");
@@ -114,17 +113,11 @@ const ReelsPage = () => {
         setSelectedProductId("");
     };
 
-    // 🌟 Close Modal and Reset Read More
-    const closeViewReel = () => {
-        setViewReel(null);
-        setIsExpanded(false);
-    };
-
     return (
         <div className="animate__animated animate__fadeIn">
             <ToastContainer position="top-right" autoClose={2000} theme="colored" />
             
-            <div className="d-flex justify-content-between align-items-center mb-24 p-20 radius-12 shadow-sm border bg-white sticky-top" style={{ zIndex: 10 }}>
+            <div className="d-flex justify-content-between align-items-center mb-24 p-20 radius-12 shadow-sm border bg-white position-relative" style={{ zIndex: 1 }}>
                 <div>
                     <h5 className="fw-bold mb-0 text-primary-600 uppercase ls-1">My Reels Manager</h5>
                     <p className="text-secondary text-xs mb-0">Review and manage your store promotions</p>
@@ -137,16 +130,16 @@ const ReelsPage = () => {
             <div className="row gy-4">
                 {reels.length > 0 ? reels.map((reel) => (
                     <div className="col-sm-6 col-md-4 col-xl-3" key={reel._id}>
-                        <div className="card radius-16 border-0 overflow-hidden shadow-sm bg-black position-relative cursor-pointer transition-all hover-scale" style={{ height: '400px', zIndex: 1 }} onClick={() => setViewReel(reel)}>
+                        <div className="card radius-16 border-0 overflow-hidden shadow-sm bg-black position-relative cursor-pointer transition-all hover-scale" 
+                             style={{ height: '400px', zIndex: 0 }} onClick={() => setViewReel(reel)}>
                             
-                            {/* 🌟 SCROLL FIX: Stacking logic updated to prevent delete button leaking */}
-                            <button onClick={(e) => handleDeleteClick(e, reel._id)} className="position-absolute top-0 end-0 m-12 btn btn-danger p-8 rounded-circle d-flex opacity-75 hover-opacity-100 shadow-lg border-0" style={{ zIndex: 2 }}>
+                            <button onClick={(e) => handleDeleteClick(e, reel._id)} className="position-absolute top-0 end-0 m-12 btn btn-danger p-8 rounded-circle d-flex z-1 opacity-75 hover-opacity-100 shadow-lg border-0">
                                 <Icon icon="solar:trash-bin-minimalistic-bold" className="text-lg" />
                             </button>
 
                             <video src={reel.videoUrl} className="w-100 h-100 object-fit-cover" loop muted onMouseOver={e => e.target.play()} onMouseOut={e => e.target.pause()} />
                             
-                            <div className="position-absolute bottom-0 w-100 p-16" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.9))', zIndex: 2 }}>
+                            <div className="position-absolute bottom-0 w-100 p-16" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.9))', zIndex: 1 }}>
                                 {reel.productId && (
                                     <div className="p-8 radius-10 mb-8 border border-white-10 d-flex align-items-center gap-2" 
                                          style={{ background: 'rgba(255, 255, 255, 0.08)', backdropFilter: 'blur(8px)' }}>
@@ -154,9 +147,53 @@ const ReelsPage = () => {
                                         <p className="mb-0 text-xxs fw-bold text-white text-truncate uppercase ls-1">{reel.productId.name}</p>
                                     </div>
                                 )}
-                                <p className="text-white text-xs mb-8 px-1 opacity-90 line-clamp-2" style={{ overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical' }}>
-                                    {reel.description || "Promotional video"}
-                                </p>
+
+                                {/* 🌟 Grid Vertical Scroll logic */}
+                               {/* 🌟 Grid Vertical Scroll Description Fix */}
+<div className="text-white text-xs mb-8 px-1 opacity-90" 
+     style={{ 
+        maxHeight: expandedDescriptions[reel._id] ? '100px' : '38px', 
+        overflowY: expandedDescriptions[reel._id] ? 'auto' : 'hidden',
+        transition: 'all 0.3s ease-in-out',
+        lineHeight: '1.4',
+        cursor: 'default'
+     }}>
+    {reel.description && reel.description.length > 40 && !expandedDescriptions[reel._id] ? (
+        <p className="mb-0">
+            {reel.description.substring(0, 40)}... 
+            {/* 🌟 StopPropagation here stops video modal from opening */}
+            <span 
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setExpandedDescriptions(prev => ({ ...prev, [reel._id]: true }));
+                }} 
+                className="text-primary-200 fw-black ms-1 cursor-pointer"
+                style={{ textDecoration: 'none' }}
+            >
+                Read More
+            </span>
+        </p>
+    ) : (
+        <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>
+            {reel.description}
+            {reel.description && reel.description.length > 40 && (
+                <span 
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setExpandedDescriptions(prev => ({ ...prev, [reel._id]: false }));
+                    }} 
+                    className="text-primary-200 fw-black ms-2 cursor-pointer small"
+                    style={{ textDecoration: 'none' }}
+                >
+                    Show Less
+                </span>
+            )}
+        </p>
+    )}
+</div>
+
                                 <div className="d-flex align-items-center text-white gap-2">
                                     <Icon icon="solar:heart-linear" className="text-white opacity-75" />
                                     <small className="fw-bold opacity-80 text-xxs">{reel.likes || 0} Likes</small>
@@ -172,36 +209,21 @@ const ReelsPage = () => {
                 )}
             </div>
 
-            {/* 🌟 FULL VIEW MODAL WITH READ MORE LOGIC */}
+            {/* FULL VIEW MODAL */}
             {viewReel && (
-                <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center z-3" style={{ backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 99999 }} onClick={closeViewReel}>
+                <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center z-3" style={{ backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999 }}>
                     <div className="position-relative animate__animated animate__zoomIn" style={{ width: '100%', maxWidth: '380px', height: '85vh' }} onClick={(e) => e.stopPropagation()}>
-                        <button className="position-absolute top-0 end-0 m-16 btn btn-white rounded-circle p-8 d-flex z-3 shadow" onClick={closeViewReel}>
+                        <button className="position-absolute top-0 end-0 m-16 btn btn-white rounded-circle p-8 d-flex z-3 shadow" onClick={() => setViewReel(null)}>
                             <Icon icon="solar:close-circle-bold" className="text-2xl text-primary-600" />
                         </button>
                         <video src={viewReel.videoUrl} className="w-100 h-100 radius-24 shadow-lg" style={{ objectFit: 'cover' }} controls autoPlay loop />
-                        
                         <div className="position-absolute bottom-0 w-100 p-24 radius-24" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.95))' }}>
-                            <div className="d-flex align-items-center gap-2 mb-12">
-                                <Icon icon="solar:heart-linear" className="text-white text-xl opacity-75" />
-                                <span className="text-white fw-bold text-sm">{viewReel.likes || 0} Likes</span>
-                            </div>
+                            <div className="d-flex align-items-center gap-2 mb-12"><Icon icon="solar:heart-linear" className="text-white text-xl opacity-75" /><span className="text-white fw-bold text-sm">{viewReel.likes || 0} Likes</span></div>
                             <h6 className="text-white fw-bold mb-4">@{userData.shopName || "Store"}</h6>
                             
-                            {/* 🌟 READ MORE DESCRIPTION LOGIC */}
-                            <div className="mb-16 px-1">
-                                <p className={`text-white-50 text-xs mb-0 ${!isExpanded ? 'text-truncate' : ''}`} 
-                                   style={isExpanded ? { maxHeight: '150px', overflowY: 'auto' } : {}}>
-                                    {viewReel.description}
-                                </p>
-                                {viewReel.description?.length > 40 && (
-                                    <span 
-                                        className="text-white fw-bold text-xxs cursor-pointer opacity-75 hover-opacity-100"
-                                        onClick={() => setIsExpanded(!isExpanded)}
-                                    >
-                                        {isExpanded ? '...show less' : '...read more'}
-                                    </span>
-                                )}
+                            {/* 🌟 Modal Vertical Scroll Description */}
+                            <div className="text-white-50 text-xs mb-16 px-1 custom-scroll" style={{ maxHeight: '120px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+                                {viewReel.description}
                             </div>
 
                             {viewReel.productId && (
@@ -217,13 +239,11 @@ const ReelsPage = () => {
 
             {/* DELETE MODAL */}
             {deleteModal.show && (
-                <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 99999 }}>
+                <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999 }}>
                     <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '380px' }}>
                         <div className="modal-content radius-24 border-0 shadow-lg bg-white">
                             <div className="modal-body text-center p-40">
-                                <div className="w-80-px h-80-px bg-danger-focus text-danger-600 rounded-circle d-inline-flex justify-content-center align-items-center mb-24">
-                                    <Icon icon="solar:trash-bin-minimalistic-bold" className="text-4xl" />
-                                </div>
+                                <div className="w-80-px h-80-px bg-danger-focus text-danger-600 rounded-circle d-inline-flex justify-content-center align-items-center mb-24"><Icon icon="solar:trash-bin-minimalistic-bold" className="text-4xl" /></div>
                                 <h5 className="mb-12 fw-bold text-dark">Delete Reel?</h5>
                                 <div className="d-flex justify-content-center gap-3">
                                     <button onClick={() => setDeleteModal({show:false, id:null})} className="btn btn-outline-neutral px-24 radius-12 fw-bold">Cancel</button>
@@ -240,14 +260,17 @@ const ReelsPage = () => {
                 <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 9999 }}>
                     <div className="modal-dialog modal-dialog-centered">
                         <div className="modal-content radius-24 border-0 shadow-lg overflow-hidden">
-                            <div className="modal-header border-0 p-24 bg-white"><h5 className="fw-bold mb-0">Publish New Reel</h5><button onClick={() => setShowModal(false)} className="btn-close shadow-none"></button></div>
+                            <div className="modal-header border-0 p-24 bg-white"><h5 className="fw-bold mb-0 text-dark">Publish New Reel</h5><button onClick={() => setShowModal(false)} className="btn-close shadow-none"></button></div>
                             <form onSubmit={handleUpload} className="modal-body p-24 pt-0 bg-white">
                                 <div className="radius-16 mb-20 d-flex flex-column align-items-center justify-content-center cursor-pointer overflow-hidden position-relative bg-light border border-dashed border-primary-200" style={{ height: '260px' }} onClick={() => document.getElementById('reelVideo').click()}>
                                     {videoPreview ? <video src={videoPreview} className="w-100 h-100" style={{ objectFit: 'contain' }} /> : 
                                     <div className="text-center text-primary-600"><Icon icon="solar:videocamera-add-bold" className="display-4 mb-8" /><p className="text-xs fw-bold">Click to select promotion video</p></div>}
                                     <input type="file" id="reelVideo" hidden accept="video/*" onChange={handleVideoChange} />
                                 </div>
-                                <div className="mb-20"><label className="fw-bold text-xs mb-8 uppercase text-secondary">Video Caption</label><textarea className="form-control radius-12 p-12 text-sm" rows="2" placeholder="Tell something..." value={description} onChange={e => setDescription(e.target.value)}></textarea></div>
+                                <div className="mb-20">
+                                    <label className="fw-bold text-xs mb-8 uppercase text-secondary">Video Caption</label>
+                                    <textarea className="form-control radius-12 p-12 text-sm" rows="3" placeholder="Tell something..." value={description} onChange={e => setDescription(e.target.value)} style={{ whiteSpace: 'pre-wrap' }}></textarea>
+                                </div>
                                 <div className="mb-32">
                                     <label className="fw-bold text-xs mb-12 uppercase text-secondary">Select Linked Product *</label>
                                     <div className="d-flex gap-2 overflow-x-auto pb-12 scroll-hide">
@@ -258,23 +281,9 @@ const ReelsPage = () => {
                                         ))}
                                     </div>
                                 </div>
-                                <button 
-                                    type="submit" 
-                                    disabled={loading} 
-                                    className="btn btn-primary-600 w-100 py-16 radius-12 text-white fw-bold shadow-lg uppercase ls-1"
-                                    style={{ backgroundColor: '#485EC4', border: 'none' }}
-                                >
-                                    {loading ? (
-                                        <div className="d-flex align-items-center justify-content-center gap-2">
-                                            <span className="spinner-border spinner-border-sm text-white"></span>
-                                            <span className="text-white">POSTING...</span>
-                                        </div>
-                                    ) : (
-                                        <div className="d-flex align-items-center justify-content-center gap-2">
-                                            <Icon icon="solar:upload-minimalistic-bold" className="fs-5 text-white" />
-                                            <span className="text-white">POST REEL</span>
-                                        </div>
-                                    )}
+                                <button type="submit" disabled={loading} className="btn btn-primary-600 w-100 py-16 radius-12 text-white fw-bold shadow-lg uppercase ls-1" style={{ backgroundColor: '#485EC4' }}>
+                                    {loading ? (<div className="d-flex align-items-center justify-content-center gap-2"><span className="spinner-border spinner-border-sm text-white"></span><span className="text-white">POSTING...</span></div>) : 
+                                    (<div className="d-flex align-items-center justify-content-center gap-2"><Icon icon="solar:upload-minimalistic-bold" className="fs-5 text-white" /><span className="text-white">POST REEL</span></div>)}
                                 </button>
                             </form>
                         </div>
