@@ -2289,7 +2289,7 @@ const MasterLayout = ({ children }) => {
               </ul>
             </li>
             {/* Attributes Management Link - Added with Tag Icon */}
-<li>
+ {/*<li>
   <NavLink
     to='/attributes'
     className={(navData) => (navData.isActive ? "active-page" : "")}
@@ -2297,7 +2297,7 @@ const MasterLayout = ({ children }) => {
     <Icon icon='solar:tag-linear' className='menu-icon' />
     <span>Attributes</span>
   </NavLink>
-</li>
+</li>*/}
 
             {/* Reels Management - Row 11-16 */}
            <li>
