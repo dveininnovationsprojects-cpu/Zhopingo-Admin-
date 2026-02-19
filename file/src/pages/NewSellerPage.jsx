@@ -11,6 +11,9 @@ const NewSellerPage = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // 🌟 Pagination States
+const [currentPage, setCurrentPage] = useState(1);
+const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Production API Base URL
   const API_BASE_URL = "https://api.zhopingo.in/api/v1/admin";
@@ -69,9 +72,11 @@ const NewSellerPage = () => {
       <ToastContainer position="top-right" autoClose={3000} theme="colored" />
       
       <div className='card h-100 p-0 radius-12'>
-        <div className='card-header border-bottom bg-base py-16 px-24'>
-          <h6 className='text-lg fw-semibold mb-0'>New Seller Requests</h6>
-        </div>
+        {/* 🌟 Header with Total Request Count */}
+<div className='card-header border-bottom bg-base py-16 px-24'>
+    <h6 className='text-lg fw-semibold mb-0'>New Seller Requests</h6>
+    <p className="text-secondary-light text-xs mb-0 fw-bold">Total requests: {sellers.length}</p>
+</div>
         
         <div className='card-body p-24 position-relative' style={{ minHeight: '400px' }}>
           {isLoading && (
@@ -79,6 +84,7 @@ const NewSellerPage = () => {
               <div className="spinner-border text-primary"></div>
             </div>
           )}
+          
 
           <div className='table-responsive'>
             <table className='table basic-border-table mb-0 text-nowrap'>
@@ -94,34 +100,42 @@ const NewSellerPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {sellers.length > 0 ? sellers.map((item, index) => (
-                  <tr key={item._id}>
-                    <td>{index + 1}</td>
-                    <td>{item.name}</td>
-                    <td>{item.shopName || "N/A"}</td>
-                    <td>
-                        <div className="d-flex flex-column">
-                            <span className="text-sm fw-medium">{item.email}</span>
-                            <span className="text-xs text-secondary">{item.phone}</span>
-                        </div>
-                    </td>
-                    <td><span className="badge bg-warning-focus text-warning-main px-12 py-4 radius-4 text-xs">Pending Review</span></td>
-                    <td>
-                      <button onClick={() => { setSelectedSeller(item); setIsDrawerOpen(true); }}
-                        className="btn btn-primary-100 text-primary-600 px-12 py-6 radius-4 d-flex align-items-center gap-2">
-                        <Icon icon="lucide:file-text" /> Review Docs
-                      </button>
-                    </td>
-                    <td>
-                      <button onClick={() => { setSelectedSeller(item); setShowConfirmModal(true); }}
-                        className="btn btn-success-600 text-white px-16 py-6 radius-4 text-sm shadow-sm">
-                        Verify
-                      </button>
-                    </td>
-                  </tr>
-                )) : (
-                   <tr><td colSpan="7" className="text-center py-4">No pending seller verification requests.</td></tr>
-                )}
+               {/* 🌟 Pagination Logic Integration */}
+{(() => {
+    const indexOfLastItem = currentPage * rowsPerPage;
+    const indexOfFirstItem = indexOfLastItem - rowsPerPage;
+    const currentItems = sellers.slice(indexOfFirstItem, indexOfLastItem);
+
+    return currentItems.length > 0 ? currentItems.map((item, index) => (
+        <tr key={item._id}>
+            <td>{indexOfFirstItem + index + 1}</td>
+            <td className="fw-bold">{item.name}</td>
+            <td className="text-primary-600 fw-bold">{item.shopName || "N/A"}</td>
+            {/* Rest of the TD remains same... */}
+            <td>
+                <div className="d-flex flex-column">
+                    <span className="text-sm fw-medium">{item.email}</span>
+                    <span className="text-xs text-secondary">{item.phone}</span>
+                </div>
+            </td>
+            <td><span className="badge bg-warning-focus text-warning-main px-12 py-4 radius-4 text-xs">Pending Review</span></td>
+            <td>
+                <button onClick={() => { setSelectedSeller(item); setIsDrawerOpen(true); }}
+                    className="btn btn-primary-100 text-primary-600 px-12 py-6 radius-4 d-flex align-items-center gap-2">
+                    <Icon icon="lucide:file-text" /> Review Docs
+                </button>
+            </td>
+            <td>
+                <button onClick={() => { setSelectedSeller(item); setShowConfirmModal(true); }}
+                    className="btn btn-success-600 text-white px-16 py-6 radius-4 text-sm shadow-sm">
+                    Verify
+                </button>
+            </td>
+        </tr>
+    )) : (
+        <tr><td colSpan="7" className="text-center py-80 text-secondary italic">No pending seller verification requests.</td></tr>
+    );
+})()}
               </tbody>
             </table>
           </div>
@@ -251,6 +265,40 @@ const NewSellerPage = () => {
       )}
 
       {(isDrawerOpen || showConfirmModal) && <div className="offcanvas-backdrop fade show" style={{ zIndex: 1050 }} onClick={() => { setIsDrawerOpen(false); setShowConfirmModal(false); }}></div>}
+      {/* 🌟 Advanced Dynamic Pagination */}
+<div className="card-footer bg-white border-top py-16 px-24 d-flex align-items-center justify-content-end gap-3 flex-wrap">
+    <div className="d-flex align-items-center gap-2 border-end pe-3">
+        <span className="text-xs text-secondary fw-bold">Rows:</span>
+        <select className="form-select form-select-sm w-auto radius-8 border-0 fw-bold bg-light" value={rowsPerPage} onChange={e => {setRowsPerPage(Number(e.target.value)); setCurrentPage(1);}}>
+            <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+        </select>
+    </div>
+
+    <div className="d-flex align-items-center gap-2">
+        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm"><Icon icon="solar:alt-arrow-left-linear" /></button>
+        
+        <div className="d-flex gap-1 align-items-center">
+            {(() => {
+                const totalPagesCount = Math.ceil(sellers.length / rowsPerPage);
+                const pages = [];
+                if (totalPagesCount <= 5) { for (let i = 1; i <= totalPagesCount; i++) pages.push(i); }
+                else {
+                    pages.push(1);
+                    if (currentPage > 3) pages.push('...');
+                    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPagesCount - 1, currentPage + 1); i++) { pages.push(i); }
+                    if (currentPage < totalPagesCount - 2) pages.push('...');
+                    if (totalPagesCount > 1) pages.push(totalPagesCount);
+                }
+                return [...new Set(pages)].map((p, idx) => (
+                    p === '...' ? <span key={idx} className="px-2 text-muted">...</span> :
+                    <button key={idx} onClick={() => setCurrentPage(p)} className={`btn btn-sm radius-8 border-0 w-32-px h-32-px p-0 ${currentPage === p ? 'btn-primary shadow-sm' : 'btn-light text-secondary'}`}>{p}</button>
+                ));
+            })()}
+        </div>
+
+        <button disabled={currentPage >= Math.ceil(sellers.length / rowsPerPage)} onClick={() => setCurrentPage(prev => prev + 1)} className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm"><Icon icon="solar:alt-arrow-right-linear" /></button>
+    </div>
+</div>
     </MasterLayout>
   );
 };

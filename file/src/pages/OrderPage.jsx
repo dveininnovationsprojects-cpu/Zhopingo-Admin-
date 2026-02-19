@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import MasterLayout from "../masterLayout/MasterLayout";
 import { Icon } from "@iconify/react";
 import axios from "axios";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const OrderPage = () => {
     const [orders, setOrders] = useState([]);
@@ -9,9 +11,19 @@ const OrderPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     
-    // 🌟 Filter States
-    const [selectedStatuses, setSelectedStatuses] = useState([]); // Empty means ALL
-    const [selectedDays, setSelectedDays] = useState("Last 7 Days");
+    // Pagination States
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+
+    // Filter States
+    const [statusFilter, setStatusFilter] = useState("All Status");
+    const [selectedDays, setSelectedDays] = useState("All Time");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+
+    // Modal States
+    const [viewOrder, setViewOrder] = useState(null);
+    const [multiSellerView, setMultiSellerView] = useState(null);
 
     const API_BASE = "https://api.zhopingo.in/api/v1/orders/all"; 
 
@@ -23,146 +35,322 @@ const OrderPage = () => {
             const token = localStorage.getItem("userToken");
             const config = { headers: { Authorization: `Bearer ${token}` } };
             const res = await axios.get(API_BASE, config);
-            if (res.data.success) {
-                setOrders(res.data.data);
-            }
-        } catch (err) { console.error("Order fetch error:", err); } 
+            if (res.data.success) setOrders(res.data.data);
+        } catch (err) { console.error("Fetch error", err); } 
         finally { setIsLoading(false); }
     };
 
-    // 🌟 1. ADVANCED FILTER LOGIC (Status + Days + Search)
+    // 🌟 1. SYNCED FILTER LOGIC
     useEffect(() => {
         let results = [...orders];
 
-        // Search Filter
-        if (searchQuery) {
-            results = results.filter(o => 
-                o._id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                o.customerId?.phone?.includes(searchQuery)
-            );
-        }
-
-        // Status Tag Filter
-        if (selectedStatuses.length > 0) {
-            results = results.filter(o => selectedStatuses.includes(o.status));
-        }
-
-        // Days Filter Logic
-        const now = new Date();
-        if (selectedDays !== "All Time") {
+        if (startDate && endDate) {
+            results = results.filter(o => {
+                const date = new Date(o.createdAt).toISOString().split('T')[0];
+                return date >= startDate && date <= endDate;
+            });
+        } 
+        else if (selectedDays !== "All Time") {
+            const now = new Date();
             results = results.filter(o => {
                 const orderDate = new Date(o.createdAt);
-                const diffTime = Math.abs(now - orderDate);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
+                const diffDays = Math.ceil(Math.abs(now - orderDate) / (1000 * 60 * 60 * 24));
                 if (selectedDays === "Today") return orderDate.toDateString() === now.toDateString();
                 if (selectedDays === "Yesterday") {
                     const yesterday = new Date();
                     yesterday.setDate(now.getDate() - 1);
                     return orderDate.toDateString() === yesterday.toDateString();
                 }
-                if (selectedDays === "Last 3 Days") return diffDays <= 3;
                 if (selectedDays === "Last 7 Days") return diffDays <= 7;
-                if (selectedDays === "Last 15 Days") return diffDays <= 15;
                 if (selectedDays === "Last 30 Days") return diffDays <= 30;
                 return true;
             });
         }
 
-        setFilteredOrders(results);
-    }, [searchQuery, selectedStatuses, selectedDays, orders]);
+        if (statusFilter !== "All Status") results = results.filter(o => o.status === statusFilter);
+        if (searchQuery) {
+            results = results.filter(o => 
+                o._id.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                o.customerId?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
 
-    // UI Helper Functions
-    const toggleStatus = (status) => {
-        setSelectedStatuses(prev => 
-            prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
-        );
+        setFilteredOrders(results);
+        setCurrentPage(1);
+    }, [searchQuery, statusFilter, selectedDays, startDate, endDate, orders]);
+
+    // 🌟 2. HEADER STATS CALCULATIONS (Online vs Wallet)
+    const onlinePayments = filteredOrders.filter(o => o.paymentMethod === "ONLINE").length;
+    const walletPayments = filteredOrders.filter(o => o.paymentMethod === "WALLET").length;
+
+    // 🌟 3. INVOICE PDF GENERATION logic
+    const downloadInvoice = (order) => {
+        const doc = new jsPDF();
+        doc.setFontSize(16); doc.text("ZHOPINGO TAX INVOICE", 14, 20);
+        doc.setFontSize(10);
+        doc.text(`Order Id: #${order._id.slice(-8).toUpperCase()}`, 14, 30);
+        doc.text(`Order On: ${new Date(order.createdAt).toLocaleString()}`, 14, 35);
+        doc.text(`Customer Name: ${order.customerId?.name || "User"}`, 14, 45);
+        doc.text(`Address: ${order.shippingAddress?.flatNo || ""}, ${order.shippingAddress?.pincode || ""}`, 14, 50);
+        
+        const tableData = order.items.map(item => [item.product?.name || item.name, item.quantity, `₹${item.price}`, `₹${item.price * item.quantity}`]);
+        autoTable(doc, { head: [['Item Name', 'Qty', 'Price', 'Total']], body: tableData, startY: 60, theme: 'grid' });
+        
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.text(`Total Amount: ₹${order.totalAmount}`, 14, finalY + 7);
+        doc.save(`Invoice_${order._id.slice(-8)}.pdf`);
     };
+
+    const indexOfLastOrder = currentPage * rowsPerPage;
+    const indexOfFirstOrder = indexOfLastOrder - rowsPerPage;
+    const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
 
     return (
         <MasterLayout>
-            <div className='card h-100 p-0 radius-12 border-0 shadow-sm'>
-                {/* 🌟 HEADER WITH SYNCED FILTERS */}
-                <div className='card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between flex-wrap gap-3'>
-                    <div className="d-flex align-items-center gap-3 flex-wrap">
-                        <h6 className='text-lg fw-semibold mb-0'>Order Bookings</h6>
-                        
-                        <input 
-                            type="text" className="form-control radius-8" placeholder="Search ID / Phone" 
-                            style={{ width: '200px' }} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-
-                        {/* Status Multi-Select Tags */}
-                        <div className="d-flex gap-2 flex-wrap">
-                            {["Placed", "Shipped", "Delivered", "Cancelled", "Pending"].map(status => (
-                                <button 
-                                    key={status}
-                                    onClick={() => toggleStatus(status)}
-                                    className={`btn btn-sm radius-8 px-12 py-6 border ${selectedStatuses.includes(status) ? 'btn-primary text-white' : 'btn-outline-primary-100 text-primary-600 bg-primary-50'}`}
-                                >
-                                    {status} {selectedStatuses.includes(status) && <Icon icon="lucide:check" className="ms-1" />}
-                                </button>
-                            ))}
+            <div className='card h-100 p-0 radius-12 border-0 shadow-sm overflow-hidden'>
+                {/* 🌟 DYNAMIC HEADER WITH STATS */}
+                <div className='card-header border-bottom bg-white py-20 px-24'>
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-16">
+                        <div>
+                            <h5 className='mb-0 fw-bold'>Orders</h5>
+                            <div className="d-flex align-items-center gap-3 mt-4">
+                                <span className="text-secondary text-xs fw-bold border-end pe-3">Total: {filteredOrders.length}</span>
+                                <span className="text-success-main text-xs fw-bold border-end pe-3">Online: {onlinePayments}</span>
+                                <span className="text-info-main text-xs fw-bold">Wallet: {walletPayments}</span>
+                            </div>
                         </div>
 
-                        {/* Days Dropdown */}
-                        <select 
-                            className="form-select w-auto radius-8" 
-                            value={selectedDays} 
-                            onChange={(e) => setSelectedDays(e.target.value)}
-                        >
-                            <option>Today</option>
-                            <option>Yesterday</option>
-                            <option>Last 3 Days</option>
-                            <option>Last 7 Days</option>
-                            <option>Last 15 Days</option>
-                            <option>Last 30 Days</option>
-                            <option>All Time</option>
-                        </select>
+                        <div className="d-flex align-items-center gap-3 flex-wrap">
+                            <div className="d-flex align-items-center gap-2 bg-light p-4 radius-8 border">
+                                <input type="date" className="form-control-sm border-0 bg-transparent text-xs" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                                <span className="text-muted text-xs">to</span>
+                                <input type="date" className="form-control-sm border-0 bg-transparent text-xs" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                            </div>
+                            <select className="form-select form-select-sm w-auto radius-8" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                                <option>All Status</option><option>Placed</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option><option>Returned</option>
+                            </select>
+                            <select className="form-select form-select-sm w-auto radius-8" value={selectedDays} onChange={e => setSelectedDays(e.target.value)}>
+                                <option>All Time</option><option>Today</option><option>Yesterday</option><option>Last 7 Days</option><option>Last 30 Days</option>
+                            </select>
+                            <div className="position-relative">
+                                <input type="text" className="form-control form-control-sm radius-8 ps-32" placeholder="Search Order ID / Name..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                                <Icon icon="solar:magnifer-linear" className="position-absolute top-50 start-0 translate-middle-y ms-10 text-secondary" />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className='card-body p-24 position-relative'>
-                    {isLoading && <div className="text-center py-50"><div className="spinner-border text-primary"></div></div>}
-                    
+                <div className='card-body p-0'>
                     <div className='table-responsive'>
                         <table className='table basic-border-table mb-0 text-nowrap align-middle'>
-                            <thead>
+                            <thead className="bg-light">
                                 <tr>
-                                    <th>S.no</th><th>Booking Id</th><th>Booked Date</th><th>Customer</th>
-                                    <th>Phone</th><th>Items</th><th>Total</th><th>Payment</th>
-                                    <th>Address</th><th>Status</th>
+                                    <th>S.No</th><th>Order Id</th><th>Order Date</th><th> Product Name</th>
+                                    <th>Customer Name</th><th>Seller Details</th><th>Phone Number</th>
+                                    <th>Address Details</th><th>Payment Mode</th><th>Total Amount</th>
+                                    <th>Status</th><th>View Invoice</th><th>View Details</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredOrders.length > 0 ? (
-                                    filteredOrders.map((order, index) => (
-                                        <tr key={order._id}>
-                                            <td>{index + 1}</td>
-                                            <td className="fw-bold">#{order._id.slice(-8).toUpperCase()}</td>
-                                            <td className="text-xs">{new Date(order.createdAt).toLocaleDateString('en-GB')}</td>
-                                            <td>{order.customerId?.name || "Zhopingo User"}</td>
-                                            <td>{order.customerId?.phone || "N/A"}</td>
-                                            <td className="text-center"><span className="badge bg-neutral-100 text-neutral-800">{order.items?.length} Items</span></td>
-                                            <td className="fw-900 text-primary-600">₹{order.totalAmount}</td>
-                                            <td><span className="text-xs fw-bold px-8 py-4 radius-4 bg-info-50 text-info-main">{order.paymentMethod}</span></td>
-                                            <td className="text-xs">{order.shippingAddress?.pincode}</td>
-                                            <td>
-                                                <span className={`badge px-12 py-6 radius-pill text-xs ${
-                                                    order.status === 'Delivered' ? 'bg-success-focus text-success-main' :
-                                                    order.status === 'Cancelled' ? 'bg-danger-focus text-danger-main' : 'bg-warning-focus text-warning-main'
-                                                }`}>{order.status}</span>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr><td colSpan="10" className="text-center py-80 text-muted">No orders match these filters.</td></tr>
+                                {isLoading ? (
+                                    <tr><td colSpan="13" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
+                                ) : currentOrders.length > 0 ? currentOrders.map((order, index) => (
+                                    <tr key={order._id}>
+                                        <td>{indexOfFirstOrder + index + 1}</td>
+                                        <td className="fw-bold text-primary-600">#{order._id.slice(-8).toUpperCase()}</td>
+                                        <td className="text-xs">{new Date(order.createdAt).toLocaleDateString('en-GB')}</td>
+                                        <td>
+                                            <button onClick={() => setViewOrder({ ...order, showDownload: false })} className="btn btn-sm radius-8 px-12 py-6 border-0 d-flex align-items-center gap-1" style={{ backgroundColor: '#F2F4F7', color: '#344054', fontSize: '11px', fontWeight: '700' }}>
+                                                <Icon icon="solar:box-minimalistic-bold" className="text-secondary" /> {order.items?.length || 0} Items
+                                            </button>
+                                        </td>
+                                        <td><div className="fw-bold text-dark text-sm">{order.customerId?.name || "User"}</div></td>
+                                        
+                                        {/* 🌟 SELLER DETAILS SYNC */}
+                                        <td>
+                                            {order.items && order.items.length > 0 ? (
+                                                <div className="d-flex flex-column">
+                                                    <span className="text-xs fw-bold text-primary-600">{order.items[0].sellerId?.name}</span>
+                                                    <small className="text-muted italic" style={{ fontSize: '10px' }}>{order.items[0].sellerId?.shopName || "Admin Hub"}</small>
+                                                    {order.items.length > 1 && (
+                                                        <button onClick={(e) => { e.stopPropagation(); setMultiSellerView(order.items); }} className="btn btn-sm p-0 text-info-main fw-black text-xxs text-start border-0 bg-transparent underline">+ More Sellers</button>
+                                                    )}
+                                                </div>
+                                            ) : null}
+                                        </td>
+                                        
+                                        <td className="text-sm">{order.customerId?.phone || "N/A"}</td>
+                                        
+                                        {/* 🌟 ADDRESS DETAILS COLUMN */}
+                                        <td>
+                                            <div className="d-flex flex-column" style={{ maxWidth: '180px', whiteSpace: 'normal' }}>
+                                                <span className="text-xxs fw-bold text-dark">{order.shippingAddress?.receiverName}</span>
+                                                <small className="text-muted" style={{ fontSize: '10px' }}>{order.shippingAddress?.flatNo}, {order.shippingAddress?.pincode}</small>
+                                            </div>
+                                        </td>
+
+                                        <td><span className={`badge px-12 py-6 radius-4 text-xxs uppercase fw-bold ${order.paymentMethod === 'ONLINE' ? 'bg-success-focus text-success-main' : 'bg-info-focus text-info-main'}`}>{order.paymentMethod}</span></td>
+                                        <td className="fw-900 text-sm">₹{order.totalAmount}</td>
+                                    {/* 🌟 4 & 5. Status color sync */}
+{/* 🌟 4 & 5. Status Colors & Shadow Design Sync */}
+<td>
+    <span className={`badge px-16 py-8 radius-pill text-xxs fw-black uppercase ls-1 shadow-sm animate__animated animate__fadeIn`}
+        style={{
+            // 🌟 Dynamic Colors & Blue Shadow logic
+            backgroundColor: 
+                order.status === 'Delivered' ? '#E7F7EF' : // Light Green
+                order.status === 'Placed' ? '#FFF4E5' :    // Light Orange
+                order.status === 'Shipped' ? '#E8EFFF' :   // Light Blue
+                '#F2F4F7', // Default Grey
+            
+            color: 
+                order.status === 'Delivered' ? '#28C76F' : // Dark Green
+                order.status === 'Placed' ? '#FF9F43' :    // Dark Orange
+                order.status === 'Shipped' ? '#485EC4' :   // Dark Blue
+                '#5E6366',
+
+           
+            boxShadow: order.status === 'Shipped' ? '0 0 10px rgba(72, 94, 196, 0.2)' : 'none',
+            display: 'inline-block',
+            minWidth: '90px',
+            textAlign: 'center'
+        }}
+    >
+        {order.status}
+    </span>
+</td>                                 
+                                        {/* 🌟 INVOICE & DETAILS ACTIONS */}
+                                        <td>
+                                            <div className="d-flex align-items-center gap-2">
+                                                <button onClick={() => setViewOrder({ ...order, showDownload: true })} className="btn btn-sm btn-info-focus text-info-main p-6 radius-8 border-0 shadow-sm"><Icon icon="solar:eye-bold" /></button>
+                                                <button onClick={() => downloadInvoice(order)} className="btn btn-sm btn-outline-primary p-6 radius-8 shadow-sm"><Icon icon="solar:download-bold" /></button>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <button onClick={() => setViewOrder({ ...order, showDownload: true })} className="btn btn-sm btn-primary-600 p-6 radius-8 shadow-sm"><Icon icon="solar:eye-bold" /></button>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr><td colSpan="13" className="text-center py-80 text-muted">No matching orders found.</td></tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
                 </div>
+
+               {/* 🌟 Advanced Dynamic Pagination */}
+<div className="card-footer bg-white border-top py-16 px-24 d-flex align-items-center justify-content-end gap-3 flex-wrap">
+    <div className="d-flex align-items-center gap-2 border-end pe-3">
+        <span className="text-xs text-secondary fw-bold">Rows:</span>
+        <select className="form-select form-select-sm w-auto radius-8 border-0 fw-bold" value={rowsPerPage} onChange={e => setRowsPerPage(Number(e.target.value))}>
+            <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+        </select>
+    </div>
+
+    <div className="d-flex align-items-center gap-2">
+        {/* Previous Button */}
+        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm"><Icon icon="solar:alt-arrow-left-linear" /></button>
+
+        {/* Dynamic Page Numbers with Dots */}
+        <div className="d-flex gap-1 align-items-center">
+            {(() => {
+                const totalPages = Math.ceil(filteredOrders.length / rowsPerPage);
+                const pages = [];
+                if (totalPages <= 5) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else {
+                    pages.push(1);
+                    if (currentPage > 3) pages.push('...');
+                    if (currentPage > 1 && currentPage < totalPages) {
+                        if (currentPage > 2) pages.push(currentPage - 1);
+                        pages.push(currentPage);
+                        if (currentPage < totalPages - 1) pages.push(currentPage + 1);
+                    }
+                    if (currentPage < totalPages - 2) pages.push('...');
+                    if (totalPages > 1) pages.push(totalPages);
+                }
+                return [...new Set(pages)].map((p, idx) => (
+                    p === '...' ? <span key={idx} className="px-2 text-muted">...</span> :
+                    <button key={idx} onClick={() => setCurrentPage(p)} className={`btn btn-sm radius-8 border-0 w-32-px h-32-px p-0 ${currentPage === p ? 'btn-primary shadow-sm' : 'btn-light text-secondary'}`}>{p}</button>
+                ));
+            })()}
+        </div>
+
+        {/* Next Button */}
+        <button disabled={indexOfLastOrder >= filteredOrders.length} onClick={() => setCurrentPage(prev => prev + 1)} className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm"><Icon icon="solar:alt-arrow-right-linear" /></button>
+    </div>
+</div>
             </div>
+
+            {/* 🌟 FULL DETAILED VIEW MODAL */}
+            {viewOrder && (
+                <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1050 }}>
+                    <div className="modal-dialog modal-lg modal-dialog-centered">
+                        <div className="modal-content radius-24 border-0 shadow-lg overflow-hidden">
+                            <div className="modal-header border-bottom px-32 py-20 d-flex justify-content-between align-items-center bg-light">
+                                <h6 className="mb-0 fw-900 uppercase ls-1">Order Summary: #{viewOrder._id.slice(-8).toUpperCase()}</h6>
+                                <button onClick={() => setViewOrder(null)} className="btn-close shadow-none"></button>
+                            </div>
+                            <div className="modal-body p-32">
+                                <div className="row gy-4 mb-32 border-bottom pb-24">
+                                    <div className="col-md-6 border-end">
+                                        <label className="text-xxs fw-bold text-primary-600 uppercase mb-4">Customer & Address</label>
+                                        <p className="fw-900 mb-2 text-dark" style={{ fontSize: '15px' }}>{viewOrder.customerId?.name}</p>
+                                        <p className="text-xs mb-1 fw-bold text-secondary"><Icon icon="solar:phone-bold" className="me-1" /> {viewOrder.customerId?.phone}</p>
+                                        <p className="text-xs text-muted"><Icon icon="solar:map-point-bold" className="me-1" /> {viewOrder.shippingAddress?.flatNo}, {viewOrder.shippingAddress?.addressLine}, {viewOrder.shippingAddress?.pincode}</p>
+                                    </div>
+                                    <div className="col-md-6 ps-md-4">
+                                        <label className="text-xxs fw-bold text-success-600 uppercase mb-4">Order Information</label>
+                                        <p className="text-xs mb-1"><b>Status:</b> <span className="badge bg-primary-focus text-primary-600 ms-1">{viewOrder.status}</span></p>
+                                        <p className="text-xs mb-1"><b>Booked On:</b> {new Date(viewOrder.createdAt).toLocaleString()}</p>
+                                        <p className="text-xs mb-1"><b>Expected Date:</b> <span className="text-dark fw-bold">{viewOrder.expectedDelivery || "3-5 Working Days"}</span></p>
+                                        <p className="text-xs mb-0"><b>Primary Seller:</b> <span className="text-primary-600 fw-bold">{viewOrder.items[0]?.sellerId?.shopName || "Admin Hub"}</span></p>
+                                    </div>
+                                </div>
+                                <div className="table-responsive rounded-12 border">
+                                    <table className="table border-0 mb-0 align-middle">
+                                        <thead className="bg-primary-50">
+                                            <tr><th className="text-xxs fw-bold text-primary-700">ITEM NAME</th><th className="text-xxs fw-bold text-primary-700">QTY</th><th className="text-xxs fw-bold text-primary-700">PRICE</th><th className="text-xxs fw-bold text-primary-700 text-end">TOTAL</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {viewOrder.items.map((item, i) => (
+                                                <tr key={i}><td className="text-xs fw-bold">{item.product?.name || item.name}</td><td className="text-xs">{item.quantity}</td><td className="text-xs">₹{item.price}</td><td className="text-xs fw-900 text-end">₹{item.price * item.quantity}</td></tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="mt-24 text-end">
+                                    <p className="text-xs text-muted mb-0">GST Included</p>
+                                    <h4 className="fw-900 text-primary-600">Grand Total: ₹{viewOrder.totalAmount}</h4>
+                                </div>
+                            </div>
+                         
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 🌟 MULTI-SELLER MODAL */}
+            {multiSellerView && (
+                <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1060 }}>
+                    <div className="modal-dialog modal-dialog-centered modal-sm">
+                        <div className="modal-content radius-24 border-0 shadow-lg overflow-hidden">
+                            <div className="modal-header border-bottom px-24 py-16 bg-primary-50">
+                                <h6 className="mb-0 fw-bold text-primary-600 d-flex align-items-center gap-2"><Icon icon="solar:users-group-rounded-bold" /> Order Sellers</h6>
+                                <button onClick={() => setMultiSellerView(null)} className="btn-close shadow-none"></button>
+                            </div>
+                            <div className="modal-body p-24" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                {[...new Map(multiSellerView.map(item => [item.sellerId?._id, item.sellerId])).values()].map((seller, idx) => (
+                                    <div key={idx} className="p-12 border-bottom last-border-0 d-flex align-items-center gap-3">
+                                        <div className="w-32-px h-32-px bg-primary-100 rounded-circle d-flex align-items-center justify-content-center"><Icon icon="solar:shop-bold" className="text-primary-600" /></div>
+                                        <div><p className="mb-0 text-sm fw-bold text-dark">{seller?.name}</p><small className="text-muted text-xxs italic">{seller?.shopName || "Zhopingo Store"}</small></div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </MasterLayout>
     );
 };

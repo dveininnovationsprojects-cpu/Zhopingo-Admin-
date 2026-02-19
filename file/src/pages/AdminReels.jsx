@@ -10,6 +10,15 @@ const AdminReels = () => {
     const [viewReel, setViewReel] = useState(null); 
     const [deleteModal, setDeleteModal] = useState({ show: false, id: null });
     const [expandedDescriptions, setExpandedDescriptions] = useState({});
+    // 🌟 viewer list modal-kaga pudhu states
+const [showViewerModal, setShowViewerModal] = useState(false);
+const [currentViewers, setCurrentViewers] = useState([]);
+// 🌟 41. Show views count and Show liked customers list logic
+const openViewerList = (e, reelViewers) => {
+    e.stopPropagation();
+    setCurrentViewers(reelViewers || []); // Backend-la irundhu vara viewers array
+    setShowViewerModal(true);
+};
 
     const API_BASE = "https://api.zhopingo.in/api/v1";
     const token = localStorage.getItem("userToken");
@@ -59,6 +68,7 @@ const AdminReels = () => {
     };
 
     return (
+        
         <MasterLayout>
             <ToastContainer position="top-right" autoClose={2000} theme="colored" />
             
@@ -139,6 +149,14 @@ const AdminReels = () => {
                                                 <Icon icon="solar:heart-linear" className="text-white opacity-75" />
                                                 <small className="fw-bold opacity-80 text-xxs">{reel.likes || 0} Likes</small>
                                             </div>
+                                            {/* View Count Clickable Area */}
+    <div 
+        className="d-flex align-items-center gap-1 cursor-pointer hover-text-primary-200"
+        onClick={(e) => openViewerList(e, reel.viewers)} 
+    >
+        <Icon icon="solar:eye-linear" className="text-white opacity-75" />
+        <small className="fw-bold opacity-80 text-xxs">{reel.views || 0} Views</small>
+    </div>
                                         </div>
                                     </div>
                                 </div>
@@ -193,6 +211,43 @@ const AdminReels = () => {
                     </div>
                 </div>
             )}
+            {/* 🌟 Viewer List Modal UI */}
+{showViewerModal && (
+    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 999999 }}>
+        <div className="modal-dialog modal-dialog-centered modal-sm">
+            <div className="modal-content radius-24 border-0 shadow-lg bg-white overflow-hidden">
+                <div className="modal-header border-bottom p-20 bg-light">
+                    <h6 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+                        <Icon icon="solar:users-group-rounded-bold" className="text-primary-600" /> Viewers List
+                    </h6>
+                    <button onClick={() => setShowViewerModal(false)} className="btn-close shadow-none"></button>
+                </div>
+                <div className="modal-body p-0" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                    {currentViewers.length > 0 ? (
+                        <ul className="list-group list-group-flush">
+                            {currentViewers.map((user, idx) => (
+                                <li key={idx} className="list-group-item d-flex align-items-center gap-3 p-16 border-bottom">
+                                    <div className="w-32-px h-32-px bg-primary-50 rounded-circle d-flex align-items-center justify-content-center">
+                                        <Icon icon="solar:user-bold" className="text-primary-600" />
+                                    </div>
+                                    <div className="overflow-hidden">
+                                        <p className="mb-0 text-sm fw-bold text-dark text-truncate">{user.name || "Zhopingo User"}</p>
+                                        <small className="text-secondary text-xxs">{user.phone || "No Phone"}</small>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <div className="text-center py-40 opacity-50">
+                            <Icon icon="solar:ghost-broken" className="text-4xl mb-2" />
+                            <p className="text-sm fw-bold">No views recorded yet.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    </div>
+)}
         </MasterLayout>
     );
 };

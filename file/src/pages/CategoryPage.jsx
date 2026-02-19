@@ -39,16 +39,18 @@ const CategoryPage = () => {
     }
   };
 
-  const fetchHsnData = async () => {
+const fetchHsnData = async () => {
     try {
-      const response = await axios.get(HSN_API_URL);
-      if (response.data.success) {
-        setHsnList(response.data.data);
-      }
+        const response = await axios.get(HSN_API_URL);
+        if (response.data.success) {
+            // 🌟 Issue Fix: Inactive HSN codes-ai filter panni active-ah irukuratha mattum set panrom 
+            const activeHsnOnly = response.data.data.filter(item => item.status !== false);
+            setHsnList(activeHsnOnly);
+        }
     } catch (error) {
-      console.error("HSN Fetch Error:", error);
+        console.error("HSN Fetch Error:", error);
     }
-  };
+};
 
   useEffect(() => {
     fetchCategories();
@@ -236,15 +238,18 @@ const CategoryPage = () => {
               <input type="text" className="form-control" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
             </div>
 
-            <div className="col-12">
-              <label className="form-label fw-semibold">HSN Code</label>
-              <select className="form-select" value={formData.hsnCode} onChange={handleHsnChange} required>
-                <option value="">Select HSN Code</option>
-                {hsnList.map(hsn => (
-                  <option key={hsn._id} value={hsn.hsnCode}>{hsn.hsnCode} ({hsn.description.substring(0, 20)}...)</option>
-                ))}
-              </select>
-            </div>
+         <div className="col-12">
+    <label className="form-label fw-semibold">HSN Code</label>
+    <select className="form-select" value={formData.hsnCode} onChange={handleHsnChange} required>
+        <option value="">Select HSN Code</option>
+        {/* 🌟 Inga ippo active HSN records mattum thaan map aagum */}
+        {hsnList.map(hsn => (
+            <option key={hsn._id} value={hsn.hsnCode}>
+                {hsn.hsnCode} ({hsn.description.substring(0, 20)}...)
+            </option>
+        ))}
+    </select>
+</div>
 
             <div className="col-12">
               <label className="form-label fw-semibold">GST Rate (%)</label>
@@ -283,7 +288,7 @@ const CategoryPage = () => {
                   <Icon icon="lucide:trash-2" className="text-4xl" />
                 </div>
                 <h5 className="mb-8 fw-semibold">Delete Category?</h5>
-                <p className="text-secondary-light mb-32">Database la irunthu thirumba recover panna mudiyathu.</p>
+                <p className="text-secondary-light mb-32">Are you Sure you want to delete this Category ?</p>
                 <div className="d-flex justify-content-center gap-3">
                   <button onClick={() => setShowDeleteModal(false)} className="btn btn-outline-secondary-light px-32 radius-8">Cancel</button>
                   <button onClick={confirmDelete} className="btn btn-danger-600 px-32 radius-8">Confirm Delete</button>

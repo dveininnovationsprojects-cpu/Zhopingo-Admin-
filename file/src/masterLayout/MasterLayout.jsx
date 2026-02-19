@@ -1977,6 +1977,7 @@
 
 
 /* eslint-disable react/prop-types */
+import axios from "axios";
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -1986,8 +1987,44 @@ import ThemeToggleButton from "../helper/ThemeToggleButton";
 const MasterLayout = ({ children }) => {
   let [sidebarActive, seSidebarActive] = useState(false);
   let [mobileMenu, setMobileMenu] = useState(false);
+  const [headerStats, setHeaderStats] = useState({ label: "Zhopingo Admin", count: null });
+  const [dates, setDates] = useState({ start: "", end: "" });
   const location = useLocation();
-  const navigate = useNavigate(); // Hook to get the current route
+  const navigate = useNavigate(); 
+  const API_BASE = "https://api.zhopingo.in/api/v1";
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const config = { headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` } };
+        
+        if (location.pathname === "/order") {
+          const res = await axios.get(`${API_BASE}/orders/all`, config);
+          setHeaderStats({ label: "Total Orders", count: res.data.count || res.data.data?.length });
+        } else if (location.pathname === "/product-list") {
+          const res = await axios.get(`${API_BASE}/products/all`, config);
+          setHeaderStats({ label: "Total Products", count: res.data.count || res.data.data?.length });
+        } else if (location.pathname === "/category") {
+          const res = await axios.get(`${API_BASE}/catalog/categories`, config);
+          setHeaderStats({ label: "Total Categories", count: res.data.data?.length });
+        } else if (location.pathname === "/sub-category") {
+          const res = await axios.get(`${API_BASE}/catalog/sub-categories/all`, config);
+          setHeaderStats({ label: "Total Sub-Categories", count: res.data.data?.length });
+        } else if (location.pathname === "/customer") {
+          const res = await axios.get(`${API_BASE}/admin/customers`, config);
+          setHeaderStats({ label: "Total Customers", count: res.data.count });}
+else if (location.pathname === "/form-layout") {
+          const res = await axios.get(`${API_BASE}/catalog/hsn-master`, config);
+          setHeaderStats({ label: "Total HSN Records", count: res.data.data?.length || 0 });
+        } else {
+          setHeaderStats({ label: "Zhopingo Admin", count: null });
+        }
+      } catch (err) {
+        console.error("Header Count Error", err);
+      }
+    };
+    fetchCounts();
+  }, [location.pathname]);
+ 
 
   const handleLogout = () => {
     localStorage.removeItem("userToken");
@@ -1995,6 +2032,7 @@ const MasterLayout = ({ children }) => {
     navigate("/sign-in"); // ✅ Sign-in page-ku pogum
   };
   useEffect(() => {
+    
     const handleDropdownClick = (event) => {
       event.preventDefault();
       const clickedLink = event.currentTarget;
@@ -2028,7 +2066,7 @@ const MasterLayout = ({ children }) => {
     const dropdownTriggers = document.querySelectorAll(
       ".sidebar-menu .dropdown > a, .sidebar-menu .dropdown > Link"
     );
-
+    
     dropdownTriggers.forEach((trigger) => {
       trigger.addEventListener("click", handleDropdownClick);
     });
@@ -2070,6 +2108,7 @@ const MasterLayout = ({ children }) => {
   let mobileMenuControl = () => {
     setMobileMenu(!mobileMenu);
   };
+  
 
   return (
     <section className={mobileMenu ? "overlay active" : "overlay "}>
@@ -2083,25 +2122,29 @@ const MasterLayout = ({ children }) => {
         >
           <Icon icon='radix-icons:cross-2' />
         </button>
-        <div>
-          <Link className='sidebar-logo'>
-            <img
-              src='../assets/images/auth/logo-dash.png'
-              alt='site logo'
-              className='light-logo'
-            />
-            <img
-              src='../assets/images/auth/logo-dash.png'
-              alt='site logo'
-              className='dark-logo'
-            />
-            <img
-              src='../assets/images/auth/logo-dash.png'
-              alt='site logo'
-              className='logo-icon'
-            />
-          </Link>
-        </div>
+       {/* 🌟 46. Increased Logo Size & Clarity Fix */}
+<div>
+  <Link className='sidebar-logo' to='/dashboard' style={{ padding: '20px 24px' }}>
+    <img
+      src='../assets/images/auth/logo-dash.png'
+      alt='site logo'
+      className='light-logo'
+      style={{ width: '100%', height: '55px', objectFit: 'contain' }} // 🌟 Height increased from default
+    />
+    <img
+      src='../assets/images/auth/logo-dash.png'
+      alt='site logo'
+      className='dark-logo'
+      style={{ width: '100%', height: '55px', objectFit: 'contain' }}
+    />
+    <img
+      src='../assets/images/auth/logo-dash.png'
+      alt='site logo'
+      className='logo-icon'
+      style={{ width: '40px', height: '40px', objectFit: 'contain' }}
+    />
+  </Link>
+</div>
         <div className='sidebar-menu-area'>
           <ul className='sidebar-menu' id='sidebar-menu'>
             
@@ -2133,75 +2176,20 @@ const MasterLayout = ({ children }) => {
             </li>*/}
 
             {/* Users Dropdown */}
-            <li className='dropdown'>
-              <Link to='#'>
-                <Icon
-                  icon='flowbite:users-group-outline'
-                  className='menu-icon'
-                />
-                <span>Sellers</span>
-              </Link>
-              <ul className='sidebar-submenu'>
-                <li>
-  <NavLink
-    to='/new-seller'
+           {/* 🌟 Sellers List - Direct Link (Dropdown Removed) */}
+{/* 🌟 Sellers List - Direct Link (Dropdown Removed) */}
+<li>
+  <NavLink 
+    to='/all-sellers' 
     className={(navData) => (navData.isActive ? "active-page" : "")}
   >
-    <i className='ri-circle-fill circle-icon text-success-main w-auto' />{" "}
-    New Sellers
+    <Icon
+      icon='flowbite:users-group-outline'
+      className='menu-icon'
+    />
+    <span>Sellers List</span>
   </NavLink>
 </li>
-<li>
-      <NavLink to='/all-sellers' className={(navData) => (navData.isActive ? "active-page" : "")}>
-        <i className='ri-circle-fill circle-icon text-success-main w-auto' /> Sellers List
-      </NavLink>
-    </li>
-               {/* <li>
-                  <NavLink
-                    to='/users-list'
-                    className={(navData) =>
-                      navData.isActive ? "active-page" : ""
-                    }
-                  >
-                    <i className='ri-circle-fill circle-icon text-primary-600 w-auto' />{" "}
-                    Sellers List
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink
-                    to='/users-grid'
-                    className={(navData) =>
-                      navData.isActive ? "active-page" : ""
-                    }
-                  >
-                    <i className='ri-circle-fill circle-icon text-warning-main w-auto' />{" "}
-                    Customers List
-                  </NavLink>
-                </li>*/}
-              {/*  <li>
-                  <NavLink
-                    to='/add-user'
-                    className={(navData) =>
-                      navData.isActive ? "active-page" : ""
-                    }
-                  >
-                    <i className='ri-circle-fill circle-icon text-info-main w-auto' />{" "}
-                    Add Seller (Manual)
-                  </NavLink>
-                </li>*/}
-               {/*} <li>
-                  <NavLink
-                    to='/view-profile'
-                    className={(navData) =>
-                      navData.isActive ? "active-page" : ""
-                    }
-                  >
-                    <i className='ri-circle-fill circle-icon text-danger-main w-auto' />{" "}
-                    Admin Profile
-                  </NavLink>
-                </li>*/}
-              </ul>
-            </li>
             {/* Customer Management Link Added */}
        {/* Order Management Button - Icon Updated */}
 <li>
@@ -2211,7 +2199,7 @@ const MasterLayout = ({ children }) => {
   >
     {/* Neenga ketta antha specific calendar symbol logic */}
     <Icon icon='solar:calendar-date-outline' className='menu-icon' /> 
-    <span>Order</span>
+    <span>Orders</span>
   </NavLink>
 </li>
 <li>
@@ -2228,7 +2216,7 @@ const MasterLayout = ({ children }) => {
             <li className='dropdown'>
               <Link to='#'>
                 <Icon icon='heroicons:document' className='menu-icon' />
-                <span>Catalog</span>
+                <span>Store Management`</span>
               </Link>
               <ul className='sidebar-submenu'>
                 <li>
@@ -2435,7 +2423,7 @@ const MasterLayout = ({ children }) => {
            {/* <li className='sidebar-menu-group-title'>System Settings</li>*/}
 
             {/* Authentication Dropdown */}
-            <li className='dropdown'>
+          {/*  <li className='dropdown'>
               <Link to='#'>
                 <Icon icon='simple-line-icons:vector' className='menu-icon' />
                 <span>Authentication</span>
@@ -2452,7 +2440,7 @@ const MasterLayout = ({ children }) => {
                     Sign In
                   </NavLink>
                 </li>
-             {/*   <li>
+                <li>
                   <NavLink
                     to='/forgot-password'
                     className={(navData) =>
@@ -2462,9 +2450,9 @@ const MasterLayout = ({ children }) => {
                     <i className='ri-circle-fill circle-icon text-info-main w-auto' />{" "}
                     Forgot Password
                   </NavLink>
-                </li>*/}
+                </li>
               </ul>
-            </li>
+            </li>*/}
 
           {/* <li>
               <NavLink
@@ -2567,6 +2555,21 @@ const MasterLayout = ({ children }) => {
     </button>
   </div>
 </div>
+{/* 🌟 Dynamic Header Stats (Fixed Alignment) 
+            <div className="col-auto flex-grow-1 text-center d-none d-md-block">
+                {headerStats.count !== null && (
+                    <div className="d-inline-flex align-items-center gap-2 px-24 py-8 radius-pill border shadow-sm animate__animated animate__fadeInDown" 
+                         style={{ background: 'rgba(72, 94, 196, 0.05)', borderColor: '#485EC4' }}>
+                        <span className="text-secondary-light fw-bold uppercase ls-1" style={{ fontSize: '11px' }}>
+                            {headerStats.label}:
+                        </span>
+                        <span className="text-primary-600 fw-900" style={{ fontSize: '16px' }}>
+                            {headerStats.count}
+                        </span>
+                    </div>
+                )}
+            </div>*/}
+            
             <div className='col-auto'>
               <div className='d-flex flex-wrap align-items-center gap-3'>
                 <ThemeToggleButton />
@@ -2615,6 +2618,7 @@ const MasterLayout = ({ children }) => {
         <footer className='d-footer'>
           <div className='row align-items-center justify-content-between'>
             <div className='col-auto'>
+              <div color="#485EC4"></div>
               <p className='mb-0'>© 2026 Zhopingo. All Rights Reserved.</p>
             </div>
           </div>

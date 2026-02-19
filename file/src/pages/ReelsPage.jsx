@@ -117,7 +117,7 @@ const ReelsPage = () => {
         <div className="animate__animated animate__fadeIn">
             <ToastContainer position="top-right" autoClose={2000} theme="colored" />
             
-            <div className="d-flex justify-content-between align-items-center mb-24 p-20 radius-12 shadow-sm border bg-white position-relative" style={{ zIndex: 1 }}>
+            <div className="d-flex justify-content-between align-items-center mb-24 p-20 radius-12 shadow-sm border  position-relative" style={{ zIndex: 1 }}>
                 <div>
                     <h5 className="fw-bold mb-0 text-primary-600 uppercase ls-1">My Reels Manager</h5>
                     <p className="text-secondary text-xs mb-0">Review and manage your store promotions</p>
@@ -202,7 +202,7 @@ const ReelsPage = () => {
                         </div>
                     </div>
                 )) : (
-                    <div className="text-center py-80 bg-white radius-12 shadow-sm w-100 mx-3 border">
+                    <div className="text-center py-80  radius-12 shadow-sm w-100 mx-3 border">
                         <Icon icon="solar:videocamera-off-broken" className="text-6xl text-neutral-200 mb-16" />
                         <p className="text-secondary fw-bold">No reels found in your store.</p>
                     </div>
@@ -228,7 +228,7 @@ const ReelsPage = () => {
 
                             {viewReel.productId && (
                                 <div className="p-12 radius-16 d-flex align-items-center shadow-lg border border-white-10" style={{ background: 'rgba(255, 255, 255, 0.12)', backdropFilter: 'blur(15px)' }}>
-                                    <div className="w-44-px h-44-px radius-8 bg-white d-flex align-items-center justify-content-center me-12"><Icon icon="solar:box-bold" className="text-primary-600 text-xl" /></div>
+                                    <div className="w-44-px h-44-px radius-8  d-flex align-items-center justify-content-center me-12"><Icon icon="solar:box-bold" className="text-primary-600 text-xl" /></div>
                                     <div className="overflow-hidden text-white"><p className="mb-0 text-xs fw-bold text-truncate">{viewReel.productId.name}</p><p className="mb-0 text-xxs fw-bold opacity-75">Price: ₹{viewReel.productId.price}</p></div>
                                 </div>
                             )}
@@ -241,7 +241,7 @@ const ReelsPage = () => {
             {deleteModal.show && (
                 <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999 }}>
                     <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '380px' }}>
-                        <div className="modal-content radius-24 border-0 shadow-lg bg-white">
+                        <div className="modal-content radius-24 border-0 shadow-lg ">
                             <div className="modal-body text-center p-40">
                                 <div className="w-80-px h-80-px bg-danger-focus text-danger-600 rounded-circle d-inline-flex justify-content-center align-items-center mb-24"><Icon icon="solar:trash-bin-minimalistic-bold" className="text-4xl" /></div>
                                 <h5 className="mb-12 fw-bold text-dark">Delete Reel?</h5>
@@ -260,8 +260,8 @@ const ReelsPage = () => {
                 <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 9999 }}>
                     <div className="modal-dialog modal-dialog-centered">
                         <div className="modal-content radius-24 border-0 shadow-lg overflow-hidden">
-                            <div className="modal-header border-0 p-24 bg-white"><h5 className="fw-bold mb-0 text-dark">Publish New Reel</h5><button onClick={() => setShowModal(false)} className="btn-close shadow-none"></button></div>
-                            <form onSubmit={handleUpload} className="modal-body p-24 pt-0 bg-white">
+                            <div className="modal-header border-0 p-24"><h5 className="fw-bold mb-0 text-dark">Publish New Reel</h5><button onClick={() => setShowModal(false)} className="btn-close shadow-none"></button></div>
+                            <form onSubmit={handleUpload} className="modal-body p-24 pt-0 ">
                                 <div className="radius-16 mb-20 d-flex flex-column align-items-center justify-content-center cursor-pointer overflow-hidden position-relative bg-light border border-dashed border-primary-200" style={{ height: '260px' }} onClick={() => document.getElementById('reelVideo').click()}>
                                     {videoPreview ? <video src={videoPreview} className="w-100 h-100" style={{ objectFit: 'contain' }} /> : 
                                     <div className="text-center text-primary-600"><Icon icon="solar:videocamera-add-bold" className="display-4 mb-8" /><p className="text-xs fw-bold">Click to select promotion video</p></div>}
@@ -275,7 +275,7 @@ const ReelsPage = () => {
                                     <label className="fw-bold text-xs mb-12 uppercase text-secondary">Select Linked Product *</label>
                                     <div className="d-flex gap-2 overflow-x-auto pb-12 scroll-hide">
                                         {myProducts.map((prod) => (
-                                            <div key={prod._id} className={`p-12 radius-12 border cursor-pointer flex-shrink-0 ${selectedProductId === prod._id ? 'border-primary-600 bg-primary-50 shadow-sm' : 'bg-white'}`} style={{ minWidth: '140px' }} onClick={() => setSelectedProductId(prod._id)}>
+                                            <div key={prod._id} className={`p-12 radius-12 border cursor-pointer flex-shrink-0 ${selectedProductId === prod._id ? 'border-primary-600 bg-primary-50 shadow-sm' : ''}`} style={{ minWidth: '140px' }} onClick={() => setSelectedProductId(prod._id)}>
                                                 <p className="mb-0 text-xxs fw-bold text-dark text-truncate">{prod.name}</p><p className="mb-0 text-xxs text-primary-600 fw-900">₹{prod.price}</p>
                                             </div>
                                         ))}

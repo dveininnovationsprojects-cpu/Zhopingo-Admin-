@@ -7,217 +7,257 @@ import { toast, ToastContainer } from "react-toastify";
 const AddProductPage = () => {
     const [sellers, setSellers] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [allSubCategories, setAllSubCategories] = useState([]); // Master list
-    const [filteredSubCategories, setFilteredSubCategories] = useState([]); // UI dropdown
+    const [allSubCategories, setAllSubCategories] = useState([]);
+    const [filteredSubCategories, setFilteredSubCategories] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const API_BASE = "https://api.zhopingo.in/api/v1";
     const token = localStorage.getItem("userToken");
 
-    const [formData, setFormData] = useState({
-        seller: "", // 🌟 Admin select pannura actual Seller ID
-        name: "",
-        category: "",
-        subCategory: "",
-        price: "",
-        mrp: "",
-        stock: "",
-        description: "",
-        lowStockAlert: "",
-        hsnCode: "",
-    });
+    const initialForm = {
+        seller: "", // Backend needs ID, UI shows Name
+        name: "", category: "", subCategory: "", price: "", mrp: "", purchasePrice: "", // 🌟 Added Purchase Price
+        stock: "", brand: "", description: "", lowStockAlert: "", hsnCode: "",
+        isVeg: true, isFreeDelivery: false, isReturnable: false, offerTag: "",
+        highlights: { productType: "", cocoaContent: "" },
+        manufacturerDetails: { manufacturerNameAddress: "", countryOfOrigin: "India" }
+    };
 
-    const [files, setFiles] = useState({ images: [], video: null });
+    const [formData, setFormData] = useState(initialForm);
+    const [variants, setVariants] = useState([]);
+    // 🌟 COMMAND: Add this function to handle variant input
+const handleVariantChange = (index, field, value) => {
+    const updatedVariants = [...variants];
+    updatedVariants[index][field] = value;
+    setVariants(updatedVariants);
+};
+    const [keyFeatures, setKeyFeatures] = useState([""]);
+    const [ingredientsList, setIngredientsList] = useState([""]);
+    const [nutritionInfo, setNutritionInfo] = useState([{ label: "", value: "" }]);
+    const [imageSlots, setImageSlots] = useState([null, null, null, null, null]); // 🌟 5 Image Slots
+    const [videoFile, setVideoFile] = useState(null);
 
-    // 1. Initial Load: Sellers, Categories and ALL Sub-Categories
     useEffect(() => {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
                 const config = { headers: { Authorization: `Bearer ${token}` } };
-                
-                // 🌟 Admin specific sellers endpoint
                 const [sellerRes, catRes, subRes] = await Promise.all([
                     axios.get(`${API_BASE}/admin/sellers`, config),
                     axios.get(`${API_BASE}/catalog/categories`, config),
                     axios.get(`${API_BASE}/catalog/sub-categories/all`, config)
                 ]);
-                
                 if (sellerRes.data.success) setSellers(sellerRes.data.data);
                 if (catRes.data.success) setCategories(catRes.data.data);
                 if (subRes.data.success) setAllSubCategories(subRes.data.data);
-            } catch (err) {
-                toast.error("Failed to load Data. Check Admin Token.");
-            } finally {
-                setIsLoading(false);
-            }
+            } catch (err) { toast.error("Catalog Load Error"); }
+            finally { setIsLoading(false); }
         };
         fetchInitialData();
     }, [token]);
 
-    // 2. Filter Sub-Categories when Main Category changes (Seller Logic)
     const handleCategoryChange = (catId) => {
         setFormData({ ...formData, category: catId, subCategory: "", hsnCode: "" });
         const filtered = allSubCategories.filter(s => s.category === catId || s.category?._id === catId);
         setFilteredSubCategories(filtered);
     };
 
-    // 3. Auto-fill HSN when Sub-Category is selected (Seller Logic)
     const handleSubCatChange = (subId) => {
         const selectedSub = allSubCategories.find(s => s._id === subId);
         setFormData({ ...formData, subCategory: subId, hsnCode: selectedSub?.hsnCode || "" });
     };
 
-    // 4. Submit Logic (Syncing to specific Seller)
+    const handleImageChange = (index, file) => {
+        const newSlots = [...imageSlots];
+        newSlots[index] = file;
+        setImageSlots(newSlots);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        if (!formData.seller || formData.seller === "static_admin_id") {
-            return toast.error("Please select a real Seller account from the dropdown!");
-        }
+        if (!formData.seller || !formData.name || !formData.price) return toast.error("Fill mandatory fields");
 
         setIsSubmitting(true);
         const data = new FormData();
-        
-        // Form field data append
+
+        // 🌟 Exact sync with Seller logic
         Object.keys(formData).forEach(key => {
-            if (formData[key]) data.append(key, formData[key]);
+            if (typeof formData[key] === 'object' && formData[key] !== null) {
+                Object.keys(formData[key]).forEach(subKey => data.append(`${key}[${subKey}]`, formData[key][subKey]));
+            } else { data.append(key, formData[key]); }
         });
-        
-        // Media files
-        if (files.images.length > 0) {
-            files.images.forEach(img => data.append("images", img));
-        }
+
+        data.append("variants", JSON.stringify(variants));
+        data.append("ingredients", ingredientsList.filter(i => i.trim()).join(", "));
+        keyFeatures.filter(f => f.trim()).forEach((f, i) => data.append(`keyFeatures[${i}]`, f));
+        nutritionInfo.filter(n => n.label.trim()).forEach((n, i) => {
+            data.append(`nutritionInfo[${i}][label]`, n.label);
+            data.append(`nutritionInfo[${i}][value]`, n.value);
+        });
+
+        imageSlots.forEach(img => { if (img) data.append("images", img); });
+        if (videoFile) data.append("video", videoFile);
 
         try {
-            const config = { 
-                headers: { 
-                    "Content-Type": "multipart/form-data",
-                    "Authorization": `Bearer ${token}` 
-                } 
-            };
-
-            // 🌟 Path matching your backend router: router.post('/add', ...)
-            const res = await axios.post(`${API_BASE}/products/add`, data, config);
-
+            const res = await axios.post(`${API_BASE}/products/add`, data, {
+                headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` }
+            });
             if (res.data.success) {
-                toast.success("Product added to selected Seller Store!");
-                // Reset form
-                setFormData({ seller: "", name: "", category: "", subCategory: "", price: "", mrp: "", stock: "", description: "", lowStockAlert: "", hsnCode: "" });
-                setFiles({ images: [], video: null });
+                toast.success("Listed for Seller Successfully!");
+                setFormData(initialForm);
+                setImageSlots([null, null, null, null, null]);
             }
-        } catch (err) {
-            // Error handling from backend
-            const backendMsg = err.response?.data?.message || err.response?.data?.error || "Listing Failed";
-            toast.error(backendMsg);
-        } finally {
-            setIsSubmitting(false);
-        }
+        } catch (err) { toast.error(err.response?.data?.message || "Failed"); }
+        finally { setIsSubmitting(false); }
     };
 
     return (
         <MasterLayout>
             <ToastContainer position="top-right" theme="colored" />
-            <div className="card h-100 p-0 radius-12 overflow-hidden shadow-sm">
-                <div className="card-header border-bottom bg-base py-16 px-24">
-                    <h6 className="text-lg fw-semibold mb-0 text-primary-600">Admin: Assign Product to Seller</h6>
+            <div className="card radius-24 border-0 shadow-sm p-24 bg-white">
+                <div className="card-header border-bottom bg-transparent pb-20 mb-20">
+                    <h5 className="fw-bold mb-0 text-primary-600">Admin: Add to Product For Seller</h5>
                 </div>
                 
-                <div className="card-body p-24">
-                    {isLoading ? (
-                        <div className="text-center py-50"><div className="spinner-border text-primary"></div></div>
-                    ) : (
-                        <form onSubmit={handleSubmit} className="row gy-4">
-                            {/* 🌟 SELLER SELECTION (With Shop Name + ID in Brackets) */}
-                            <div className="col-12 mb-8 p-16 radius-12 bg-primary-50 border border-primary-100 shadow-sm">
-                                <label className="form-label fw-bold text-primary-700">Target Seller Account *</label>
-                                <select className="form-select h-52-px radius-8 border-primary-200" 
-                                    value={formData.seller} 
-                                    onChange={(e) => setFormData({...formData, seller: e.target.value})} required>
-                                    <option value="">-- Click to choose Seller (Shop Name + ID) --</option>
-                                    {sellers.map(s => (
-                                        <option key={s._id} value={s._id}>
-                                            {s.shopName || s.name} ({s._id})
-                                        </option>
-                                    ))}
+                {isLoading ? <div className="text-center py-50"><div className="spinner-border text-primary"></div></div> : (
+                    <form onSubmit={handleSubmit}>
+                        <div className="row g-4">
+                            {/* 🌟 28. TARGET SELLER: Shows Name only, ID hidden in value */}
+                            <div className="col-12 p-20 radius-16 bg-primary-50 border border-primary-100 shadow-sm">
+                                <label className="fw-bold text-xs mb-8 uppercase text-primary-600">Assign to Seller Account *</label>
+                                <select className="form-select h-52-px radius-12 border-primary-200" value={formData.seller} onChange={(e) => setFormData({...formData, seller: e.target.value})} required>
+                                    <option value="">-- Select Store Name --</option>
+                                    {sellers.map(s => <option key={s._id} value={s._id}>{s.shopName || s.name}</option>)}
                                 </select>
                             </div>
 
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold">Product Name *</label>
-                                <input type="text" className="form-control h-48-px radius-8" placeholder="e.g. Marie Gold" 
-                                    value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
+                            {/* COLUMN 1: Core Details */}
+                            <div className="col-lg-4 border-end">
+                                <h6 className="fw-bold text-primary-600 mb-20">Core Details</h6>
+                                <div className="mb-16"><label className="text-xxs fw-bold text-secondary">Product Name *</label><input type="text" className="form-control radius-10" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
+                                <div className="row g-2 mb-16">
+                                    <div className="col-6"><label className="text-xxs fw-bold text-secondary">Price (₹) *</label><input type="number" className="form-control" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required /></div>
+                                    <div className="col-6"><label className="text-xxs fw-bold text-secondary">Purchase Price (₹)</label><input type="number" className="form-control border-warning" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} /></div>
+                                </div>
+                                <div className="row g-2 mb-16">
+                                    <div className="col-6"><label className="text-xxs fw-bold text-secondary">MRP (₹)</label><input type="number" className="form-control" value={formData.mrp} onChange={e => setFormData({...formData, mrp: e.target.value})} /></div>
+                                    <div className="col-6"><label className="text-xxs fw-bold text-secondary">Stock Count</label><input type="number" className="form-control" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} /></div>
+                                </div>
+                                <div className="row g-2 mb-20">
+                                    <div className="col-6"><label className="text-xxs fw-bold text-secondary">Category *</label><select className="form-select" value={formData.category} onChange={e => handleCategoryChange(e.target.value)} required><option value="">Select</option>{categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}</select></div>
+                                    <div className="col-6"><label className="text-xxs fw-bold text-secondary">Sub-Category *</label><select className="form-select" value={formData.subCategory} onChange={e => handleSubCatChange(e.target.value)} required disabled={!filteredSubCategories.length}><option value="">Select</option>{filteredSubCategories.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}</select></div>
+                                </div>
+{/* 🌟 29. 5 IMAGE SLOTS WITH RED X MARK DELETE */}
+<label className="text-xxs fw-bold text-secondary uppercase mb-8">Image Assets (Max 5)</label>
+<div className="d-flex flex-wrap gap-2 mb-20">
+    {imageSlots.map((slot, i) => (
+        <div key={i} className="position-relative" style={{ width: "65px", height: "65px" }}>
+            <label className={`w-100 h-100 radius-10 border border-dashed d-flex align-items-center justify-content-center cursor-pointer overflow-hidden ${slot ? 'border-primary' : 'bg-light'}`}>
+                <input type="file" hidden onChange={e => handleImageChange(i, e.target.files[0])} accept="image/*" />
+                {slot ? (
+                    <img src={URL.createObjectURL(slot)} className="w-100 h-100 object-fit-cover" alt="" />
+                ) : (
+                    <Icon icon="solar:camera-add-bold" className="text-secondary fs-5" />
+                )}
+            </label>
+
+            {/* 🌟 Red X Mark Logic */}
+            {slot && (
+                <button 
+                    type="button" 
+                    onClick={(e) => { e.preventDefault(); handleImageChange(i, null); }} 
+                    className="position-absolute d-flex align-items-center justify-content-center p-0 shadow-lg border-0" 
+                    style={{ 
+                        top: "-5px", 
+                        right: "-5px", 
+                        width: "20px", 
+                        height: "20px", 
+                        backgroundColor: "#EA5455", // 🌟 Exact Red from list
+                        borderRadius: "50%",
+                        zIndex: 2 
+                    }}
+                >
+                    <Icon icon="material-symbols:close-rounded" className="text-white" style={{ fontSize: "14px" }} />
+                </button>
+            )}
+        </div>
+    ))}
+</div>
+                                                              {/* 🌟 Professional Compact Video Upload */}
+<div className="mt-20">
+    <label className="text-xxs fw-bold text-secondary uppercase mb-8 d-block">Promotional Video</label>
+    <div className="p-8 radius-10 border bg-light d-flex align-items-center justify-content-between" style={{ maxWidth: '220px' }}> {/* 🌟 Limited width to prevent thallifying other columns */}
+        <label className="btn btn-xs btn-outline-primary mb-0 radius-8 px-12 py-6 cursor-pointer d-flex align-items-center gap-1">
+            <input type="file" hidden onChange={e => setVideoFile(e.target.files[0])} accept="video/*" />
+            <Icon icon="solar:videocamera-add-bold" />
+            <span style={{ fontSize: '11px' }}>Choose Video</span>
+        </label>
+        
+        {/* 🌟 Status Tick */}
+        {videoFile && (
+            <div className="d-flex align-items-center gap-1 text-success animate__animated animate__fadeIn">
+                <Icon icon="solar:check-circle-bold" className="fs-5" />
+            </div>
+        )}
+    </div>
+</div>
                             </div>
 
-                            <div className="col-md-3">
-                                <label className="form-label fw-bold">Price (₹) *</label>
-                                <input type="number" className="form-control h-48-px radius-8" value={formData.price}
-                                    onChange={(e) => setFormData({...formData, price: e.target.value})} required />
+
+                            {/* COLUMN 2: Specs & Ingredients */}
+                            <div className="col-lg-4 border-end">
+                                <h6 className="fw-bold text-primary-600 mb-20">Specifications & Ingredients</h6>
+                                <div className="mb-20"><label className="text-xxs fw-bold text-secondary">Key Features</label>
+                                    {keyFeatures.map((f, i) => (<div className="d-flex gap-2 mb-2" key={i}><input className="form-control form-control-sm" value={f} onChange={e => { const n = [...keyFeatures]; n[i] = e.target.value; setKeyFeatures(n); }} placeholder="Highlight point"/><Icon icon="solar:close-circle-bold" className="text-danger fs-4 mt-1 cursor-pointer" onClick={() => setKeyFeatures(keyFeatures.filter((_, idx) => idx !== i))} /></div>))}
+                                    <button type="button" className="btn btn-sm text-primary-600 fw-bold p-0" onClick={() => setKeyFeatures([...keyFeatures, ""])}>+ Add Point</button>
+                                </div>
+                                <div className="mb-20"><label className="text-xxs fw-bold text-secondary">Ingredients List</label>
+                                    {ingredientsList.map((ing, i) => (<div className="d-flex gap-2 mb-2" key={i}><input className="form-control form-control-sm" value={ing} onChange={e => { const n = [...ingredientsList]; n[i] = e.target.value; setIngredientsList(n); }} placeholder="Ingredient name"/><Icon icon="solar:close-circle-bold" className="text-danger fs-4 mt-1 cursor-pointer" onClick={() => setIngredientsList(ingredientsList.filter((_, idx) => idx !== i))} /></div>))}
+                                    <button type="button" className="btn btn-sm text-primary-600 fw-bold p-0" onClick={() => setIngredientsList([...ingredientsList, ""])}>+ Add Ingredient</button>
+                                </div>
+                                <div><label className="text-xxs fw-bold text-secondary">Manufacturer Address</label><textarea className="form-control radius-10" rows="3" value={formData.manufacturerDetails.manufacturerNameAddress} onChange={e => setFormData({...formData, manufacturerDetails: {...formData.manufacturerDetails, manufacturerNameAddress: e.target.value}})}></textarea></div>
                             </div>
 
-                            <div className="col-md-3">
-                                <label className="form-label fw-bold">MRP (₹) *</label>
-                                <input type="number" className="form-control h-48-px radius-8" value={formData.mrp}
-                                    onChange={(e) => setFormData({...formData, mrp: e.target.value})} required />
+                            {/* COLUMN 3: Logistics & Nutrition */}
+                            <div className="col-lg-4">
+                                <h6 className="fw-bold text-primary-600 mb-20">Logistics & Nutrition</h6>
+                                <div className="bg-primary-50 p-16 radius-16 border mb-24">
+                                    <div className="row g-2 mb-12">
+                                        <div className="col-6"><label className="text-xxs fw-bold text-secondary">Free Delivery?</label><select className="form-select form-select-sm" value={formData.isFreeDelivery} onChange={e => setFormData({...formData, isFreeDelivery: e.target.value === 'true'})}><option value="false">No</option><option value="true">Yes</option></select></div>
+                                        <div className="col-6"><label className="text-xxs fw-bold text-secondary">Returnable?</label><select className="form-select form-select-sm" value={formData.isReturnable} onChange={e => setFormData({...formData, isReturnable: e.target.value === 'true'})}><option value="false">No</option><option value="true">Yes</option></select></div>
+                                    </div>
+                                    <label className="text-xxs fw-bold text-secondary">Offer Tag (Display)</label><input type="text" className="form-control form-control-sm" value={formData.offerTag} onChange={e => setFormData({...formData, offerTag: e.target.value})} placeholder="e.g. Buy 1 Get 1" />
+                                </div>
+<h6 className="fw-bold text-primary-600 mb-16 mt-24">Product Variants</h6>
+    <div className="p-12 radius-12 border border-dashed">
+        {variants.map((v, i) => (
+            <div className="d-flex gap-2 mb-10" key={i}>
+                <input className="form-control form-control-sm" placeholder="Size" value={v.attributeValue} onChange={e => handleVariantChange(i, 'attributeValue', e.target.value)} />
+                <input className="form-control form-control-sm" placeholder="Price" type="number" value={v.price} onChange={e => handleVariantChange(i, 'price', e.target.value)} />
+                <button type="button" className="btn btn-sm btn-danger-focus" onClick={() => setVariants(variants.filter((_, idx) => idx !== i))}>
+                    <Icon icon="solar:trash-bin-minimalistic-bold" />
+                </button>
+            </div>
+        ))}
+        <button type="button" className="btn btn-sm btn-primary-600 w-100 mt-2 radius-8" onClick={() => setVariants([...variants, { attributeName: "Unit", attributeValue: "", price: "", stock: 100 }])}>
+            + Add Size/Price Variant
+        </button>
+    </div>
+                                
+                               
                             </div>
+                        </div>
 
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold">Main Category *</label>
-                                <select className="form-select h-48-px radius-8" value={formData.category}
-                                    onChange={(e) => handleCategoryChange(e.target.value)} required>
-                                    <option value="">Select Category</option>
-                                    {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                                </select>
-                            </div>
+                        <div className="col-12 mt-32"><label className="form-label text-xs fw-bold text-secondary uppercase">Product Description *</label><textarea className="form-control radius-12" rows="3" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required></textarea></div>
 
-                            <div className="col-md-6">
-                                <label className="form-label fw-bold">Sub Category *</label>
-                                <select className="form-select h-48-px radius-8" value={formData.subCategory}
-                                    disabled={!filteredSubCategories.length} onChange={(e) => handleSubCatChange(e.target.value)} required>
-                                    <option value="">Select Sub-Category</option>
-                                    {filteredSubCategories.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                                </select>
-                            </div>
-
-                            <div className="col-md-4">
-                                <label className="form-label fw-bold">HSN Code</label>
-                                <input type="text" className="form-control h-48-px radius-8 fw-bold text-primary-600" value={formData.hsnCode} readOnly />
-                            </div>
-
-                            <div className="col-md-4">
-                                <label className="form-label fw-bold">Total Stock *</label>
-                                <input type="number" className="form-control h-48-px radius-8" value={formData.stock}
-                                    onChange={(e) => setFormData({...formData, stock: e.target.value})} required />
-                            </div>
-
-                            <div className="col-md-4">
-                                <label className="form-label fw-bold">Low Stock Alert</label>
-                                <input type="number" className="form-control h-48-px radius-8" value={formData.lowStockAlert}
-                                    onChange={(e) => setFormData({...formData, lowStockAlert: e.target.value})} />
-                            </div>
-
-                            <div className="col-12">
-                                <label className="form-label fw-bold">Product Description</label>
-                                <textarea className="form-control radius-8" rows="3" value={formData.description}
-                                    onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea>
-                            </div>
-
-                            <div className="col-12">
-                                <label className="form-label fw-bold">Product Images</label>
-                                <input type="file" multiple accept="image/*" className="form-control radius-8" 
-                                    onChange={(e) => setFiles({...files, images: Array.from(e.target.files)})} />
-                            </div>
-
-                            <div className="col-12 mt-16">
-                                <button type="submit" disabled={isSubmitting} className="btn btn-primary-600 w-100 h-52-px radius-8 fw-bold shadow">
-                                    {isSubmitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <Icon icon="solar:upload-minimalistic-bold" className="me-2 text-xl" />}
-                                    {isSubmitting ? "PUSHING TO SELLER..." : "PUSH PRODUCT TO SELLER"}
-                                </button>
-                            </div>
-                        </form>
-                    )}
-                </div>
+                        <div className="mt-40 text-end">
+                            <button type="submit" disabled={isSubmitting} className="btn btn-primary-600 px-40 py-16 radius-16 fw-900 shadow-lg uppercase">
+                                {isSubmitting ? "PROCESSING..." : "CONFIRM & PUSH PRODUCT TO SELLER"}
+                            </button>
+                        </div>
+                    </form>
+                )}
             </div>
         </MasterLayout>
     );
