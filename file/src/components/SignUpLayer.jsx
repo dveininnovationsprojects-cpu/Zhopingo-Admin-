@@ -181,16 +181,71 @@ const SignUpLayer = () => {
                   <input type="text" name="panNumber" className="form-control mb-12 h-44-px" placeholder="ABCDE1234F" onChange={handleInputChange} />
                   
                   <label className="text-xs mb-1">PAN CARD PHOTO</label>
-                  <input type="file" className="form-control mb-12" onChange={(e) => setFiles({...files, pan_doc: e.target.files[0]})} />
+                 <input 
+  type="file" 
+  className="form-control mb-12" 
+  style={{ 
+    whiteSpace: 'normal', 
+    wordBreak: 'break-all', 
+    fontSize: '13px',
+    padding: '10px'
+  }}
+  onChange={(e) => {
+    const file = e.target.files[0];
+    if (file && file.size > 5 * 1024 * 1024) {
+      toast.error("Size limit is 5MB");
+      e.target.value = ""; // Selection-ai clear panna
+    } else {
+      setFiles({...files, pan_doc: file});
+    }
+  }} 
+/>
 
                   <label className="text-xs mb-1">GST NUMBER</label>
                   <input type="text" name="gstNumber" className="form-control mb-12 h-44-px" placeholder="22AAAAA0000A1Z5" onChange={handleInputChange} />
 
                   <label className="text-xs mb-1">GST DOCUMENT</label>
-                  <input type="file" className="form-control mb-12" onChange={(e) => setFiles({...files, gst_doc: e.target.files[0]})} />
+                 <input 
+  type="file" 
+  className="form-control mb-12" 
+    style={{ 
+    whiteSpace: 'normal', 
+    wordBreak: 'break-all', 
+    fontSize: '13px',
+    padding: '10px'
+  }}
+  onChange={(e) => {
+    
+    const file = e.target.files[0];
+    if (file && file.size > 5 * 1024 * 1024) {
+      toast.error("Size limit is 5MB");
+      e.target.value = ""; 
+    } else {
+      setFiles({...files, gst_doc: file});
+    }
+  }} 
+/>
                   
                   <label className="text-xs mb-1">MSME CERTIFICATE (PDF)</label>
-                  <input type="file" className="form-control mb-12" onChange={(e) => setFiles({...files, msme_doc: e.target.files[0]})} />
+                 <input 
+  type="file" 
+  className="form-control mb-12" 
+    style={{ 
+    whiteSpace: 'normal', 
+    wordBreak: 'break-all', 
+    fontSize: '13px',
+    padding: '10px'
+  }}
+  onChange={(e) => {
+    const file = e.target.files[0];
+    if (file && file.size > 5 * 1024 * 1024) {
+      toast.error("Size limit is 5MB");
+      e.target.value = ""; 
+    } else {
+      setFiles({...files, msme_doc: file});
+    }
+  }} 
+/>
                 </div>
 
                 <div className="p-16 border radius-12 bg-neutral-50 shadow-sm">
@@ -199,7 +254,25 @@ const SignUpLayer = () => {
                   <input type="text" name="fssaiNumber" className="form-control mb-12 h-44-px" placeholder="14-digit License No" onChange={handleInputChange} />
                   
                   <label className="text-xs mb-1">FSSAI DOCUMENT</label>
-                  <input type="file" className="form-control mb-12" onChange={(e) => setFiles({...files, fssai_doc: e.target.files[0]})} />
+                 <input 
+  type="file" 
+  className="form-control mb-12" 
+    style={{ 
+    whiteSpace: 'normal', 
+    wordBreak: 'break-all', 
+    fontSize: '13px',
+    padding: '10px'
+  }}
+  onChange={(e) => {
+    const file = e.target.files[0];
+    if (file && file.size > 5 * 1024 * 1024) {
+      toast.error("Size limit is 5MB");
+      e.target.value = ""; 
+    } else {
+      setFiles({...files, fssai_doc: file});
+    }
+  }} 
+/>
                 </div>
 <div style={{
     position: 'sticky', 

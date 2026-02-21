@@ -2216,7 +2216,7 @@ else if (location.pathname === "/form-layout") {
             <li className='dropdown'>
               <Link to='#'>
                 <Icon icon='heroicons:document' className='menu-icon' />
-                <span>Store Management`</span>
+                <span>Store Management</span>
               </Link>
               <ul className='sidebar-submenu'>
                 <li>
@@ -2230,7 +2230,7 @@ else if (location.pathname === "/form-layout") {
                     Products List
                   </NavLink>
                 </li>
-                <li>
+               {/*} <li>
                   <NavLink
                     to='/add-product'
                     className={(navData) =>
@@ -2240,7 +2240,7 @@ else if (location.pathname === "/form-layout") {
                     <i className='ri-circle-fill circle-icon text-primary-600 w-auto' />{" "}
                     Add Product
                   </NavLink>
-                </li>
+                </li>*/}
                         <li>
                   <NavLink
                     to='/category'
@@ -2298,6 +2298,19 @@ else if (location.pathname === "/form-layout") {
     {/* 🌟 Inga andha blue dot-ku badhila professional Reels icon vachurukkaen */}
     <i className='ri-play-circle-line text-cyan w-auto' style={{ fontSize: '18px' }} />{" "}  
      <span className="ms-2"> Reels Manager</span>
+  </NavLink>
+</li>
+{/* 🌟 My Account - New Sidebar Menu Entry */}
+<li>
+  <NavLink 
+    to='/my-account' 
+    className={(navData) => (navData.isActive ? "active-page" : "")}
+  >
+    <Icon
+      icon='solar:user-circle-bold' // Profile-kaga professional icon
+      className='menu-icon'
+    />
+    <span>My Account</span>
   </NavLink>
 </li>
 
@@ -2594,7 +2607,7 @@ else if (location.pathname === "/form-layout") {
                         <span className="text-xs text-secondary">Administrator</span>
                     </li>
                     <li>
-                      <Link className="dropdown-item radius-8 d-flex align-items-center gap-2 py-8" to="/admin-profile">
+                      <Link className="dropdown-item radius-8 d-flex align-items-center gap-2 py-8" to="/my-account">
                         <Icon icon="solar:user-bold" className="text-lg" /> My Profile
                       </Link>
                     </li>

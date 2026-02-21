@@ -35,15 +35,24 @@ const AllSellersListPage = () => {
         }
     };
 
-    const handleToggleBrand = async (id, currentStatus) => {
-        try {
-            const res = await axios.put(`${API_BASE_URL}/toggle-brand/${id}`, { isBrand: !currentStatus });
-            if (res.data.success) {
-                toast.success("Brand status updated!");
-                fetchAllSellers();
-            }
-        } catch (error) { toast.error("Update failed"); }
-    };
+    // 🌟 Updated Brand Toggle with KYC Approval Check
+const handleToggleBrand = async (item) => {
+    // 1. Seller approve aagala na error message kaattu
+    if (item.kycStatus !== 'approved') {
+        return toast.error("Seller not approved! Brand status can only be updated for approved sellers.");
+    }
+
+    // 2. Approve aagi irundha mattum API call panni update pannu
+    try {
+        const res = await axios.put(`${API_BASE_URL}/toggle-brand/${item._id}`, { isBrand: !item.isBrand });
+        if (res.data.success) {
+            toast.success("Brand status updated successfully!");
+            fetchAllSellers();
+        }
+    } catch (error) { 
+        toast.error("Update failed. Please try again."); 
+    }
+};
 
     const handleToggleActive = async (id, currentStatus) => {
         try {
@@ -115,8 +124,16 @@ const AllSellersListPage = () => {
                                 ) : currentItems.length > 0 ? (
                                     currentItems.map((item, index) => (
                                         <tr key={item._id}>
-                                            <td>{indexOfFirstItem + index + 1}</td>
-                                            <td className="fw-bold" style={{ textTransform: 'capitalize' }}>{item.name}</td>
+                                           {/* 🌟 42. S.No in Descending Order with Hashtag for Sellers */}
+<td>
+    <span className="fw-bold text-secondary-light">
+        {filteredSellers.length - (indexOfFirstItem + index)}
+    </span>
+</td>
+                                           {/* 🌟 16. Seller name to be in full Capital Letters */}
+<td className="fw-bold" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+    {item.name}
+</td>
                                             <td className="text-primary-600 fw-bold">{item.shopName || "N/A"}</td>
                                             {/* 🌟 Email & Phone stacked */}
                                             <td>
@@ -140,9 +157,20 @@ const AllSellersListPage = () => {
                                             {/* IS BRAND TOGGLE */}
                                             <td className="text-center">
                                                 <div className="d-flex justify-content-center">
-                                                    <div onClick={() => handleToggleBrand(item._id, item.isBrand)} style={{ position: 'relative', width: '46px', height: '24px', backgroundColor: item.isBrand ? '#4489fe' : '#cbd5e0', borderRadius: '24px', cursor: 'pointer', transition: '0.3s' }}>
-                                                        <div style={{ position: 'absolute', top: '4px', left: '4px', width: '16px', height: '16px', backgroundColor: 'white', borderRadius: '50%', transition: '0.3s', transform: item.isBrand ? 'translateX(22px)' : 'translateX(0px)' }} />
-                                                    </div>
+                                                    {/* 🌟 Pass full item object for validation check */}
+<div onClick={() => handleToggleBrand(item)} 
+     style={{ 
+        position: 'relative', 
+        width: '46px', 
+        height: '24px', 
+        backgroundColor: item.isBrand ? '#4489fe' : '#cbd5e0', 
+        borderRadius: '24px', 
+        cursor: item.kycStatus === 'approved' ? 'pointer' : 'not-allowed', // Change cursor for UI feedback
+        transition: '0.3s',
+        opacity: item.kycStatus === 'approved' ? 1 : 0.6 // Make it look disabled if not approved
+     }}>
+    <div style={{ position: 'absolute', top: '4px', left: '4px', width: '16px', height: '16px', backgroundColor: 'white', borderRadius: '50%', transition: '0.3s', transform: item.isBrand ? 'translateX(22px)' : 'translateX(0px)' }} />
+</div>
                                                 </div>
                                             </td>
 

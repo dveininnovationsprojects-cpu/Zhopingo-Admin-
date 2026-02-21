@@ -338,6 +338,7 @@ import AddProductPage from "./pages/AddProductPage";
 import AdminReels from "./pages/AdminReels";
 import AdminProfile from "./pages/AdminProfile";
 import ProtectedRoute from "./components/ProtectedRoute";
+import MyAccountPage from "./pages/MyAccountPage";
 
 function App() {
   // 🌟 Logic: Storage-la irundhu fresh data-va eppovum edukka useMemo use panrom
@@ -432,6 +433,7 @@ function App() {
           <Route exact path='/wallet' element={<WalletPage />} />
           <Route exact path='/wizard' element={<WizardPage />} />
           <Route exact path='/blank-page' element={<BlankPagePage />} />
+          <Route exact path='/my-account' element={<MyAccountPage />} />
         </Route>
 
         {/* 404 Error Page */}

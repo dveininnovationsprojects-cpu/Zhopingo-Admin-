@@ -60,28 +60,32 @@ const HSNMasterTable = () => {
     setShowModal(true);
   };
 
-  const handleAddHsn = async (e) => {
-    e.preventDefault();
-    try {
-      let response;
-      if (isUpdate) {
-        response = await axios.put(`${API_URL}/${editingId}`, newHsn);
-        toast.success("HSN Code updated!");
-      } else {
-        response = await axios.post(API_URL, newHsn);
-        toast.success("HSN Code added!");
-      }
-      
-      if (response.data.success || response.status === 201) {
-        setNewHsn({ hsnCode: "", description: "", gstRate: "" });
-        setShowModal(false);
-        setIsUpdate(false);
-        fetchHsnData();
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.error || "Operation failed");
+// 🌟 38. Handle Add & Update Logic with correct API Routes
+const handleAddHsn = async (e) => {
+  e.preventDefault();
+  try {
+    let response;
+    
+    if (isUpdate) {
+      // 🌟 UPDATED: Route synced with your new backend router (put('/hsn/update/:id'))
+      response = await axios.put(`https://api.zhopingo.in/api/v1/catalog/hsn/update/${editingId}`, newHsn);
+      toast.success("HSN Code updated successfully!");
+    } else {
+      // Create logic remains same
+      response = await axios.post(API_URL, newHsn);
+      toast.success("HSN Code added successfully!");
     }
-  };
+    
+    if (response.data.success || response.status === 201) {
+      setNewHsn({ hsnCode: "", description: "", gstRate: "" });
+      setShowModal(false);
+      setIsUpdate(false);
+      fetchHsnData(); // Refresh table
+    }
+  } catch (error) {
+    toast.error(error.response?.data?.error || "Operation failed. Please try again.");
+  }
+};
 
   // 🌟 37. Professional Delete Logic
   const confirmDelete = async () => {

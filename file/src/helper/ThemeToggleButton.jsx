@@ -24,14 +24,19 @@ const ThemeToggleButton = () => {
 
   return (
     <button
+      
+    >
+      
+    </button>
+  );
+};
+
+export default ThemeToggleButton;
+{/*  <button
       type='button'
       data-theme-toggle
       className='w-40-px h-40-px bg-neutral-200 rounded-circle d-flex justify-content-center align-items-center'
       onClick={handleThemeToggle}
     >
       Toggle Theme
-    </button>
-  );
-};
-
-export default ThemeToggleButton;
+    </button>*/}

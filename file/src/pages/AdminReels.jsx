@@ -13,29 +13,41 @@ const AdminReels = () => {
     // 🌟 viewer list modal-kaga pudhu states
 const [showViewerModal, setShowViewerModal] = useState(false);
 const [currentViewers, setCurrentViewers] = useState([]);
+// 🌟 41. State for Product & Seller Details Pop-up
+const [showProductInfo, setShowProductInfo] = useState(null);
 // 🌟 41. Show views count and Show liked customers list logic
-const openViewerList = (e, reelViewers) => {
+// 🌟 combined state for list title
+const [listTitle, setListTitle] = useState("Viewers List");
+
+// 🌟 41. combined logic for Viewers & Likers
+// 🌟 43. combined logic for Viewers & Likers with Latest First Sort
+const openUserList = (e, userList, title) => {
     e.stopPropagation();
-    setCurrentViewers(reelViewers || []); // Backend-la irundhu vara viewers array
+    
+    // 🌟 [.reverse()] use panni latest view/like panna customers-ai top-la kondu varugirom
+    const latestFirstList = userList ? [...userList].reverse() : [];
+    
+    setCurrentViewers(latestFirstList); 
+    setListTitle(title); 
     setShowViewerModal(true);
 };
-
     const API_BASE = "https://api.zhopingo.in/api/v1";
     const token = localStorage.getItem("userToken");
 
-    const fetchAllReels = async () => {
-        setIsLoading(true);
-        try {
-            const res = await axios.get(`${API_BASE}/reels`);
-            if (res.data.success) {
-                setReels(res.data.data);
-            }
-        } catch (err) {
-            toast.error("Failed to load reels");
-        } finally {
-            setIsLoading(false);
+   const fetchAllReels = async () => {
+    setIsLoading(true);
+    try {
+        const res = await axios.get(`${API_BASE}/reels`);
+        if (res.data.success) {
+            // 🌟 Sort by Date before setting state (Latest First)
+            const sortedReels = res.data.data.sort((a, b) => 
+                new Date(b.createdAt) - new Date(a.createdAt)
+            );
+            setReels(sortedReels);
         }
-    };
+    } catch (err) { toast.error("Failed to load reels"); } 
+    finally { setIsLoading(false); }
+};
 
     useEffect(() => {
         fetchAllReels();
@@ -66,6 +78,11 @@ const openViewerList = (e, reelViewers) => {
             setDeleteModal({ show: false, id: null });
         }
     };
+    // 🌟 41. Open Modal with Product & Seller Info
+const openProductInfo = (e, product, seller) => {
+    e.stopPropagation(); // Reel zoom modal open aaguratha thadukka
+    setShowProductInfo({ ...product, seller });
+};
 
     return (
         
@@ -113,12 +130,20 @@ const openViewerList = (e, reelViewers) => {
                                         <video src={reel.videoUrl} className='w-100 h-100 object-fit-cover' loop muted onMouseOver={e => e.target.play()} onMouseOut={e => e.target.pause()} />
 
                                         <div className="position-absolute bottom-0 w-100 p-16" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.95))', zIndex: 2 }}>
-                                            {reel.productId && (
-                                                <div className="p-8 radius-10 mb-8 border border-white-10 d-flex align-items-center gap-2" style={{ background: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)' }}>
-                                                    <Icon icon="solar:box-bold" className="text-primary-200 fs-6" /> 
-                                                    <p className="mb-0 text-xxs fw-bold text-white text-truncate uppercase ls-1">{reel.productId.name}</p>
-                                                </div>
-                                            )}
+                                          {/* 🌟 41. Clickable Product & Seller Info Area */}
+{reel.productId && (
+    <div 
+        className="p-8 radius-10 mb-8 border border-white-10 d-flex align-items-center gap-2 cursor-pointer transition-all hover-bg-white-20" 
+        style={{ background: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(10px)' }}
+        onClick={(e) => openProductInfo(e, reel.productId, reel.sellerId)}
+    >
+        <Icon icon="solar:box-bold" className="text-primary-200 fs-6" /> 
+        <div className="overflow-hidden">
+            <p className="mb-0 text-xxs fw-black text-white text-truncate uppercase ls-1">{reel.productId.name}</p>
+            <small className="text-white-50 fw-bold" style={{ fontSize: '9px' }}>By: {reel.sellerId?.shopName || "Store"}</small>
+        </div>
+    </div>
+)}
 
                                             {/* 🌟 Desktop & Mobile Fixed Read More Logic */}
                                             <div className="text-white text-xs mb-8 px-1 opacity-90" 
@@ -145,19 +170,23 @@ const openViewerList = (e, reelViewers) => {
                                             <div className="d-flex align-items-center gap-2 mb-8">
                                                 <small className="text-white-50 fw-bold text-truncate text-xxs">@{reel.sellerId?.shopName || "Store"}</small>
                                             </div>
-                                            <div className="d-flex align-items-center text-white gap-2">
-                                                <Icon icon="solar:heart-linear" className="text-white opacity-75" />
-                                                <small className="fw-bold opacity-80 text-xxs">{reel.likes || 0} Likes</small>
-                                            </div>
+                                            {/* 🌟 Clickable Likes Area */}
+<div 
+    className="d-flex align-items-center text-white gap-2 cursor-pointer hover-text-primary-200"
+    onClick={(e) => openUserList(e, reel.likedBy, "Liked Customers List")} 
+>
+    <Icon icon="solar:heart-linear" className="text-white opacity-75" />
+    <small className="fw-bold opacity-80 text-xxs">{reel.likes || 0} Likes</small>
+</div>
                                             {/* View Count Clickable Area */}
-    <div 
-        className="d-flex align-items-center gap-1 cursor-pointer hover-text-primary-200"
-        onClick={(e) => openViewerList(e, reel.viewers)} 
-    >
-        <Icon icon="solar:eye-linear" className="text-white opacity-75" />
-        <small className="fw-bold opacity-80 text-xxs">{reel.views || 0} Views</small>
-    </div>
-                                        </div>
+    {/* 🌟 Updated View Count Area */}
+<div 
+    className="d-flex align-items-center gap-1 cursor-pointer hover-text-primary-200"
+    onClick={(e) => openUserList(e, reel.viewers, "Viewed Customers List")} 
+>
+    <Icon icon="solar:eye-linear" className="text-white opacity-75" />
+    <small className="fw-bold opacity-80 text-xxs">{reel.views || 0} Views</small>
+</div>                            </div>
                                     </div>
                                 </div>
                             )) : (
@@ -184,12 +213,24 @@ const openViewerList = (e, reelViewers) => {
                             <div className="d-flex align-items-center gap-2 mb-12"><Icon icon="solar:heart-linear" className="text-white text-xl opacity-75" /><span className="text-white fw-bold text-sm">{viewReel.likes || 0} Likes</span></div>
                             <h6 className="text-white fw-bold mb-4">@{viewReel.sellerId?.shopName || "Store"}</h6>
                             <div className="text-white-50 text-xs mb-16 px-1" style={{ maxHeight: '100px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>{viewReel.description}</div>
-                            {viewReel.productId && (
-                                <div className="p-12 radius-16 d-flex align-items-center shadow-lg border border-white-10" style={{ background: 'rgba(255, 255, 255, 0.15)', backdropFilter: 'blur(15px)' }}>
-                                    <div className="w-44-px h-44-px radius-8 bg-white d-flex align-items-center justify-content-center me-12"><Icon icon="solar:box-bold" className="text-primary-600 text-xl" /></div>
-                                    <div className="overflow-hidden text-white"><p className="mb-0 text-xs fw-bold text-truncate">{viewReel.productId.name}</p><p className="mb-0 text-xxs fw-bold opacity-75">MRP: ₹{viewReel.productId.price}</p></div>
-                                </div>
-                            )}
+                            {/* 🌟 41. Inside Zoom Reel Modal - Clickable Product Info */}
+{viewReel.productId && (
+    <div 
+        className="p-12 radius-16 d-flex align-items-center shadow-lg border border-white-10 cursor-pointer transition-all hover-bg-white-20" 
+        style={{ background: 'rgba(255, 255, 255, 0.25)', backdropFilter: 'blur(15px)' }}
+        // 🌟 Ippo zoom modal-la irundhu click pannaalum same details modal open aagum
+        onClick={(e) => openProductInfo(e, viewReel.productId, viewReel.sellerId)}
+    >
+        <div className="w-44-px h-44-px radius-8 bg-white d-flex align-items-center justify-content-center me-12 shadow-sm">
+            <Icon icon="solar:box-bold" className="text-primary-600 text-xl" />
+        </div>
+        <div className="overflow-hidden text-white">
+            <p className="mb-0 text-xs fw-black text-truncate uppercase ls-1">{viewReel.productId.name}</p>
+            <p className="mb-0 text-xxs fw-bold opacity-90">MRP: ₹{viewReel.productId.price}</p>
+            <small className="text-white-50 fw-bold" style={{ fontSize: '9px' }}>Tap for Seller Details</small>
+        </div>
+    </div>
+)}
                         </div>
                     </div>
                 </div>
@@ -212,27 +253,35 @@ const openViewerList = (e, reelViewers) => {
                 </div>
             )}
             {/* 🌟 Viewer List Modal UI */}
+{/* 🌟 Viewer/Liker List Modal UI with Internal Scroll */}
 {showViewerModal && (
     <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 999999 }}>
         <div className="modal-dialog modal-dialog-centered modal-sm">
             <div className="modal-content radius-24 border-0 shadow-lg bg-white overflow-hidden">
                 <div className="modal-header border-bottom p-20 bg-light">
                     <h6 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
-                        <Icon icon="solar:users-group-rounded-bold" className="text-primary-600" /> Viewers List
+                        <Icon icon="solar:users-group-rounded-bold" className="text-primary-600" /> 
+                        {listTitle}
                     </h6>
                     <button onClick={() => setShowViewerModal(false)} className="btn-close shadow-none"></button>
                 </div>
-                <div className="modal-body p-0" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                
+                {/* 🌟 Scroll logic: list perusa pona modal body-kullaeye scroll aagum */}
+                <div className="modal-body p-0" style={{ maxHeight: '400px', overflowY: 'auto' }}>
                     {currentViewers.length > 0 ? (
                         <ul className="list-group list-group-flush">
                             {currentViewers.map((user, idx) => (
                                 <li key={idx} className="list-group-item d-flex align-items-center gap-3 p-16 border-bottom">
-                                    <div className="w-32-px h-32-px bg-primary-50 rounded-circle d-flex align-items-center justify-content-center">
+                                    <div className="w-32-px h-32-px bg-primary-50 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0">
                                         <Icon icon="solar:user-bold" className="text-primary-600" />
                                     </div>
                                     <div className="overflow-hidden">
-                                        <p className="mb-0 text-sm fw-bold text-dark text-truncate">{user.name || "Zhopingo User"}</p>
-                                        <small className="text-secondary text-xxs">{user.phone || "No Phone"}</small>
+                                        <p className="mb-0 text-sm fw-bold text-dark text-truncate">
+                                            {user.name || "Zhopingo User"}
+                                        </p>
+                                        <small className="text-secondary text-xxs">
+                                            {user.phone || "No Phone"}
+                                        </small>
                                     </div>
                                 </li>
                             ))}
@@ -240,9 +289,52 @@ const openViewerList = (e, reelViewers) => {
                     ) : (
                         <div className="text-center py-40 opacity-50">
                             <Icon icon="solar:ghost-broken" className="text-4xl mb-2" />
-                            <p className="text-sm fw-bold">No views recorded yet.</p>
+                            <p className="text-sm fw-bold">No interactions recorded yet.</p>
                         </div>
                     )}
+                </div>
+                <div className="modal-footer p-12 bg-light border-top text-center">
+                    <small className="text-xxs fw-bold text-muted uppercase">Total: {currentViewers.length}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+)}
+{/* 🌟 41. PRODUCT & SELLER DETAILS POP-UP MODAL */}
+{showProductInfo && (
+    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 999999 }}>
+        <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content radius-24 border-0 shadow-lg overflow-hidden">
+                <div className="modal-header border-bottom p-20 bg-primary-50">
+                    <h6 className="mb-0 fw-bold text-primary-600 uppercase ls-1">Product Details</h6>
+                    <button onClick={() => setShowProductInfo(null)} className="btn-close shadow-none"></button>
+                </div>
+                <div className="modal-body p-24">
+                    {/* Product Summary */}
+                    <div className="d-flex align-items-center gap-3 mb-20 border-bottom pb-16">
+                        <div className="w-60-px h-60-px bg-neutral-100 radius-12 d-flex align-items-center justify-content-center border">
+                            <Icon icon="solar:box-bold" className="text-primary-600 fs-2" />
+                        </div>
+                        <div>
+                            <h5 className="mb-1 fw-black text-dark uppercase" style={{ fontSize: '16px' }}>{showProductInfo.name}</h5>
+                            <span className="badge bg-success-focus text-success-main radius-4 text-xxs">PRICE: ₹{showProductInfo.price}</span>
+                        </div>
+                    </div>
+
+                    {/* Seller Details */}
+                    <label className="text-xxs fw-bold text-muted uppercase mb-8 d-block">Store Information</label>
+                    <div className="p-16 radius-16 bg-light border border-neutral-200 shadow-sm">
+                        <div className="d-flex align-items-center gap-2 mb-4">
+                            <Icon icon="solar:shop-bold" className="text-primary-600" />
+                            <span className="text-sm fw-bold text-dark">{showProductInfo.seller?.shopName || "Zhopingo Store"}</span>
+                        </div>
+                        <p className="mb-0 text-xs text-secondary-light fw-medium">
+                            <b>Owner:</b> {showProductInfo.seller?.name || "Admin"}
+                        </p>
+                    </div>
+                </div>
+                <div className="modal-footer border-top p-16">
+                    <button className="btn btn-primary-600 w-100 radius-12 fw-bold uppercase" onClick={() => setShowProductInfo(null)}>Close Details</button>
                 </div>
             </div>
         </div>

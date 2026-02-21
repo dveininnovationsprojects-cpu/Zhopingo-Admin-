@@ -156,7 +156,12 @@ const OrderPage = () => {
                                     <tr><td colSpan="13" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
                                 ) : currentOrders.length > 0 ? currentOrders.map((order, index) => (
                                     <tr key={order._id}>
-                                        <td>{indexOfFirstOrder + index + 1}</td>
+                                       {/* 🌟 42. Order Serial Number Descending with Hashtag */}
+<td>
+    <span className="fw-bold text-secondary-light">
+        {filteredOrders.length - (indexOfFirstOrder + index)}
+    </span>
+</td>
                                         <td className="fw-bold text-primary-600">#{order._id.slice(-8).toUpperCase()}</td>
                                         <td className="text-xs">{new Date(order.createdAt).toLocaleDateString('en-GB')}</td>
                                         <td>
@@ -166,18 +171,32 @@ const OrderPage = () => {
                                         </td>
                                         <td><div className="fw-bold text-dark text-sm">{order.customerId?.name || "User"}</div></td>
                                         
-                                        {/* 🌟 SELLER DETAILS SYNC */}
-                                        <td>
-                                            {order.items && order.items.length > 0 ? (
-                                                <div className="d-flex flex-column">
-                                                    <span className="text-xs fw-bold text-primary-600">{order.items[0].sellerId?.name}</span>
-                                                    <small className="text-muted italic" style={{ fontSize: '10px' }}>{order.items[0].sellerId?.shopName || "Admin Hub"}</small>
-                                                    {order.items.length > 1 && (
-                                                        <button onClick={(e) => { e.stopPropagation(); setMultiSellerView(order.items); }} className="btn btn-sm p-0 text-info-main fw-black text-xxs text-start border-0 bg-transparent underline">+ More Sellers</button>
-                                                    )}
-                                                </div>
-                                            ) : null}
-                                        </td>
+                                       {/* 🌟 15. Advanced Seller Details Sync */}
+<td>
+    {order.items && order.items.length > 0 ? (
+        <div className="d-flex flex-column gap-1">
+            {/* Displaying First Item's Seller Details like Product List Page */}
+            <div className="text-xs fw-bold text-primary-600">
+                {order.items[0].sellerId?.name || "Store Owner"}
+            </div>
+            <small className="text-muted italic d-block" style={{ fontSize: '10px' }}>
+                {order.items[0].sellerId?.shopName || "Admin Hub"}
+            </small>
+            
+            {/* 🌟 12. More Sellers Logic for Multiple Vendors in one order */}
+            {order.items.length > 1 && (
+                <button 
+                    onClick={(e) => { e.stopPropagation(); setMultiSellerView(order.items); }}
+                    className="btn btn-sm p-0 text-info-main fw-black text-xxs text-start border-0 bg-transparent underline"
+                >
+                    + {order.items.length - 1} More Sellers
+                </button>
+            )}
+        </div>
+    ) : (
+        <span className="text-xs text-secondary italic">No Seller Info</span>
+    )}
+</td>
                                         
                                         <td className="text-sm">{order.customerId?.phone || "N/A"}</td>
                                         
@@ -340,12 +359,19 @@ const OrderPage = () => {
                                 <button onClick={() => setMultiSellerView(null)} className="btn-close shadow-none"></button>
                             </div>
                             <div className="modal-body p-24" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                {[...new Map(multiSellerView.map(item => [item.sellerId?._id, item.sellerId])).values()].map((seller, idx) => (
-                                    <div key={idx} className="p-12 border-bottom last-border-0 d-flex align-items-center gap-3">
-                                        <div className="w-32-px h-32-px bg-primary-100 rounded-circle d-flex align-items-center justify-content-center"><Icon icon="solar:shop-bold" className="text-primary-600" /></div>
-                                        <div><p className="mb-0 text-sm fw-bold text-dark">{seller?.name}</p><small className="text-muted text-xxs italic">{seller?.shopName || "Zhopingo Store"}</small></div>
-                                    </div>
-                                ))}
+                                {/* 🌟 Inside Multi-Seller Modal body */}
+{[...new Map(multiSellerView.map(item => [item.sellerId?._id, item.sellerId])).values()].map((seller, idx) => (
+    <div key={idx} className="p-12 border-bottom last-border-0 d-flex align-items-center gap-3">
+        <div className="w-32-px h-32-px bg-primary-100 rounded-circle d-flex align-items-center justify-content-center">
+            <Icon icon="solar:shop-bold" className="text-primary-600" />
+        </div>
+        <div>
+            {/* Populated seller name and shop name like Product page */}
+            <p className="mb-0 text-sm fw-bold text-dark">{seller?.name || "Seller"}</p>
+            <small className="text-muted text-xxs italic">{seller?.shopName || "Zhopingo Store"}</small>
+        </div>
+    </div>
+))}
                             </div>
                         </div>
                     </div>
