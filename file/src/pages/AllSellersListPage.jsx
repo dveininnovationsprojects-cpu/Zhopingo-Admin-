@@ -54,16 +54,27 @@ const handleToggleBrand = async (item) => {
     }
 };
 
-    const handleToggleActive = async (id, currentStatus) => {
-        try {
-            const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-            const res = await axios.put(`${API_BASE_URL}/${id}`, { status: newStatus });
-            if (res.data.success) {
-                toast.success(`Seller is now ${newStatus.toUpperCase()}`);
-                fetchAllSellers(); 
-            }
-        } catch (error) { toast.error("Status update failed"); }
-    };
+ const handleToggleActive = async (id, currentStatus) => {
+    try {
+        const token = localStorage.getItem("userToken"); // 🌟 Fetch token
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        
+        // 🌟 Path must match router: /api/v1/admin/sellers/:id
+        const res = await axios.put(
+            `https://api.zhopingo.in/api/v1/admin/sellers/${id}`, 
+            { status: newStatus },
+            { headers: { Authorization: `Bearer ${token}` } } // 🌟 Important for 'protect' middleware
+        );
+
+        if (res.data.success) {
+            toast.success(`Seller is now ${newStatus.toUpperCase()}`);
+            fetchAllSellers(); 
+        }
+    } catch (error) { 
+        console.error("Status update error:", error.response?.data);
+        toast.error(error.response?.data?.message || "Status update failed"); 
+    }
+};
 
     const filteredSellers = sellers.filter((seller) => 
         seller.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -174,14 +185,44 @@ const handleToggleBrand = async (item) => {
                                                 </div>
                                             </td>
 
-                                            {/* 🌟 ACTIVE/INACTIVE TOGGLE */}
-                                            <td className="text-center">
-                                                <div className="d-flex justify-content-center">
-                                                    <div onClick={() => handleToggleActive(item._id, item.status)} style={{ position: 'relative', width: '46px', height: '24px', backgroundColor: item.status === 'active' ? '#28C76F' : '#EA5455', borderRadius: '24px', cursor: 'pointer', transition: '0.3s' }}>
-                                                        <div style={{ position: 'absolute', top: '4px', left: '4px', width: '16px', height: '16px', backgroundColor: 'white', borderRadius: '50%', transition: '0.3s', transform: item.status === 'active' ? 'translateX(22px)' : 'translateX(0px)' }} />
-                                                    </div>
-                                                </div>
-                                            </td>
+                                           {/* 🌟 40. Seller Shop Status Toggle (Red/Green logic) */}
+<td className="text-center">
+    <div className="d-flex justify-content-center">
+        <div 
+            onClick={() => handleToggleActive(item._id, item.status)} 
+            style={{ 
+                position: 'relative', 
+                width: '50px', 
+                height: '24px', 
+                // 🌟 Green if 'active', Red if 'inactive'
+                backgroundColor: item.status === 'active' ? '#28C76F' : '#EA5455', 
+                borderRadius: '24px', 
+                cursor: 'pointer', 
+                transition: 'all 0.3s ease',
+                boxShadow: 'inset 0 0 5px rgba(0,0,0,0.1)'
+            }}
+        >
+            {/* Toggle Circle */}
+            <div style={{ 
+                position: 'absolute', 
+                top: '3px', 
+                left: '3px', 
+                width: '18px', 
+                height: '18px', 
+                backgroundColor: 'white', 
+                borderRadius: '50%', 
+                transition: 'all 0.3s ease', 
+                // 🌟 Move circle to right if active
+                transform: item.status === 'active' ? 'translateX(26px)' : 'translateX(0px)',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }} />
+        </div>
+    </div>
+    {/* 🌟 Optional: Small text label for clarity */}
+    <small className={`fw-bold d-block mt-1 ${item.status === 'active' ? 'text-success' : 'text-danger'}`} style={{ fontSize: '9px' }}>
+        {item.status?.toUpperCase()}
+    </small>
+</td>
                                         </tr>
                                     ))
                                 ) : (

@@ -155,7 +155,6 @@ const handleSubmit = async (e) => {
             className="form-control" 
             value={formData.price} 
             onChange={e => setFormData({...formData, price: e.target.value})} 
-            placeholder="E.g. 500"
             required 
         />
     </div>
@@ -167,7 +166,6 @@ const handleSubmit = async (e) => {
             className="form-control border-success" 
             value={formData.purchasePrice} 
             onChange={e => setFormData({...formData, purchasePrice: e.target.value})} 
-            placeholder="E.g. 350"
             required 
         />
     </div>

@@ -78,15 +78,16 @@ const SellerDashboard = () => {
                     if (sellerShare) sellerOnlyRevenue += (sellerShare.sellerSubtotal || 0);
                 });
 
-                setStats({
-                    new: myOrders.filter(o => o.status === "Placed").length,
-                    pending: myOrders.filter(o => o.status === "Pending").length,
-                    packed: myOrders.filter(o => o.status === "Accepted").length,
-                    shipped: myOrders.filter(o => o.status === "Shipped").length,
-                    delivered: myOrders.filter(o => o.status === "Delivered").length,
-                    returns: myOrders.filter(o => o.status === "Cancelled").length,
-                    revenue: sellerOnlyRevenue
-                });
+              // 🌟 41. Syncing with backend: Only Placed, Shipped, Delivered & Revenue
+// 🌟 Stats sync with real Backend status
+setStats({
+    new: myOrders.filter(o => o.status === "Placed").length,
+    placed: myOrders.filter(o => o.status === "Placed").length, // 🌟 Box replacement
+    shipped: myOrders.filter(o => o.status === "Shipped").length,
+    delivered: myOrders.filter(o => o.status === "Delivered").length,
+    cancelled: myOrders.filter(o => o.status === "Cancelled").length, // 🌟 Box replacement
+    revenue: sellerOnlyRevenue
+});
 
                 const productMap = {};
                 myOrders.forEach(order => {
@@ -133,16 +134,20 @@ const SellerDashboard = () => {
         }] 
     };
 
-    const renderDashboard = () => (
-        <div className="animate__animated animate__fadeIn">
-            <div className="row gy-4 mb-24">
-                <StatCard label="New Orders" val={stats.new} btn="View Orders" onClick={() => setActiveTab("orders")} color="primary" />
-                <StatCard label="Pending" val={stats.pending} color="warning" />
-                <StatCard label="Packed" val={stats.packed} color="info" />
-                <StatCard label="Shipped" val={stats.shipped} color="secondary" />
-                <StatCard label="Delivered" val={stats.delivered} color="success" />
-                <StatCard label="Revenue" val={`₹${stats.revenue.toLocaleString()}`} color="success" />
-            </div>
+const renderDashboard = () => (
+    <div className="animate__animated animate__fadeIn">
+        <div className="row gy-4 mb-24">
+            {/* 🌟 Placed Box */}
+             <StatCard label="New Orders" val={stats.new} btn="View Orders" onClick={() => setActiveTab("orders")} color="primary" />
+            <StatCard label="Placed" val={stats.new} />
+            
+            {/* 🌟 Cancelled Box (Replacing Pending/Packed) */}
+            <StatCard label="Cancelled" val={stats.cancelled} color="danger" />
+            
+            <StatCard label="Shipped" val={stats.shipped} color="secondary" />
+            <StatCard label="Delivered" val={stats.delivered} color="success" />
+            <StatCard label="Revenue" val={`₹${stats.revenue.toLocaleString()}`} color="success" />
+        </div>
 
             <div className="row gy-4">
                 <div className="col-lg-8">

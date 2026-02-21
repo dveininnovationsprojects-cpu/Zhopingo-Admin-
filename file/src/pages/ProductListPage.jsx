@@ -126,12 +126,22 @@ const ProductListPage = () => {
                                                 <small className="text-info-main fw-bold" style={{ fontSize: '10px' }}>{p.seller?.shopName || "Zhopingo Store"}</small>
                                             </div>
                                         </td>
-                                        <td>
-                                            <div className="d-flex flex-column">
-                                                <span className="text-success-main fw-900 text-sm">₹{p.price}</span>
-                                                {p.mrp > p.price && <del className="text-danger text-xxs">₹{p.mrp}</del>}
-                                            </div>
-                                        </td>
+{/* 🌟 Dynamic Price & MRP Sync from Backend */}
+<td>
+    <div className="d-flex flex-column">
+        {/* Real Selling Price from Backend */}
+        <span className="text-success-main fw-900 text-sm">
+            ₹{p.price || 0}
+        </span>
+        
+        {/* MRP logic: MRP selling price-ai vida adhighama irundha mattum kaattu */}
+        {p.mrp && p.mrp > p.price && (
+            <del className="text-danger text-xxs opacity-75">
+                MRP: ₹{p.mrp}
+            </del>
+        )}
+    </div>
+</td>
                                         <td>
                                             <span className={`badge ${p.stock > 10 ? 'bg-success-focus text-success-main' : 'bg-danger-focus text-danger-main'} radius-pill px-12 py-4 text-xxs fw-bold`}>
                                                 {p.stock} units
@@ -201,7 +211,21 @@ const ProductListPage = () => {
                                         <h4 className="fw-900 text-dark mb-4">{selectedProduct.name}</h4>
                                         <span className="badge bg-success-focus text-success-main radius-4 mb-16">LIVE IN CATALOG</span>
                                         <div className="row">
-                                            <div className="col-6 mb-12"><label className="text-xxs fw-bold text-muted uppercase">Price</label><p className="fw-900 text-primary-600 fs-5 mb-0">₹{selectedProduct.price}</p></div>
+                                            {/* 🌟 Modal Price & MRP Details */}
+<div className="col-6 mb-12">
+    <label className="text-xxs fw-bold text-muted uppercase">Pricing Details</label>
+    <div className="d-flex align-items-baseline gap-2">
+        <p className="fw-900 text-primary-600 fs-5 mb-0">₹{selectedProduct.price}</p>
+        {selectedProduct.mrp > selectedProduct.price && (
+            <del className="text-danger text-xs fw-bold">₹{selectedProduct.mrp}</del>
+        )}
+    </div>
+    {selectedProduct.mrp > selectedProduct.price && (
+        <small className="text-success text-xxs fw-bold">
+            Save ₹{selectedProduct.mrp - selectedProduct.price} OFF
+        </small>
+    )}
+</div>
                                             <div className="col-6 mb-12"><label className="text-xxs fw-bold text-muted uppercase">Stock Available</label><p className="fw-bold text-dark mb-0">{selectedProduct.stock} Units</p></div>
                                             <div className="col-6"><label className="text-xxs fw-bold text-muted uppercase">Category</label><p className="text-sm fw-bold mb-0">{selectedProduct.category?.name}</p></div>
                                             <div className="col-6"><label className="text-xxs fw-bold text-muted uppercase">Seller</label><p className="text-sm fw-bold mb-0 text-primary-600">{selectedProduct.seller?.shopName}</p></div>

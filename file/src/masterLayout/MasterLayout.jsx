@@ -2129,13 +2129,14 @@ else if (location.pathname === "/form-layout") {
       src='../assets/images/auth/logo-dash.png'
       alt='site logo'
       className='light-logo'
-      style={{ width: '100%', height: '55px', objectFit: 'contain' }} // 🌟 Height increased from default
+      // 🌟 Height increased to 70px and added !important to bypass CSS limits
+      style={{ width: '100%', height: '70px !important', maxHeight: '70px !important', objectFit: 'contain' }} 
     />
     <img
       src='../assets/images/auth/logo-dash.png'
       alt='site logo'
       className='dark-logo'
-      style={{ width: '100%', height: '55px', objectFit: 'contain' }}
+      style={{ width: '100%', height: '70px !important', maxHeight: '70px !important', objectFit: 'contain' }}
     />
     <img
       src='../assets/images/auth/logo-dash.png'

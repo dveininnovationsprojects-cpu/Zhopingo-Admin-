@@ -171,22 +171,27 @@ const openProductInfo = (e, product, seller) => {
                                                 <small className="text-white-50 fw-bold text-truncate text-xxs">@{reel.sellerId?.shopName || "Store"}</small>
                                             </div>
                                             {/* 🌟 Clickable Likes Area */}
-<div 
-    className="d-flex align-items-center text-white gap-2 cursor-pointer hover-text-primary-200"
-    onClick={(e) => openUserList(e, reel.likedBy, "Liked Customers List")} 
->
-    <Icon icon="solar:heart-linear" className="text-white opacity-75" />
-    <small className="fw-bold opacity-80 text-xxs">{reel.likes || 0} Likes</small>
-</div>
-                                            {/* View Count Clickable Area */}
-    {/* 🌟 Updated View Count Area */}
-<div 
-    className="d-flex align-items-center gap-1 cursor-pointer hover-text-primary-200"
-    onClick={(e) => openUserList(e, reel.viewers, "Viewed Customers List")} 
->
-    <Icon icon="solar:eye-linear" className="text-white opacity-75" />
-    <small className="fw-bold opacity-80 text-xxs">{reel.views || 0} Views</small>
-</div>                            </div>
+{/* 🌟 41. Fixed Alignment - Removed White Line */}
+<div className="d-flex align-items-center justify-content-between text-white pt-4">
+    
+    {/* 🌟 Likes - Left Side */}
+    <div 
+        className="d-flex align-items-center gap-1 cursor-pointer hover-text-primary-200"
+        onClick={(e) => openUserList(e, reel.likedBy, "Liked Customers List")} 
+    >
+        <Icon icon="solar:heart-linear" className="text-white opacity-75" style={{ fontSize: '18px' }} />
+        <small className="fw-bold opacity-80 text-xxs">{reel.likes || 0} Likes</small>
+    </div>
+
+    {/* 🌟 Views - Right Side */}
+    <div 
+        className="d-flex align-items-center gap-1 cursor-pointer hover-text-primary-200"
+        onClick={(e) => openUserList(e, reel.viewers, "Viewed Customers List")} 
+    >
+        <Icon icon="solar:eye-linear" className="text-white opacity-75" style={{ fontSize: '18px' }} />
+        <small className="fw-bold opacity-80 text-xxs">{reel.views || 0} Views</small>
+    </div>
+</div>                       </div>
                                     </div>
                                 </div>
                             )) : (
