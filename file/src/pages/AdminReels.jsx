@@ -15,7 +15,7 @@ const [showViewerModal, setShowViewerModal] = useState(false);
 const [currentViewers, setCurrentViewers] = useState([]);
 // 🌟 41. State for Product & Seller Details Pop-up
 const [showProductInfo, setShowProductInfo] = useState(null);
-// 🌟 41. Show views count and Show liked customers list logic
+// 🌟 41. Show views count and Show liked   customers list logic
 // 🌟 combined state for list title
 const [listTitle, setListTitle] = useState("Viewers List");
 
@@ -64,20 +64,27 @@ const openUserList = (e, userList, title) => {
         setDeleteModal({ show: true, id: id });
     };
 
-    const confirmDelete = async () => {
-        try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
-            const res = await axios.delete(`${API_BASE}/reels/${deleteModal.id}`, config);
-            if (res.data.success) {
-                toast.success("Reel deleted permanently!");
-                fetchAllReels();
-            }
-        } catch (err) {
-            toast.error("Delete operation failed");
-        } finally {
-            setDeleteModal({ show: false, id: null });
+const confirmDelete = async () => {
+    try {
+        // 🌟 AUTH SYNC: Backend 'protect' middleware-ku Token thevai
+        const config = { 
+            headers: { Authorization: `Bearer ${token}` } 
+        };
+        
+        // 🌟 Path matching your router: router.delete('/:id', ...)
+        const res = await axios.delete(`${API_BASE}/reels/${deleteModal.id}`, config);
+        
+        if (res.data.success) {
+            toast.success("Reels deleted successfully!");
+            fetchAllReels(); // Refresh table instantaneous-ah nadakkum
         }
-    };
+    } catch (err) {
+        console.error("Delete Error Details:", err.response?.data);
+        toast.error(err.response?.data?.message || "Internal Server Error during delete");
+    } finally {
+        setDeleteModal({ show: false, id: null });
+    }
+};
     // 🌟 41. Open Modal with Product & Seller Info
 const openProductInfo = (e, product, seller) => {
     e.stopPropagation(); // Reel zoom modal open aaguratha thadukka

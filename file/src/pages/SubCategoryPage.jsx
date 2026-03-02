@@ -22,7 +22,7 @@ const SubCategoryPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const [formData, setFormData] = useState({ 
-    id: "", name: "", categoryId: "", description: "", image: null, hsnCode: "", gstRate: ""
+    id: "", name: "", categoryId: "", description: "", image: null
   });
   const [previewImage, setPreviewImage] = useState(null); // 🌟 Image Preview State
 
@@ -186,7 +186,7 @@ const SubCategoryPage = () => {
               <thead>
                 <tr>
                   <th className="ps-24">S.no</th><th>Image</th><th>Sub-Category</th>
-                  <th>Category</th><th>HSN</th><th>GST %</th><th>Description</th><th className="text-center">Action</th>
+                  <th>Category</th><th>Description</th><th className="text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,8 +196,6 @@ const SubCategoryPage = () => {
                     <td><img src={getImageUrl(item.image)} className="w-40-px h-40-px radius-8 border object-fit-cover shadow-sm" alt="" /></td>
                     <td className="text-primary-600 fw-medium">{item.name}</td>
                     <td><span className="badge bg-secondary-focus text-secondary-light">{item.category?.name || "N/A"}</span></td> 
-                    <td className="fw-semibold text-secondary-light">{item.hsnCode || "---"}</td>
-                    <td><span className="badge bg-info-focus text-info-main px-12 py-4 radius-4">{item.gstRate}%</span></td>
                     <td><div className="text-wrap text-xs" style={{ maxWidth: '180px' }}>{item.description}</div></td>
                     <td className="text-center">
                       <div className="d-flex align-items-center justify-content-center gap-3">
@@ -254,8 +252,6 @@ const SubCategoryPage = () => {
           <form className="row gy-4" onSubmit={handleSubmit}>
             <div className="col-12"><label className="form-label fw-bold">Sub Category Name *</label><input type="text" className="form-control" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required /></div>
             <div className="col-12"><label className="form-label fw-bold">Category *</label><select className="form-select" value={formData.categoryId} onChange={handleCategoryChange} required><option value="">Select Category</option>{categories.map(cat => (<option key={cat._id} value={cat._id}>{cat.name}</option>))}</select></div>
-            <div className="col-6"><label className="form-label fw-bold text-xs">HSN (Auto)</label><input type="text" className="form-control bg-light" value={formData.hsnCode} readOnly /></div>
-            <div className="col-6"><label className="form-label fw-bold text-xs">GST % (Auto)</label><input type="text" className="form-control bg-light" value={formData.gstRate ? `${formData.gstRate}%` : ""} readOnly /></div>
             <div className="col-12"><label className="form-label fw-bold">Description</label><textarea className="form-control" rows="3" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea></div>
             <div className="col-12">
               <label className="form-label fw-bold">Image Upload (Max 2MB)</label>

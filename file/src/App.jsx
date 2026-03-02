@@ -339,6 +339,7 @@ import AdminReels from "./pages/AdminReels";
 import AdminProfile from "./pages/AdminProfile";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MyAccountPage from "./pages/MyAccountPage";
+import MasterProductListPage from "./pages/MasterProductListPage";
 
 function App() {
   // 🌟 Logic: Storage-la irundhu fresh data-va eppovum edukka useMemo use panrom
@@ -404,6 +405,11 @@ function App() {
           <Route exact path='/carousel' element={<CarouselPage />} />
           <Route exact path='/chat-message' element={<ChatMessagePage />} />
           <Route exact path='/chat-profile' element={<ChatProfilePage />} />
+          {/* 🌟 Master Catalog Management Route */}
+<Route 
+  path="/master-catalog" 
+  element={<MasterProductListPage />} 
+/>
           <Route exact path='/colors' element={<ColorsPage />} />
           <Route exact path='/company' element={<CompanyPage />} />
           <Route exact path='/email' element={<EmailPage />} />

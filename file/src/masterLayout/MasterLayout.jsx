@@ -2231,6 +2231,7 @@ else if (location.pathname === "/form-layout") {
                     Products List
                   </NavLink>
                 </li>
+                
                {/*} <li>
                   <NavLink
                     to='/add-product'
@@ -2242,6 +2243,17 @@ else if (location.pathname === "/form-layout") {
                     Add Product
                   </NavLink>
                 </li>*/}
+                <li>
+                  <NavLink
+                    to='/master-catalog'
+                    className={(navData) =>
+                      navData.isActive ? "active-page" : ""
+                    }
+                  >
+                    <i className='ri-circle-fill circle-icon text-primary-600 w-auto' />{" "}
+                    Master Product List
+                  </NavLink>
+                </li>
                         <li>
                   <NavLink
                     to='/category'
