@@ -11,11 +11,19 @@ const AddProduct = () => {
     const [allSubCategories, setAllSubCategories] = useState([]); 
     const [filteredSubCategories, setFilteredSubCategories] = useState([]); 
     const [masterProductList, setMasterProductList] = useState([]); // 🌟 Master List state
+    const [showUpdateModal, setShowUpdateModal] = useState(false);
     
     const [showAddModal, setShowAddModal] = useState(false);
     const [showRequestModal, setShowRequestModal] = useState(false); // 🌟 Admin request modal
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showStatusModal, setShowStatusModal] = useState(false);
+const [myRequests, setMyRequests] = useState([]);
+const [isEditMode, setIsEditMode] = useState(false);
+const [editId, setEditId] = useState(null);
+const [showDeleteModal, setShowDeleteModal] = useState(false);
+const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+
 
     const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
     const token = localStorage.getItem("userToken");
@@ -40,6 +48,136 @@ const AddProduct = () => {
     const [ingredientsList, setIngredientsList] = useState([""]);
     const [nutritionInfo, setNutritionInfo] = useState([{ label: "", value: "" }]);
     const [files, setFiles] = useState({ images: [null, null, null, null, null], video: null }); // 🌟 5 Image Slots
+    const handleEditProduct = (item) => {
+    setIsEditMode(true);
+    setEditId(item._id);
+    
+    // Auto-fill form with existing backend data
+    setFormData({
+        masterProductId: item.masterProductId?._id || item.masterProductId,
+        name: item.name,
+        category: item.category?._id || item.category,
+        subCategory: item.subCategory?._id || item.subCategory,
+        price: item.price,
+        mrp: item.mrp || "",
+        purchasePrice: item.purchasePrice || "", // 🌟 Pre-filling Purchase Price
+        stock: item.stock,
+        brand: item.brand || "",
+        description: item.description || "",
+        hsnCode: item.hsnCode || "",
+        gstPercentage: item.gstPercentage || "",
+        isVeg: item.isVeg,
+        isFreeDelivery: item.isFreeDelivery,
+        isReturnable: item.isReturnable,
+        offerTag: item.offerTag || "",
+        highlights: item.highlights || { productType: "", cocoaContent: "" },
+        manufacturerDetails: item.manufacturerDetails || { manufacturerNameAddress: "", countryOfOrigin: "India" }
+    });
+ 
+    // Lists logic pre-fill
+    setVariants(item.variants || []);
+    setKeyFeatures(item.keyFeatures || [""]);
+    setIngredientsList(item.ingredients ? item.ingredients.split(", ") : [""]);
+    
+    setShowAddModal(true); // Open the same modal
+};
+// 🌟 41. Strictly Independent Update Logic
+
+// 🌟 41. Strictly for UPDATE ONLY - No overlap with Publish logic
+const handleUpdateSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    const data = new FormData();
+
+    // 🌟 Strictly processing attributes from Backend Controller
+    Object.keys(formData).forEach(key => {
+        if (key === 'highlights' || key === 'manufacturerDetails') {
+            data.append(key, JSON.stringify(formData[key]));
+        } else {
+            // Filter null values and append to FormData
+            if (formData[key] !== null && formData[key] !== undefined) {
+                data.append(key, formData[key]);
+            }
+        }
+    });
+
+    data.append("variants", JSON.stringify(variants));
+
+    try {
+        // 🌟 Exact URL Sync: /api/v1/products/update/:id
+        const res = await axios.put(`${API_BASE}/products/update/${editId}`, data, {
+            headers: { 
+                "Content-Type": "multipart/form-data", 
+                Authorization: `Bearer ${token}` 
+            }
+        });
+
+        if (res.data.success) {
+            toast.success("Product Updated Successfully!");
+            setShowUpdateModal(false);
+            fetchData(); // Table instantaneous refresh
+        }
+    } catch (err) {
+        toast.error(err.response?.data?.message || "Sync failed");
+    } finally {
+        setIsSubmitting(false);
+    }
+};
+// 🌟 41. Professional Pre-fill & Slide Drawer Logic
+// 🌟 41. Fixed Edit Trigger - strictly opens the BIG Modal
+const handleEditClick = (item) => {
+    setEditId(item._id);
+    
+    // 🌟 strictly mapping ALL attributes for the big popup
+    setFormData({
+        masterProductId: item.masterProductId?._id || item.masterProductId,
+        name: item.name,
+        category: item.category?._id || item.category,
+        subCategory: item.subCategory?._id || item.subCategory,
+        price: item.price,
+        mrp: item.mrp || "",
+        purchasePrice: item.purchasePrice || "", 
+        stock: item.stock,
+        brand: item.brand || "",
+        description: item.description || "",
+        hsnCode: item.hsnCode || "",
+        gstPercentage: item.gstPercentage || "",
+        offerTag: item.offerTag || "",
+        isVeg: item.isVeg,
+        isFreeDelivery: item.isFreeDelivery,
+        isReturnable: item.isReturnable,
+        highlights: item.highlights || { productType: "", cocoaContent: "", fabricType: "" },
+        manufacturerDetails: item.manufacturerDetails || { manufacturerNameAddress: "", countryOfOrigin: "India" }
+    });
+
+    setVariants(item.variants || []);
+    setKeyFeatures(item.keyFeatures || [""]);
+setShowUpdateModal(true); // 🌟 strictly must be true to open the popup
+};
+// 🌟 41. Handle Delete logic
+// 🌟 41. Handle Delete Logic strictly matching your Backend Router
+const confirmDelete = async () => {
+    if (!editId) return toast.error("Error: Product ID missing");
+    
+    setIsLoading(true);
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        // 🌟 Path strictly sync: /api/v1/products/delete/:id
+        const res = await axios.delete(`${API_BASE}/products/delete/${editId}`, config);
+        
+        if (res.data.success) {
+            toast.success("Product removed from store successfully!");
+            fetchData(); // Table instantaneous-ah refresh aagum
+            setShowDeleteModal(false);
+            setEditId(null);
+        }
+    } catch (err) {
+        console.error("Delete Error:", err.response?.data);
+        toast.error(err.response?.data?.message || "Internal Server Error during delete");
+    } finally {
+        setIsLoading(false);
+    }
+};
 
     const fetchData = async () => {
         if (!token) return;
@@ -55,7 +193,19 @@ const AddProduct = () => {
         } catch (err) { toast.error("Catalog load error"); } 
         finally { setIsLoading(false); }
     };
-
+const fetchMyRequestStatus = async () => {
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        // Backend strictly 'seller' ID vachu filter pannum
+        const res = await axios.get(`${API_BASE}/catalog/tokens/all`, config);
+        if (res.data.success) {
+            setMyRequests(res.data.data);
+            setShowStatusModal(true);
+        }
+    } catch (err) {
+        toast.error("Failed to fetch request status");
+    }
+};
     useEffect(() => { fetchData(); }, []);
 
     // 🌟 Category filter logic
@@ -198,39 +348,103 @@ const handleMasterProductSelect = (masterId) => {
                     <p className="text-secondary text-xs mb-0">Total Products Listed: {products.length}</p>
                 </div>
                 <div className="d-flex gap-3">
-                    {/* 🌟 New Request Button */}
-                    <button onClick={() => setShowRequestModal(true)} className="btn btn-outline-warning rounded-8 px-20 py-12 fw-bold d-flex align-items-center gap-2">
-                        <Icon icon="solar:chat-round-call-bold" /> REQUEST ADMIN
-                    </button>
-                    <button onClick={() => setShowAddModal(true)} className="btn btn-primary-600 rounded-8 px-24 py-12 fw-bold shadow-sm d-flex align-items-center gap-2 text-white">
-                        <Icon icon="solar:add-circle-bold" className="fs-5" /> NEW LISTING
-                    </button>
-                </div>
+    {/* 🌟 New Status Button */}
+    <button onClick={fetchMyRequestStatus} className="btn btn-outline-primary rounded-8 px-20 py-12 fw-bold d-flex align-items-center gap-2">
+        <Icon icon="solar:clipboard-list-bold" /> REQUEST STATUS
+    </button>
+    
+    <button onClick={() => setShowRequestModal(true)} className="btn btn-outline-warning rounded-8 px-20 py-12 fw-bold d-flex align-items-center gap-2">
+        <Icon icon="solar:chat-round-call-bold" /> REQUEST ADMIN
+    </button>
+    
+    <button onClick={() => setShowAddModal(true)} className="btn btn-primary-600 rounded-8 px-24 py-12 fw-bold shadow-sm d-flex align-items-center gap-2 text-white">
+        <Icon icon="solar:add-circle-bold" className="fs-5" /> NEW LISTING
+    </button>
+</div>
             </div>
 
-            <div className="row gy-4">
-                {isLoading ? (
-                    <div className="text-center py-50 w-100"><div className="spinner-border text-primary"></div></div>
-                ) : products.length > 0 ? (
-                    products.map((item) => (
-                        <div className="col-xxl-2 col-lg-3 col-sm-4 col-6" key={item._id}>
-                            <div className="card radius-12 border-0 shadow-sm h-100 overflow-hidden text-center p-12 transition-all hover-scale">
-                                <div className="radius-8 overflow-hidden mb-12 border" style={{ height: "140px" }}>
-                                    <img src={item.images?.[0]} className="w-100 h-100 object-fit-contain" alt={item.name} onError={(e) => e.target.src = "assets/images/default-product.png"} />
-                                </div>
-                                <h6 className="fw-bold mb-4 text-truncate text-sm text-dark uppercase ls-1">{item.name}</h6>
-                                <p className="text-primary-600 fw-900 mb-0">₹{item.price}</p>
-                                <span className="badge bg-neutral-50 text-secondary border px-8 py-4 mt-2 text-xxs">STOCK: {item.stock}</span>
+           
+            <div className="card-body p-0">
+    <div className="table-responsive">
+        <table className="table basic-border-table mb-0 align-middle">
+            <thead className="bg-light">
+                <tr className="text-xxs fw-black uppercase text-secondary">
+                    <th className="ps-24">S.No</th>
+                    <th>Thumbnail</th>
+                    <th>Product Name</th>
+                    <th>Category / Sub</th>
+                    <th>Price Details</th>
+                    <th>Stock</th>
+                    <th className="text-center">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {products.length > 0 ? products.map((item, index) => (
+                    <tr key={item._id} className="hover-bg-neutral-50 transition-all">
+                        <td className="ps-24 fw-bold text-secondary">{products.length - index}</td>
+                        <td style={{ width: '80px' }}>
+                            <div className="w-50-px h-50-px radius-8 border bg-light d-flex align-items-center justify-content-center overflow-hidden shadow-sm">
+                                <img 
+                                    src={item.images?.[0] || "assets/images/default-product.png"} 
+                                    className="w-100 h-100 object-fit-cover" 
+                                    alt="" 
+                                    onError={(e) => e.target.src = "assets/images/default-product.png"}
+                                />
                             </div>
-                        </div>
-                    ))
-                ) : (
-                    <div className="text-center py-80 radius-12 shadow-sm w-100 mx-3 border">
-                        <Icon icon="solar:box-minimalistic-broken" className="text-6xl text-neutral-200 mb-16" />
-                        <p className="text-secondary fw-bold">Your inventory is currently empty.</p>
-                    </div>
-                )}
-            </div>
+                        </td>
+                        <td>
+                            <div className="d-flex flex-column">
+                                <span className="text-dark fw-bold text-sm uppercase">{item.name}</span>
+                                <small className="text-muted">HSN: {item.hsnCode || "---"}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <span className="badge bg-primary-50 text-primary-600 radius-4 d-block mb-1" style={{width:'fit-content'}}>{item.category?.name}</span>
+                            <small className="text-muted fw-bold ps-4">{item.subCategory?.name}</small>
+                        </td>
+                        <td>
+                            <div className="d-flex flex-column">
+                                <span className="text-success-main fw-900 text-sm">₹{item.price}</span>
+                                {item.mrp > item.price && <del className="text-danger text-xxs opacity-75">MRP: ₹{item.mrp}</del>}
+                            </div>
+                        </td>
+                        <td>
+                            <span className={`badge ${item.stock > 10 ? 'bg-success-focus text-success-main' : 'bg-danger-focus text-danger-main'} radius-pill px-12 py-4 text-xxs fw-bold`}>
+                                {item.stock} units
+                            </span>
+                        </td>
+                      {/* 🌟 41. Fixed Table Action Mapping */}
+<td className="text-center">
+    <div className="d-flex align-items-center justify-content-center gap-2">
+
+<button 
+    type="button" 
+    onClick={() => handleEditClick(item)} // <--- Strictly handleEditClick nu irukanum
+    className="btn btn-sm btn-info-focus ..."
+>
+            <Icon icon="lucide:edit" className="fs-5"/>
+        </button>
+
+        {/* Delete Button */}
+        <button 
+            type="button" 
+            onClick={(e) => { 
+                e.stopPropagation(); 
+                setEditId(item._id); 
+                setShowDeleteModal(true); 
+            }} 
+            className="btn btn-sm btn-danger-focus text-danger-main p-8 border-0 radius-8 shadow-none"
+        >
+            <Icon icon="lucide:trash-2" className="fs-5"/>
+        </button>
+    </div>
+</td>
+                    </tr>
+                )) : <tr><td colSpan="7" className="text-center py-80 text-muted">No products listed yet.</td></tr>}
+            </tbody>
+        </table>
+    </div>
+</div>
 
             {/* 🌟 PREMIUM LISTING MODAL */}
             {showAddModal && (
@@ -298,6 +512,7 @@ const handleMasterProductSelect = (masterId) => {
                                         </div>
                                         <div className="mb-16"><label className="form-label text-xs fw-bold text-secondary">Available Stock *</label><input type="number" className="form-control radius-10" placeholder="Units" onChange={e => setFormData({...formData, stock: e.target.value})} required /></div>
                                     </div>
+                                    
 
                                     {/* COLUMN 2: SPECS & VARIANTS */}
                                     <div className="col-lg-4 border-end px-lg-4">
@@ -419,9 +634,202 @@ const handleMasterProductSelect = (masterId) => {
                         </div>
                     </div>
                 </div>
-            )}
+            )}{/* 🌟 41. Professional Request Status Tracking Modal */}
+{/* 🌟 41. Professional Status Tracking with Specific Color Logic */}
+{showStatusModal && (
+    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1100 }}>
+        <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content radius-24 border-0 shadow-lg">
+                <div className="modal-header border-bottom p-24 bg-light">
+                    <h6 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+                        <Icon icon="solar:history-bold" className="text-primary-600" /> Catalog Request History
+                    </h6>
+                    <button onClick={() => setShowStatusModal(false)} className="btn-close shadow-none"></button>
+                </div>
+                <div className="modal-body p-0" style={{ maxHeight: '450px', overflowY: 'auto' }}>
+                    <table className="table table-hover mb-0 align-middle">
+                        <thead className="bg-white border-bottom sticky-top">
+                            <tr className="text-xxs fw-bold uppercase text-secondary">
+                                <th className="ps-24 py-16">Product Name</th>
+                                <th>Category / Sub</th>
+                                <th>Current Status</th>
+                                <th className="text-center">Admin Message</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {myRequests.length > 0 ? myRequests.map((req, i) => (
+                                <tr key={i} className="border-bottom">
+                                    <td className="ps-24 fw-bold text-dark">{req.name}</td>
+                                    <td>
+                                        <small className="d-block fw-bold text-primary-600">{req.category?.name}</small>
+                                        <small className="text-muted">{req.subCategory?.name}</small>
+                                    </td>
+                                    <td>
+                                        {/* 🌟 41. Exact Color Logic: Active=Green, Approved=Blue, Pending=Yellow, Rejected=Red */}
+                                        <span className={`badge radius-pill px-12 py-6 uppercase ls-1 ${
+                                            req.status === 'active' ? 'bg-success-focus text-success-main' : // 🟢 ACTIVE (Live)
+                                            req.status === 'approved' ? 'bg-info-focus text-info-main' :      // 🔵 APPROVED (HSN Pending)
+                                            req.status === 'rejected' ? 'bg-danger-focus text-danger-main' : // 🔴 REJECTED
+                                            'bg-warning-focus text-warning-main'                            // 🟡 PENDING
+                                        }`} style={{fontSize: '10px', minWidth: '80px', textAlign: 'center'}}>
+                                            {req.status === 'active' ? 'Active' : 
+                                             req.status === 'approved' ? 'Approved' : 
+                                             req.status === 'rejected' ? 'Rejected' : 'Pending'}
+                                        </span>
+                                    </td>
+                                    <td className="text-center">
+                                        <small className="text-secondary fw-medium">
+                                            {req.status === 'active' ? "Product is Live in App" : 
+                                             req.status === 'approved' ? "Awaiting HSN Assignment" :
+                                             req.status === 'rejected' ? (req.rejectionReason || "Check Guidelines") : 
+                                             "Admin is reviewing..."}
+                                        </small>
+                                    </td>
+                                </tr>
+                            )) : (
+                                <tr><td colSpan="4" className="text-center py-50 text-muted">No catalog requests found.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+)}{/* 🌟 Professional UI Delete Modal Sync */}
+{/* 🌟 41. Fixed Circular Trash Icon Alignment */}
+{showDeleteModal && (
+    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1100 }}>
+        <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '400px' }}>
+            <div className="modal-content radius-24 border-0 shadow-lg p-32 text-center bg-white">
+                
+                {/* 🌟 Center Aligned Circular Icon Container */}
+                <div className="d-flex justify-content-center mb-24">
+                    <div 
+                        className="w-80-px h-80-px bg-danger-focus text-danger-600 rounded-circle d-flex justify-content-center align-items-center shadow-sm animate__animated animate__shakeX"
+                        style={{ border: '2px dashed #EA5455' }}
+                    >
+                        <Icon icon="lucide:trash-2" className="text-4xl" />
+                    </div>
+                </div>
+
+                <h4 className="mb-8 fw-900 text-dark">Delete Product?</h4>
+                <p className="text-secondary-light mb-32 fw-medium">
+                    Are you sure you want to delete this product? <br/> 
+                    <small className="text-danger-600 fw-bold">This action cannot be undone.</small>
+                </p>
+
+                <div className="d-flex justify-content-center gap-3">
+                    <button 
+                        onClick={() => setShowDeleteModal(false)} 
+                        className="btn btn-light px-32 py-12 radius-12 fw-bold text-dark border-0"
+                    >
+                        Cancel
+                    </button>
+                    {/* 🌟 Final logic trigger */}
+                    <button 
+                        onClick={confirmDelete} 
+                        className="btn btn-danger-600 px-32 py-12 radius-12 fw-bold shadow-lg uppercase ls-1"
+                    >
+                        Yes, Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+)}
         </div>
     );
+    {/* 🌟 41. Independent Update Product Modal (Separate from New Listing) */}
+{/* 🌟 41. Big Update Modal UI (Independent) */}
+{/* 🌟 41. Big Update Modal UI - Full Attribute Sync */}
+{showUpdateModal && (
+    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1200 }}>
+        <div className="modal-dialog modal-xl modal-dialog-centered">
+            <div className="modal-content radius-24 border-0 shadow-lg overflow-hidden">
+                <div className="modal-header border-bottom px-32 py-20 bg-info-50">
+                    <div className="d-flex align-items-center gap-2">
+                        <Icon icon="solar:pen-new-square-bold" className="text-info-main fs-4" />
+                        <h5 className="fw-900 mb-0 text-info-main uppercase ls-1">Update Product Profile: {formData.name}</h5>
+                    </div>
+                    <button type="button" onClick={() => setShowUpdateModal(false)} className="btn-close shadow-none"></button>
+                </div>
+
+                <form onSubmit={handleUpdateSubmit} className="modal-body p-32" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+                    <div className="row g-4 text-start">
+                        {/* COLUMN 1: PRICING & INVENTORY */}
+                        <div className="col-lg-4 border-end pe-lg-4">
+                            <h6 className="fw-bold text-dark mb-20 uppercase" style={{fontSize:'12px'}}>1. Pricing & Inventory</h6>
+                            <div className="mb-16">
+                                <label className="text-xxs fw-bold text-secondary uppercase">Product Name</label>
+                                <input type="text" className="form-control" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                            </div>
+                            <div className="row g-2 mb-16">
+                                <div className="col-6">
+                                    <label className="text-xxs fw-bold text-primary-600 uppercase">Selling Price (₹)</label>
+                                    <input type="number" className="form-control" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
+                                </div>
+                                <div className="col-6">
+                                    <label className="text-xxs fw-bold text-success-600 uppercase">Purchase Price (₹)</label>
+                                    <input type="number" className="form-control border-success" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} />
+                                </div>
+                            </div>
+                            <div className="row g-2 mb-16">
+                                <div className="col-6">
+                                    <label className="text-xxs fw-bold text-secondary uppercase">MRP (₹)</label>
+                                    <input type="number" className="form-control" value={formData.mrp} onChange={e => setFormData({...formData, mrp: e.target.value})} />
+                                </div>
+                                <div className="col-6">
+                                    <label className="text-xxs fw-bold text-secondary uppercase">Stock Count</label>
+                                    <input type="number" className="form-control" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* COLUMN 2: SPECS & NESTED DETAILS */}
+                        <div className="col-lg-4 border-end px-lg-4">
+                            <h6 className="fw-bold text-dark mb-20 uppercase" style={{fontSize:'12px'}}>2. Specifications</h6>
+                            <div className="mb-16">
+                                <label className="text-xxs fw-bold text-secondary uppercase">Description</label>
+                                <textarea className="form-control" rows="4" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
+                            </div>
+                            <div className="mb-16">
+                                <label className="text-xxs fw-bold text-secondary uppercase">Manufacturer Address</label>
+                                <input type="text" className="form-control" value={formData.manufacturerDetails?.manufacturerNameAddress} 
+                                       onChange={e => setFormData({...formData, manufacturerDetails: {...formData.manufacturerDetails, manufacturerNameAddress: e.target.value}})} />
+                            </div>
+                        </div>
+
+                        {/* COLUMN 3: LOGISTICS & VARIANTS */}
+                        <div className="col-lg-4 ps-lg-4">
+                            <h6 className="fw-bold text-dark mb-20 uppercase" style={{fontSize:'12px'}}>3. Logistics & Variants</h6>
+                            <div className="bg-light p-12 radius-12 border border-dashed mb-20">
+                                <div className="row g-2">
+                                    <div className="col-6">
+                                        <label className="text-xxs fw-bold uppercase">Returnable?</label>
+                                        <select className="form-select form-select-sm" value={formData.isReturnable} onChange={e => setFormData({...formData, isReturnable: e.target.value === 'true'})}>
+                                            <option value="false">No</option><option value="true">Yes</option>
+                                        </select>
+                                    </div>
+                                    <div className="col-6">
+                                        <label className="text-xxs fw-bold uppercase">Offer Tag</label>
+                                        <input type="text" className="form-control form-control-sm" value={formData.offerTag} onChange={e => setFormData({...formData, offerTag: e.target.value})} />
+                                    </div>
+                                </div>
+                            </div>
+                            {/* Variants logic remains same as Add Product */}
+                        </div>
+                    </div>
+
+                    <div className="mt-40">
+                        <button type="submit" disabled={isSubmitting} className="btn btn-info-600 w-100 py-16 radius-16 fw-black shadow-lg uppercase ls-1">
+                            {isSubmitting ? "UPDATING BACKEND..." : "Confirm & Save Changes to Catalog"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+)}
 };
 
 export default AddProduct;

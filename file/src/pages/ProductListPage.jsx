@@ -20,11 +20,17 @@ const ProductListPage = () => {
     const API_BASE = `${DOMAIN}/api/v1/products`; 
     const IMAGE_BASE = `${DOMAIN}/uploads/products/`;
 
-    const getCleanImageUrl = (backendPath) => {
-        if (!backendPath) return "assets/images/default-product.png";
-        const fileName = backendPath.split('/').pop();
-        return `${IMAGE_BASE}${fileName}`;
-    };
+    // 🌟 41. Fixed CloudFront URL Logic to prevent mismatch
+const getCleanImageUrl = (path) => {
+    if (!path) return "assets/images/default-product.png";
+    
+    // Oru velai path already full URL-ah (http...) irundha adhaiye tharuvom
+    if (path.startsWith('http')) return path;
+    
+    // Illana unga default CloudFront domain-oda sync pannuvom
+    const CF_URL = "https://d1utzn73483swp.cloudfront.net/";
+    return CF_URL + path;
+};
 
     useEffect(() => { fetchProducts(); }, []);
 
@@ -103,9 +109,20 @@ const ProductListPage = () => {
                                 {!loading && currentItems.length > 0 ? currentItems.map((p, index) => (
                                     <tr key={p._id}>
                                         <td className="ps-24 text-xs fw-bold text-secondary">{indexOfFirstItem + index + 1}</td>
-                                        <td>
-                                            <img src={getCleanImageUrl(p.images?.[0])} alt={p.name} className="radius-8 border shadow-sm object-fit-cover" style={{ width: '50px', height: '50px' }} onError={(e) => e.target.src = "https://via.placeholder.com/50"} />
-                                        </td>
+                                        {/* 🌟 41. Fixed Container to prevent Layout Shift */}
+<td style={{ width: '80px' }}>
+    <div className="w-50-px h-50-px radius-8 border bg-light d-flex align-items-center justify-content-center overflow-hidden shadow-sm">
+        <img 
+            src={getCleanImageUrl(p.images?.[0])} 
+            alt={p.name} 
+            className="w-100 h-100 object-fit-cover" 
+            onError={(e) => { 
+                e.target.onerror = null; 
+                e.target.src = "assets/images/default-product.png"; 
+            }} 
+        />
+    </div>
+</td>
                                         <td>
                                             <div className="d-flex flex-column">
                                                 <span className="text-sm fw-bold text-dark">{p.name}</span>

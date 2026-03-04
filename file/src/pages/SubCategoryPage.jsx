@@ -143,7 +143,17 @@ const SubCategoryPage = () => {
     setIsDrawerOpen(true);
   };
 
-  const getImageUrl = (path) => path ? `${IMAGE_DOMAIN}${path.split('/').pop()}` : "assets/images/default.png";
+ // 🌟 41. Fixed Image URL Logic to support CloudFront
+const getImageUrl = (path) => {
+    if (!path) return "assets/images/default.png";
+    
+    // Oru velai backend-la irundhu full URL (http...) vandha adhaiye use pannuvom
+    if (path.startsWith('http')) return path;
+    
+    // Illana unga secondary CloudFront URL-oda sync pannuvom
+    const CF_URL = "https://d1utzn73483swp.cloudfront.net/";
+    return CF_URL + path;
+};
 
   return (
     <MasterLayout>
@@ -193,7 +203,22 @@ const SubCategoryPage = () => {
                 {currentItems.map((item, index) => (
                   <tr key={item._id}>
                     <td className="ps-24">{indexOfFirstItem + index + 1}</td>
-                    <td><img src={getImageUrl(item.image)} className="w-40-px h-40-px radius-8 border object-fit-cover shadow-sm" alt="" /></td>
+                   {/* 🌟 Table Image Fix */}
+{/* 🌟 SubCategoryPage.jsx Table Image Section */}
+<td style={{ width: '60px' }}>
+    <div className="w-40-px h-40-px radius-8 border bg-light d-flex align-items-center justify-content-center overflow-hidden shadow-sm">
+        <img 
+            src={getImageUrl(item.image)} 
+            className="w-100 h-100 object-fit-cover" 
+            alt={item.name}
+            // 🌟 Error vandha andha space empty-ah irukkaama default image vara vaikkaum
+            onError={(e) => { 
+                e.target.onerror = null; 
+                e.target.src = "assets/images/default.png"; 
+            }} 
+        />
+    </div>
+</td>
                     <td className="text-primary-600 fw-medium">{item.name}</td>
                     <td><span className="badge bg-secondary-focus text-secondary-light">{item.category?.name || "N/A"}</span></td> 
                     <td><div className="text-wrap text-xs" style={{ maxWidth: '180px' }}>{item.description}</div></td>

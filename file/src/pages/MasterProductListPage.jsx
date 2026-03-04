@@ -9,6 +9,7 @@ const MasterProductListPage = () => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    
 
     // Data States
     const [masterProducts, setMasterProducts] = useState([]);
@@ -22,10 +23,14 @@ const MasterProductListPage = () => {
     const [categoryFilter, setCategoryFilter] = useState("All");
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [rejectModal, setRejectModal] = useState({ show: false, id: null });
+    
+const [previewImage, setPreviewImage] = useState(null);
 
     const [formData, setFormData] = useState({ 
-        id: "", name: "", category: "", subCategory: "", hsnMasterId: "", gstRate: "", description: "" 
-    });
+    id: "", name: "", category: "", subCategory: "", hsnMasterId: "", gstRate: "", description: "", 
+    imageFile: null // 🌟 41. New image storage
+});
 
 // 🌟 41. Fixed API paths for Master Product sync
 const API_BASE = "https://api.zhopingo.in/api/v1/catalog";
@@ -51,6 +56,83 @@ const confirmDelete = async () => {
     } catch (err) {
         console.error("Delete Error:", err.response?.data);
         toast.error(err.response?.data?.message || "Delete failed");
+    } finally {
+        setIsLoading(false);
+    }
+};
+
+const confirmReject = async () => {
+    setIsLoading(true);
+    try {
+        // 🌟 TL Backend Logic Sync: productId anuppi reject panrom
+        const res = await axios.put(`${API_BASE}/tokens/reject`, { productId: rejectModal.id });
+        
+        if (res.data.success) {
+            toast.warning("Request rejected successfully!");
+            fetchInitialData(); // 🌟 Syncing: This will refresh the pending requests list
+            setRejectModal({ show: false, id: null });
+        }
+    } catch (err) {
+        toast.error("Reject failed: Check API connectivity");
+    } finally {
+        setIsLoading(false);
+    }
+};
+
+// 🌟 41. Approve Token First then Open Mapping Drawer
+// 🌟 41. Approve Token & Auto-Fill Drawer Logic
+const handleAcceptAndOpenDrawer = async (req) => {
+    setIsLoading(true);
+    try {
+        // 1. Hit Approve Token API first (Idhu status-ai 'approved'-nu maathidum)
+        const res = await axios.put(`${API_BASE}/tokens/approve-token`, { productId: req._id });
+
+        if (res.data.success) {
+            toast.success("Token Approved! Mapping Catalog Data...");
+            
+            // 2. Data-vai Drawer form-la auto-fill panrom (Seller keta exactly adhe data)
+            // Backend-la irundhu req-la vara sariyaana IDs-ai use panrom
+            setFormData({
+                id: req._id, 
+                name: req.name, 
+                category: req.category?._id || req.category, 
+                subCategory: req.subCategory?._id || req.subCategory,
+                description: "" // Admin description blank-ah vachukalam
+            });
+
+            // 3. Sub-categories-ai instantaneous-ah load panni drawer dropdown-ai sync panrom
+            const catId = req.category?._id || req.category;
+            const subRes = await axios.get(`${API_BASE}/sub-categories/${catId}`);
+            if (subRes.data.success) setSubCategories(subRes.data.data);
+            
+            // 4. Close Request Modal & Open Mapping Drawer
+            setShowRequestModal(false);
+            setIsDrawerOpen(true);
+            
+            // 5. Refresh pending list to remove the approved item instantaneous-ah
+            fetchInitialData();
+        }
+    } catch (err) {
+        console.error("Approval Error:", err);
+        toast.error("Approval flow failed: Check API sync");
+    } finally {
+        setIsLoading(false);
+    }
+};
+const handleRejectRequest = async (requestId) => {
+    if (!window.confirm("Are you sure you want to reject and delete this request?")) return;
+    
+    setIsLoading(true);
+    try {
+        // 🌟 TL Backend sync: router.post('/tokens/reject')
+        const res = await axios.post(`${API_BASE}/tokens/reject`, { productId: requestId });
+        
+        if (res.data.success) {
+            toast.warning("Request rejected and removed!");
+            fetchInitialData(); // Modal-la irundhu instantaneous-ah poyidum
+        }
+    } catch (err) {
+        toast.error("Reject failed");
     } finally {
         setIsLoading(false);
     }
@@ -119,22 +201,58 @@ const handleSubCategoryChange = async (subId) => {
     const currentItems = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
     const totalPages = Math.ceil(filteredData.length / rowsPerPage);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsLoading(true);
-        try {
-            const endpoint = formData.id ? `${API_BASE}/master-product/${formData.id}` : `${API_BASE}/master-product/add`;
-            const method = formData.id ? 'put' : 'post';
-            const res = await axios[method](endpoint, formData);
-            if (res.data.success) {
-                toast.success(formData.id ? "Catalog Updated!" : "Product Added to Master List!");
-                fetchInitialData();
-                setIsDrawerOpen(false);
-            }
-        } catch (err) { toast.error("Operation failed"); }
-        finally { setIsLoading(false); }
-    };
+const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
 
+    // 🌟 strictly use FormData for files
+    const data = new FormData();
+    data.append("name", formData.name);
+    data.append("category", formData.category);
+    data.append("subCategory", formData.subCategory);
+    data.append("hsnMasterId", formData.hsnMasterId);
+    data.append("description", formData.description);
+    
+    // CASE: If a new image is selected
+    if (formData.imageFile) {
+        data.append("image", formData.imageFile);
+    }
+
+    try {
+        let res;
+        // Case 1: Seller Request-ai Approve panna (HSN + Image Mapping)
+        if (formData.id && pendingRequests.some(r => r._id === formData.id)) {
+            data.append("productId", formData.id);
+            res = await axios.post(`${API_BASE}/tokens/add-to-master`, data, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+        } 
+        // Case 2: Normal Admin Edit
+        else if (formData.id) {
+            res = await axios.put(`${API_BASE}/master-product/${formData.id}`, data, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+        } 
+        // Case 3: New Master Product Add
+        else {
+            res = await axios.post(`${API_BASE}/master-product/add`, data, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+        }
+
+        if (res.data.success) {
+            toast.success("Catalog Updated with Image!");
+            fetchInitialData();
+            setIsDrawerOpen(false);
+            setPreviewImage(null);
+            setFormData({ id: "", name: "", category: "", subCategory: "", hsnMasterId: "", gstRate: "", description: "", imageFile: null });
+        }
+    } catch (err) {
+        toast.error("Save failed: Check Image format/size");
+    } finally {
+        setIsLoading(false);
+    }
+};
     return (
         <MasterLayout>
             <ToastContainer position="top-right" autoClose={3000} theme="colored" />
@@ -176,6 +294,7 @@ const handleSubCategoryChange = async (subId) => {
                             <thead className="bg-light">
                                 <tr>
                                     <th className="ps-24">S.no</th>
+                                    <th>Thumbnail</th>
                                     <th>Master Product Name</th>
                                     <th>Category</th>
                                     <th>Sub-Category</th>
@@ -188,7 +307,21 @@ const handleSubCategoryChange = async (subId) => {
                                 {currentItems.map((item, index) => (
                                     <tr key={item._id}>
                                         {/* 🌟 42. S.No Descending with Hashtag */}
-                                        <td className="ps-24 fw-bold text-secondary">{filteredData.length - ((currentPage - 1) * rowsPerPage + index)}</td>
+                                       <td className="ps-24 fw-bold text-secondary">{filteredData.length - ((currentPage - 1) * rowsPerPage + index)}</td>
+
+{/* 🌟 Fixed Container to prevent Layout Shift */}
+<td style={{ width: '80px' }}>
+    <div className="w-50-px h-50-px radius-8 border bg-light d-flex align-items-center justify-content-center overflow-hidden shadow-sm">
+        <img 
+            src={item.image ? (item.image.startsWith('http') ? item.image : `https://d1utzn73483swp.cloudfront.net/${item.image}`) : "assets/images/default.png"} 
+            alt="" 
+            className="w-100 h-100 object-fit-cover" 
+            onError={(e) => { e.target.src = "assets/images/default.png"; }} 
+        />
+    </div>
+</td>
+
+
                                         <td className="text-dark fw-bold">{item.name}</td>
                                         <td><span className="badge bg-primary-50 text-primary-600 radius-4">{item.category?.name}</span></td>
                                         <td><span className="badge bg-neutral-100 text-secondary radius-4">{item.subCategory?.name}</span></td>
@@ -217,18 +350,16 @@ const handleSubCategoryChange = async (subId) => {
 
         {/* Delete Button - Fixed */}
         <button 
-            type="button"
-            onClick={(e) => { 
-                e.preventDefault();
-                e.stopPropagation(); // 🌟 Maraithu kondirukkum maththa events-ai thadukkum
-                setFormData({ id: item._id }); // 🌟 ID-ai correctly set pannugirom
-                setShowDeleteModal(true); 
-            }} 
-            className="btn btn-sm btn-danger-focus text-danger-main p-8 border-0 shadow-none d-flex align-items-center justify-content-center"
-            style={{ cursor: 'pointer', zIndex: 10 }}
-        >
-            <Icon icon="lucide:trash-2" className="fs-5" />
-        </button>
+                                                onClick={(e) => { 
+                                                    e.stopPropagation();
+                                                    setFormData({ id: item._id }); 
+                                                    setShowDeleteModal(true); 
+                                                }} 
+                                                className="btn btn-sm btn-danger-focus text-danger-main p-8 border-0 radius-8"
+                                                title="Delete"
+                                            >
+                                                <Icon icon="lucide:trash-2" className="fs-5" />
+                                            </button>
     </div>
 </td>
                                     </tr>
@@ -239,16 +370,86 @@ const handleSubCategoryChange = async (subId) => {
                 </div>
 
                 {/* 🌟 PAGINATION */}
-                <div className="card-footer bg-white border-top py-16 px-24 d-flex align-items-center justify-content-end gap-3 flex-wrap">
-                    <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} className="btn btn-icon btn-sm btn-light border-0 shadow-sm"><Icon icon="solar:alt-arrow-left-linear" /></button>
-                    <div className="d-flex gap-1">
-                        {[...Array(totalPages)].map((_, i) => (
-                            <button key={i} onClick={() => setCurrentPage(i + 1)} className={`btn btn-sm radius-8 w-32-px h-32-px p-0 ${currentPage === i + 1 ? 'btn-primary shadow-sm' : 'btn-light'}`}>{i + 1}</button>
-                        ))}
-                    </div>
-                    <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(prev => prev + 1)} className="btn btn-icon btn-sm btn-light border-0 shadow-sm"><Icon icon="solar:alt-arrow-right-linear" /></button>
-                </div>
-            </div>
+{/* 🌟 Professional Pagination with Smart Ellipsis Logic */}
+<div className="card-footer bg-white border-top py-16 px-24 d-flex align-items-center justify-content-end gap-3 flex-wrap">
+    
+    {/* 🌟 Left Side: Rows Selector matching image_8eb21c.png */}
+    <div className="d-flex align-items-center gap-2 border-end pe-3">
+        <span className="text-xs text-secondary fw-bold">Rows:</span>
+        <select 
+            className="form-select form-select-sm w-auto radius-8 border-0 fw-bold bg-light shadow-none" 
+            style={{ cursor: 'pointer' }}
+            value={rowsPerPage} 
+            onChange={e => {setRowsPerPage(Number(e.target.value)); setCurrentPage(1);}}
+        >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+        </select>
+    </div>
+
+    {/* 🌟 Right Side: Dynamic Page Numbers with ... Logic */}
+    <div className="d-flex align-items-center gap-2">
+        {/* Previous Button */}
+        <button 
+            disabled={currentPage === 1} 
+            onClick={() => setCurrentPage(prev => prev - 1)} 
+            className="btn btn-icon btn-sm btn-light border-0 shadow-sm radius-8"
+        >
+            <Icon icon="solar:alt-arrow-left-linear" />
+        </button>
+
+        <div className="d-flex gap-1 align-items-center">
+            {(() => {
+                const pages = [];
+                const total = totalPages;
+                const current = currentPage;
+
+                if (total <= 5) {
+                    // 5 pages-kku kammiaa irundha ellathaiyum kaatuvom
+                    for (let i = 1; i <= total; i++) pages.push(i);
+                } else {
+                    // 🌟 Smart Logic for 100/1000 pages:
+                    pages.push(1); // Eppovum 1st page theryum
+
+                    if (current > 3) pages.push('...'); // Left dots
+
+                    // Center pages (Current page-oda pakkathu rendu pages)
+                    for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+                        pages.push(i);
+                    }
+
+                    if (current < total - 2) pages.push('...'); // Right dots
+
+                    pages.push(total); // Eppovum Last page theryum
+                }
+
+                return pages.map((p, idx) => (
+                    p === '...' ? 
+                    <span key={`dots-${idx}`} className="px-2 text-muted fw-bold">...</span> :
+                    <button 
+                        key={`page-${p}`} 
+                        onClick={() => setCurrentPage(p)} 
+                        className={`btn btn-sm radius-8 border-0 w-32-px h-32-px p-0 fw-bold ${currentPage === p ? 'btn-primary shadow-sm' : 'btn-light text-secondary'}`}
+                    >
+                        {p}
+                    </button>
+                ));
+            })()}
+        </div>
+
+        {/* Next Button */}
+        <button 
+            disabled={currentPage >= totalPages} 
+            onClick={() => setCurrentPage(prev => prev + 1)} 
+            className="btn btn-icon btn-sm btn-light border-0 shadow-sm radius-8"
+        >
+            <Icon icon="solar:alt-arrow-right-linear" />
+        </button>
+    </div>
+</div>
+</div>
 
             {/* --- CREATE/EDIT MASTER DRAWER --- */}
             <div className={`offcanvas offcanvas-end ${isDrawerOpen ? 'show' : ''}`} style={{ visibility: isDrawerOpen ? 'visible' : 'hidden', width: '450px', zIndex: 1060 }} tabIndex='-1'>
@@ -286,6 +487,32 @@ const handleSubCategoryChange = async (subId) => {
 
                         <div className="col-12"><label className="form-label fw-bold text-xs">GST RATE (Auto-Fetch)</label><input type="text" className="form-control bg-light radius-8 fw-bold text-success-main" value={formData.gstRate ? `${formData.gstRate}%` : ""} readOnly /></div>
                         <div className="col-12"><label className="form-label fw-bold">Admin Description</label><textarea className="form-control radius-8" rows="3" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea></div>
+                        <div className="col-12">
+    <label className="form-label fw-bold">Variety Image (Thumbnail)</label>
+    <div className="upload-box border-dashed p-16 radius-8 text-center bg-info-50 position-relative">
+        <Icon icon="lucide:upload-cloud" className="text-2xl text-primary-600" />
+        <input 
+            type="file" 
+            className="d-none" 
+            id="masterImg" 
+            accept="image/*" 
+            onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    setFormData({...formData, imageFile: file});
+                    setPreviewImage(URL.createObjectURL(file));
+                }
+            }} 
+        />
+        <label htmlFor="masterImg" className="stretched-link cursor-pointer d-block text-xs mt-1">Upload Official Image</label>
+    </div>
+    {/* Preview Logic */}
+    {(previewImage || formData.image) && (
+        <div className="mt-12 text-center border p-4 radius-8">
+            <img src={previewImage || formData.image} className="w-100 h-100-px object-fit-contain" alt="Preview" />
+        </div>
+    )}
+</div>
 
                         <div className="col-12 d-flex gap-3 mt-4"><button type="submit" className="btn btn-primary-600 w-100 radius-8 fw-bold shadow-sm">SAVE TO CATALOG</button></div>
                     </form>
@@ -313,16 +540,40 @@ const handleSubCategoryChange = async (subId) => {
                                     </thead>
                                     <tbody>
                                         {pendingRequests.length > 0 ? pendingRequests.map((req, i) => (
-                                            <tr key={i} className="align-middle">
-                                                <td className="ps-24 fw-bold text-dark text-sm">{req.seller?.shopName}</td>
+                                      <tr key={i} className="align-middle border-bottom">
+            {/* 🌟 41. Fixed Seller Name Access Logic */}
+            <td className="ps-24 py-16">
+                <div className="d-flex flex-column">
+                    <span className="fw-bold text-dark text-sm">
+                        {/* Backend structure-padi seller or sellerId check panrom */}
+                        {req.seller?.shopName || req.sellerId?.shopName || "Unknown Seller"}
+                    </span>
+                    <small className="text-secondary" style={{fontSize: '10px'}}>
+                        ID: {req.seller?._id?.substring(0,8) || "N/A"}
+                    </small>
+                </div>
+            </td>
                                                 <td className="fw-black text-primary-600">{req.name}</td>
                                                 <td><small className="d-block">{req.category?.name}</small><small className="text-secondary">{req.subCategory?.name}</small></td>
                                                 <td className="text-center">
-                                                    <div className="d-flex justify-content-center gap-2 p-12">
-                                                        <button onClick={() => {setFormData({name: req.name, category: req.category?._id, subCategory: req.subCategory?._id}); setIsDrawerOpen(true); setShowRequestModal(false);}} className="btn btn-xs btn-success-600 radius-8">Accept & Map</button>
-                                                        <button className="btn btn-xs btn-danger-600 radius-8">Reject</button>
-                                                    </div>
-                                                </td>
+    <div className="d-flex justify-content-center gap-2 p-12">
+       <button 
+    onClick={() => handleAcceptAndOpenDrawer(req)} // 🌟 New logic call
+    className="btn btn-xs btn-success-600 radius-8 fw-bold"
+>
+    Accept & Map
+</button>
+        
+        {/* 🌟 Linked to Reject Logic */}
+       <button 
+    type="button"
+    onClick={() => setRejectModal({ show: true, id: req._id })} // 🌟 Setting the ID for confirmReject
+    className="btn btn-xs btn-danger-600 radius-8 fw-bold"
+>
+    Reject
+</button>
+    </div>
+</td>
                                             </tr>
                                         )) : <tr><td colSpan="4" className="text-center py-50 text-muted italic">No pending requests found.</td></tr>}
                                     </tbody>
@@ -344,6 +595,24 @@ const handleSubCategoryChange = async (subId) => {
                     <button onClick={() => setShowDeleteModal(false)} className="btn btn-light px-24 radius-12 fw-bold">Cancel</button>
                     {/* 🌟 Ensure confirmDelete is here */}
                     <button onClick={confirmDelete} className="btn btn-danger-600 px-24 radius-12 fw-bold shadow-lg">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+)}
+{/* 🌟 Professional Reject UI Modal */}
+{rejectModal.show && (
+    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1200 }}>
+        <div className="modal-dialog modal-dialog-centered" style={{maxWidth:'380px'}}>
+            <div className="modal-content radius-24 border-0 p-32 text-center shadow-lg bg-white">
+                <div className="w-60-px h-60-px bg-danger-focus text-danger-600 rounded-circle d-inline-flex justify-content-center align-items-center mb-20 animate__animated animate__shakeX">
+                    <Icon icon="solar:shield-warning-bold" className="fs-1" />
+                </div>
+                <h5 className="fw-bold mb-8">Reject Request?</h5>
+                <p className="text-secondary text-sm mb-24">Are you sure you want to reject this seller request? It will be removed from pending list.</p>
+                <div className="d-flex gap-3">
+                    <button onClick={() => setRejectModal({show:false, id:null})} className="btn btn-light flex-grow-1 radius-12 fw-bold">Cancel</button>
+                    <button onClick={confirmReject} className="btn btn-danger-600 flex-grow-1 radius-12 fw-bold shadow-sm">Confirm Reject</button>
                 </div>
             </div>
         </div>
