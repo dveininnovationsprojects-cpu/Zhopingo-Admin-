@@ -68,38 +68,87 @@ const OrderPage = () => {
         }
 
         if (statusFilter !== "All Status") results = results.filter(o => o.status === statusFilter);
-        if (searchQuery) {
-            results = results.filter(o => 
-                o._id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                o.customerId?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-        }
+       // Filter logic kulla intha update-ai check pannunga
+if (searchQuery) {
+    results = results.filter(o => 
+        o._id.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        o.customerId?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        o.paymentMethod?.toLowerCase().includes(searchQuery.toLowerCase()) // 🌟 Payment mode search-um add pannittaen
+    );
+}
 
         setFilteredOrders(results);
         setCurrentPage(1);
     }, [searchQuery, statusFilter, selectedDays, startDate, endDate, orders]);
 
     // 🌟 2. HEADER STATS CALCULATIONS (Online vs Wallet)
-    const onlinePayments = filteredOrders.filter(o => o.paymentMethod === "ONLINE").length;
-    const walletPayments = filteredOrders.filter(o => o.paymentMethod === "WALLET").length;
+// 🌟 41. Fixed Header Stats Calculation to handle Case Sensitivity
+const onlinePayments = filteredOrders.filter(o => o.paymentMethod?.toUpperCase() === "ONLINE").length;
+const walletPayments = filteredOrders.filter(o => o.paymentMethod?.toUpperCase() === "WALLET").length;
 
     // 🌟 3. INVOICE PDF GENERATION logic
-    const downloadInvoice = (order) => {
-        const doc = new jsPDF();
-        doc.setFontSize(16); doc.text("ZHOPINGO TAX INVOICE", 14, 20);
-        doc.setFontSize(10);
-        doc.text(`Order Id: #${order._id.slice(-8).toUpperCase()}`, 14, 30);
-        doc.text(`Order On: ${new Date(order.createdAt).toLocaleString()}`, 14, 35);
-        doc.text(`Customer Name: ${order.customerId?.name || "User"}`, 14, 45);
-        doc.text(`Address: ${order.shippingAddress?.flatNo || ""}, ${order.shippingAddress?.pincode || ""}`, 14, 50);
-        
-        const tableData = order.items.map(item => [item.product?.name || item.name, item.quantity, `₹${item.price}`, `₹${item.price * item.quantity}`]);
-        autoTable(doc, { head: [['Item Name', 'Qty', 'Price', 'Total']], body: tableData, startY: 60, theme: 'grid' });
-        
-        const finalY = doc.lastAutoTable.finalY + 10;
-        doc.text(`Total Amount: ₹${order.totalAmount}`, 14, finalY + 7);
-        doc.save(`Invoice_${order._id.slice(-8)}.pdf`);
-    };
+    // 🌟 41. Professional Invoice Generator with Strict Attributes
+const downloadInvoice = (order) => {
+    const doc = new jsPDF();
+    
+    // 1. Header Section [cite: 1, 2]
+    doc.setFontSize(20);
+    doc.setTextColor(72, 94, 196); // Zhopingo Theme Blue
+    doc.text("ZHOPINGO TAX INVOICE", 105, 20, { align: "center" });
+
+    // 2. Core Order Info Section [cite: 3, 11]
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Order ID: #${order._id.slice(-8).toUpperCase()}`, 14, 35);
+    doc.text(`Order Date: ${new Date(order.createdAt).toLocaleDateString('en-GB')}`, 14, 40);
+    doc.text(`Status: ${order.status}`, 14, 45);
+    doc.text(`Payment Mode: ${order.paymentMethod?.toUpperCase()}`, 14, 50);
+
+    // 3. Customer & Address Details [cite: 4, 5]
+    doc.setFontSize(11);
+    doc.text("BILL TO:", 14, 60);
+    doc.setFontSize(10);
+    doc.text(`${order.customerId?.name || "Customer"}`, 14, 65);
+    doc.text(`Phone: ${order.customerId?.phone || "N/A"}`, 14, 70);
+    doc.text(`Address: ${order.shippingAddress?.flatNo}, ${order.shippingAddress?.addressLine}, ${order.shippingAddress?.pincode}`, 14, 75, { maxWidth: 80 });
+
+    // 4. Seller Details [cite: 7, 10]
+    doc.setFontSize(11);
+    doc.text("SELLER DETAILS:", 120, 60);
+    doc.setFontSize(10);
+    const seller = order.items?.[0]?.sellerId;
+    doc.text(`${seller?.shopName || "Zhopingo Store"}`, 120, 65);
+    doc.text(`Owner: ${seller?.name || "Admin"}`, 120, 70);
+
+    // 5. Products Table Section [cite: 12, 13]
+    const tableHeaders = [['S.No', 'Product Name', 'Quantity', 'Price', 'Total']];
+    const tableData = order.items.map((item, index) => [
+        index + 1,
+        item.product?.name || item.name,
+        item.quantity,
+        `Rs. ${item.price}`, // Rupee Text for better PDF compatibility
+        `Rs. ${item.price * item.quantity}`
+    ]);
+
+    autoTable(doc, {
+        head: tableHeaders,
+        body: tableData,
+        startY: 90,
+        theme: 'striped',
+        headStyles: { fillColor: [72, 94, 196] }, // Theme Blue
+        styles: { fontSize: 9, cellPadding: 4 }
+    });
+
+    // 6. Summary Section [cite: 22]
+    const finalY = doc.lastAutoTable.finalY + 15;
+    doc.setFontSize(12);
+    doc.setTextColor(72, 94, 196);
+    doc.setFont(undefined, 'bold');
+    doc.text(`GRAND TOTAL: Rs. ${order.totalAmount}`, 196, finalY, { align: "right" });
+    
+    // 🌟 43. Final Download Call
+    doc.save(`Zhopingo_Invoice_${order._id.slice(-8).toUpperCase()}.pdf`);
+};
 
     const indexOfLastOrder = currentPage * rowsPerPage;
     const indexOfFirstOrder = indexOfLastOrder - rowsPerPage;
@@ -117,6 +166,7 @@ const OrderPage = () => {
                                 <span className="text-secondary text-xs fw-bold border-end pe-3">Total: {filteredOrders.length}</span>
                                 <span className="text-success-main text-xs fw-bold border-end pe-3">Online: {onlinePayments}</span>
                                 <span className="text-info-main text-xs fw-bold">Wallet: {walletPayments}</span>
+                                   
                             </div>
                         </div>
 
@@ -208,7 +258,17 @@ const OrderPage = () => {
                                             </div>
                                         </td>
 
-                                        <td><span className={`badge px-12 py-6 radius-4 text-xxs uppercase fw-bold ${order.paymentMethod === 'ONLINE' ? 'bg-success-focus text-success-main' : 'bg-info-focus text-info-main'}`}>{order.paymentMethod}</span></td>
+                                        {/* 🌟 41. Professional Payment Badge Sync */}
+<td>
+    <span className={`badge px-12 py-6 radius-4 text-xxs uppercase fw-black shadow-none ${
+        order.paymentMethod?.toUpperCase() === 'ONLINE' 
+            ? 'bg-success-focus text-success-main' 
+            : 'bg-info-focus text-info-main'
+    }`}>
+        {/* 🌟 Database-la lowercase-la irundhaalum inga Uppercase-la thaan theryum */}
+        {order.paymentMethod?.toUpperCase() || "N/A"}
+    </span>
+</td>
                                         <td className="fw-900 text-sm">₹{order.totalAmount}</td>
                                     {/* 🌟 4 & 5. Status color sync */}
 {/* 🌟 4 & 5. Status Colors & Shadow Design Sync */}

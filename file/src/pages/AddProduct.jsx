@@ -11,18 +11,19 @@ const AddProduct = () => {
     const [allSubCategories, setAllSubCategories] = useState([]); 
     const [filteredSubCategories, setFilteredSubCategories] = useState([]); 
     const [masterProductList, setMasterProductList] = useState([]); // 🌟 Master List state
-    const [showUpdateModal, setShowUpdateModal] = useState(false);
+
     
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showUpdateModal, setShowUpdateModal] = useState(false);
     const [showRequestModal, setShowRequestModal] = useState(false); // 🌟 Admin request modal
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
 const [myRequests, setMyRequests] = useState([]);
-const [isEditMode, setIsEditMode] = useState(false);
+
 const [editId, setEditId] = useState(null);
 const [showDeleteModal, setShowDeleteModal] = useState(false);
-const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+
 
 
     const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -81,80 +82,71 @@ const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
     
     setShowAddModal(true); // Open the same modal
 };
-// 🌟 41. Strictly Independent Update Logic
 
-// 🌟 41. Strictly for UPDATE ONLY - No overlap with Publish logic
-const handleUpdateSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    const data = new FormData();
 
-    // 🌟 Strictly processing attributes from Backend Controller
-    Object.keys(formData).forEach(key => {
-        if (key === 'highlights' || key === 'manufacturerDetails') {
-            data.append(key, JSON.stringify(formData[key]));
-        } else {
-            // Filter null values and append to FormData
-            if (formData[key] !== null && formData[key] !== undefined) {
+    // 🚀 1. BIG MODAL TRIGGER (Pre-fill & Open)
+    const handleEditClick = (item) => {
+        setEditId(item._id);
+        
+        // 🌟 Strictly mapping ALL backend attributes to form state
+        setFormData({
+            masterProductId: item.masterProductId?._id || item.masterProductId,
+            name: item.name,
+            category: item.category?._id || item.category,
+            subCategory: item.subCategory?._id || item.subCategory,
+            price: item.price,
+            mrp: item.mrp || "",
+            purchasePrice: item.purchasePrice || "", 
+            stock: item.stock,
+            brand: item.brand || "",
+            description: item.description || "",
+            hsnCode: item.hsnCode || "",
+            gstPercentage: item.gstPercentage || "",
+            offerTag: item.offerTag || "",
+            isVeg: item.isVeg,
+            isFreeDelivery: item.isFreeDelivery,
+            isReturnable: item.isReturnable,
+            highlights: item.highlights || { productType: "", cocoaContent: "", fabricType: "" },
+            manufacturerDetails: item.manufacturerDetails || { manufacturerNameAddress: "", countryOfOrigin: "India" }
+        });
+
+        setVariants(item.variants || []);
+        setShowUpdateModal(true); // 🌟 Modal Trigger
+    };
+
+    // 🚀 2. SUBMIT UPDATE (FormData Logic)
+    const handleUpdateSubmit = async (e) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        const data = new FormData();
+
+        // Strictly loop through all formData keys and Stringify Objects
+        Object.keys(formData).forEach(key => {
+            if (typeof formData[key] === 'object' && formData[key] !== null) {
+                data.append(key, JSON.stringify(formData[key]));
+            } else {
                 data.append(key, formData[key]);
-            }
-        }
-    });
-
-    data.append("variants", JSON.stringify(variants));
-
-    try {
-        // 🌟 Exact URL Sync: /api/v1/products/update/:id
-        const res = await axios.put(`${API_BASE}/products/update/${editId}`, data, {
-            headers: { 
-                "Content-Type": "multipart/form-data", 
-                Authorization: `Bearer ${token}` 
             }
         });
 
-        if (res.data.success) {
-            toast.success("Product Updated Successfully!");
-            setShowUpdateModal(false);
-            fetchData(); // Table instantaneous refresh
-        }
-    } catch (err) {
-        toast.error(err.response?.data?.message || "Sync failed");
-    } finally {
-        setIsSubmitting(false);
-    }
-};
-// 🌟 41. Professional Pre-fill & Slide Drawer Logic
-// 🌟 41. Fixed Edit Trigger - strictly opens the BIG Modal
-const handleEditClick = (item) => {
-    setEditId(item._id);
-    
-    // 🌟 strictly mapping ALL attributes for the big popup
-    setFormData({
-        masterProductId: item.masterProductId?._id || item.masterProductId,
-        name: item.name,
-        category: item.category?._id || item.category,
-        subCategory: item.subCategory?._id || item.subCategory,
-        price: item.price,
-        mrp: item.mrp || "",
-        purchasePrice: item.purchasePrice || "", 
-        stock: item.stock,
-        brand: item.brand || "",
-        description: item.description || "",
-        hsnCode: item.hsnCode || "",
-        gstPercentage: item.gstPercentage || "",
-        offerTag: item.offerTag || "",
-        isVeg: item.isVeg,
-        isFreeDelivery: item.isFreeDelivery,
-        isReturnable: item.isReturnable,
-        highlights: item.highlights || { productType: "", cocoaContent: "", fabricType: "" },
-        manufacturerDetails: item.manufacturerDetails || { manufacturerNameAddress: "", countryOfOrigin: "India" }
-    });
+        data.append("variants", JSON.stringify(variants));
 
-    setVariants(item.variants || []);
-    setKeyFeatures(item.keyFeatures || [""]);
-setShowUpdateModal(true); // 🌟 strictly must be true to open the popup
-};
-// 🌟 41. Handle Delete logic
+        try {
+            const res = await axios.put(`${API_BASE}/products/update/${editId}`, data, {
+                headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` }
+            });
+
+            if (res.data.success) {
+                toast.success("Catalog Updated Successfully!");
+                setShowUpdateModal(false);
+                fetchData(); // Table refresh
+            }
+        } catch (err) {
+            toast.error("Database sync failed!");
+        } finally { setIsSubmitting(false); }
+    };
+
+    
 // 🌟 41. Handle Delete Logic strictly matching your Backend Router
 const confirmDelete = async () => {
     if (!editId) return toast.error("Error: Product ID missing");
@@ -339,33 +331,51 @@ const handleMasterProductSelect = (masterId) => {
     }
 };
     return (
+        
         <div className="p-0 animate__animated animate__fadeIn">
             <ToastContainer position="top-right" autoClose={2000} theme="colored" />
             
-            <div className="d-flex justify-content-between align-items-center mb-24 p-24 radius-12 shadow-sm border bg-white">
-                <div>
-                    <h5 className="fw-bold mb-0 text-primary-600 uppercase ls-1">Inventory Management</h5>
-                    <p className="text-secondary text-xs mb-0">Total Products Listed: {products.length}</p>
-                </div>
-                <div className="d-flex gap-3">
-    {/* 🌟 New Status Button */}
-    <button onClick={fetchMyRequestStatus} className="btn btn-outline-primary rounded-8 px-20 py-12 fw-bold d-flex align-items-center gap-2">
-        <Icon icon="solar:clipboard-list-bold" /> REQUEST STATUS
-    </button>
+           {/* 🌟 41. Professional Responsive Header */}
+{/* 🌟 41. Fixed Header: Desktop-la Right thallum, Mobile-la Wrap aagum */}
+{/* 🌟 41. Fixed Header: Desktop strictly Right Aligned, Mobile Responsive Wrap */}
+<div className="d-flex flex-column flex-sm-row align-items-start align-items-sm-center mb-24 p-16 p-sm-24 radius-12 shadow-sm border bg-white w-100" 
+     style={{ minWidth: 'fit-content' }}> 
     
-    <button onClick={() => setShowRequestModal(true)} className="btn btn-outline-warning rounded-8 px-20 py-12 fw-bold d-flex align-items-center gap-2">
-        <Icon icon="solar:chat-round-call-bold" /> REQUEST ADMIN
-    </button>
-    
-    <button onClick={() => setShowAddModal(true)} className="btn btn-primary-600 rounded-8 px-24 py-12 fw-bold shadow-sm d-flex align-items-center gap-2 text-white">
-        <Icon icon="solar:add-circle-bold" className="fs-5" /> NEW LISTING
-    </button>
+    {/* Left Side: Title Section */}
+    <div className="flex-grow-1 mb-16 mb-sm-0">
+        <h5 className="fw-bold mb-0 text-primary-600 uppercase ls-1" style={{ fontSize: '18px' }}>
+            Inventory Management
+        </h5>
+        <p className="text-secondary text-xs mb-0 fw-medium">Total Products Listed: {products.length}</p>
+    </div>
+
+    {/* Right Side: Buttons Group - Strictly pushed to right via ms-sm-auto */}
+    <div className="d-flex align-items-center gap-2 overflow-x-auto w-100 w-sm-auto ms-sm-auto pb-8 pb-sm-0 scrollbar-hidden justify-content-start justify-content-sm-end">
+        
+        <button onClick={fetchMyRequestStatus} 
+                className="btn btn-outline-primary btn-sm rounded-8 fw-bold d-flex align-items-center gap-1 text-nowrap flex-shrink-0 px-16 py-10"
+                style={{ fontSize: '11px' }}>
+            <Icon icon="solar:clipboard-list-bold" /> STATUS
+        </button>
+        
+        <button onClick={() => setShowRequestModal(true)} 
+                className="btn btn-outline-warning btn-sm rounded-8 fw-bold d-flex align-items-center gap-1 text-nowrap flex-shrink-0 px-16 py-10"
+                style={{ fontSize: '11px' }}>
+            <Icon icon="solar:chat-round-call-bold" /> REQUEST
+        </button>
+        
+        <button onClick={() => setShowAddModal(true)} 
+                className="btn btn-primary-600 btn-sm rounded-8 fw-bold shadow-sm d-flex align-items-center gap-1 text-white text-nowrap flex-shrink-0 px-20 py-10"
+                style={{ fontSize: '11px' }}>
+            <Icon icon="solar:add-circle-bold" className="fs-5" /> NEW LISTING
+        </button>
+    </div>
 </div>
-            </div>
+
 
            
-            <div className="card-body p-0">
-    <div className="table-responsive">
+            <div className="card-body p-0" style={{ overflowX: 'auto' }}>
+    <div className="table-responsive w-100" style={{ minWidth: '800px' }}>
         <table className="table basic-border-table mb-0 align-middle">
             <thead className="bg-light">
                 <tr className="text-xxs fw-black uppercase text-secondary">
@@ -412,18 +422,17 @@ const handleMasterProductSelect = (masterId) => {
                             <span className={`badge ${item.stock > 10 ? 'bg-success-focus text-success-main' : 'bg-danger-focus text-danger-main'} radius-pill px-12 py-4 text-xxs fw-bold`}>
                                 {item.stock} units
                             </span>
-                        </td>
-                      {/* 🌟 41. Fixed Table Action Mapping */}
+                        </td>    
 <td className="text-center">
     <div className="d-flex align-items-center justify-content-center gap-2">
 
 <button 
     type="button" 
-    onClick={() => handleEditClick(item)} // <--- Strictly handleEditClick nu irukanum
-    className="btn btn-sm btn-info-focus ..."
+    onClick={() => handleEditClick(item)} // 🌟 strictly map to handleEditClick
+    className="btn btn-sm btn-info-focus text-info-main p-8 border-0 radius-8"
 >
-            <Icon icon="lucide:edit" className="fs-5"/>
-        </button>
+    <Icon icon="lucide:edit" className="fs-5"/>
+</button>
 
         {/* Delete Button */}
         <button 
@@ -589,6 +598,9 @@ const handleMasterProductSelect = (masterId) => {
                     </div>
                 </div>
             )}
+            
+
+
 
             {/* 🌟 ADMIN REQUEST MODAL */}
             {showRequestModal && (
@@ -695,8 +707,130 @@ const handleMasterProductSelect = (masterId) => {
             </div>
         </div>
     </div>
-)}{/* 🌟 Professional UI Delete Modal Sync */}
-{/* 🌟 41. Fixed Circular Trash Icon Alignment */}
+)}{/* 🚀 41. Big Update Modal UI - Full Attribute Sync */}
+{showUpdateModal && (
+    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1500 }}>
+        <div className="modal-dialog modal-xl modal-dialog-centered">
+            <div className="modal-content radius-24 border-0 shadow-lg overflow-hidden bg-white">
+                
+                {/* Modal Header */}
+                <div className="modal-header border-bottom px-32 py-20 bg-info-50">
+                    <div className="d-flex align-items-center gap-2">
+                        <Icon icon="solar:pen-new-square-bold" className="text-info-main fs-4" />
+                        <h5 className="fw-900 mb-0 text-info-main uppercase ls-1">Update Product Profile: {formData.name}</h5>
+                    </div>
+                    <button type="button" onClick={() => setShowUpdateModal(false)} className="btn-close shadow-none"></button>
+                </div>
+
+                <form onSubmit={handleUpdateSubmit} className="modal-body p-32" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+                    <div className="row g-4 text-start">
+                        
+                        {/* COLUMN 1: PRICING & INVENTORY */}
+                        <div className="col-lg-4 border-end pe-lg-4">
+                            <h6 className="fw-bold text-dark mb-20 uppercase ls-1" style={{fontSize:'12px'}}>1. Pricing & Inventory</h6>
+                            
+                            <div className="mb-16">
+                                <label className="text-xxs fw-bold text-secondary uppercase">Product Display Name</label>
+                                <input type="text" className="form-control radius-10" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                            </div>
+
+                            <div className="row g-2 mb-16">
+                                <div className="col-6">
+                                    <label className="text-xxs fw-bold text-primary-600 uppercase">Selling Price (₹)</label>
+                                    <input type="number" className="form-control radius-10" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
+                                </div>
+                                <div className="col-6">
+                                    <label className="text-xxs fw-bold text-success-600 uppercase">Purchase Price (₹)</label>
+                                    <input type="number" className="form-control radius-10 border-success" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} />
+                                </div>
+                            </div>
+
+                            <div className="row g-2 mb-16">
+                                <div className="col-6">
+                                    <label className="text-xxs fw-bold text-secondary uppercase">MRP (₹)</label>
+                                    <input type="number" className="form-control radius-10" value={formData.mrp} onChange={e => setFormData({...formData, mrp: e.target.value})} />
+                                </div>
+                                <div className="col-6">
+                                    <label className="text-xxs fw-bold text-secondary uppercase">Stock Count</label>
+                                    <input type="number" className="form-control radius-10" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
+                                </div>
+                            </div>
+
+                            <div className="mb-16">
+                                <label className="text-xxs fw-bold text-secondary uppercase">Offer Tag</label>
+                                <input type="text" className="form-control radius-10" placeholder="e.g. 20% OFF" value={formData.offerTag} onChange={e => setFormData({...formData, offerTag: e.target.value})} />
+                            </div>
+                        </div>
+
+                        {/* COLUMN 2: SPECIFICATIONS & NESTED DATA */}
+                        <div className="col-lg-4 border-end px-lg-4">
+                            <h6 className="fw-bold text-dark mb-20 uppercase ls-1" style={{fontSize:'12px'}}>2. Specifications</h6>
+                            
+                            <div className="mb-16">
+                                <label className="text-xxs fw-bold text-secondary uppercase">Description</label>
+                                <textarea className="form-control radius-12" rows="4" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
+                            </div>
+
+                            <div className="mb-16">
+                                <label className="text-xxs fw-bold text-secondary uppercase">Brand Name</label>
+                                <input type="text" className="form-control radius-10" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
+                            </div>
+
+                            <div className="p-16 radius-16 bg-light border border-dashed">
+                                <label className="text-xxs fw-black text-dark uppercase mb-12 d-block">Highlights</label>
+                                <div className="mb-8">
+                                    <label className="text-xxs text-muted uppercase">Product Type</label>
+                                    <input type="text" className="form-control form-control-sm" value={formData.highlights?.productType} onChange={e => setFormData({...formData, highlights: {...formData.highlights, productType: e.target.value}})} />
+                                </div>
+                                <div>
+                                    <label className="text-xxs text-muted uppercase">Cocoa / Fabric Content</label>
+                                    <input type="text" className="form-control form-control-sm" value={formData.highlights?.cocoaContent || formData.highlights?.fabricType} onChange={e => setFormData({...formData, highlights: {...formData.highlights, cocoaContent: e.target.value}})} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* COLUMN 3: LOGISTICS & MANUFACTURER */}
+                        <div className="col-lg-4 ps-lg-4">
+                            <h6 className="fw-bold text-dark mb-20 uppercase ls-1" style={{fontSize:'12px'}}>3. Logistics & Source</h6>
+                            
+                            <div className="row g-2 mb-20">
+                                <div className="col-6">
+                                    <label className="text-xxs fw-bold uppercase">Returnable?</label>
+                                    <select className="form-select form-select-sm radius-8" value={formData.isReturnable} onChange={e => setFormData({...formData, isReturnable: e.target.value === 'true'})}>
+                                        <option value="false">No</option><option value="true">Yes</option>
+                                    </select>
+                                </div>
+                                <div className="col-6">
+                                    <label className="text-xxs fw-bold uppercase">Free Delivery?</label>
+                                    <select className="form-select form-select-sm radius-8" value={formData.isFreeDelivery} onChange={e => setFormData({...formData, isFreeDelivery: e.target.value === 'true'})}>
+                                        <option value="false">No</option><option value="true">Yes</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="mb-16">
+                                <label className="text-xxs fw-bold text-secondary uppercase">Manufacturer Details</label>
+                                <textarea className="form-control radius-12 text-xs" rows="3" placeholder="Name & Address" value={formData.manufacturerDetails?.manufacturerNameAddress} onChange={e => setFormData({...formData, manufacturerDetails: {...formData.manufacturerDetails, manufacturerNameAddress: e.target.value}})}></textarea>
+                            </div>
+
+                            <div className="mb-0">
+                                <label className="text-xxs fw-bold text-secondary uppercase">Country of Origin</label>
+                                <input type="text" className="form-control radius-10" value={formData.manufacturerDetails?.countryOfOrigin} onChange={e => setFormData({...formData, manufacturerDetails: {...formData.manufacturerDetails, countryOfOrigin: e.target.value}})} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Submit Button Area */}
+                    <div className="mt-40 border-top pt-24">
+                        <button type="submit" disabled={isSubmitting} className="btn btn-info-600 w-100 py-16 radius-16 fw-black shadow-lg uppercase ls-1 transition-all hover-scale">
+                            {isSubmitting ? <span className="spinner-border spinner-border-sm me-2"></span> : "CONFIRM & SYNC CHANGES TO DATABASE"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+)}
 {showDeleteModal && (
     <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1100 }}>
         <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '400px' }}>
@@ -739,97 +873,7 @@ const handleMasterProductSelect = (masterId) => {
 )}
         </div>
     );
-    {/* 🌟 41. Independent Update Product Modal (Separate from New Listing) */}
-{/* 🌟 41. Big Update Modal UI (Independent) */}
-{/* 🌟 41. Big Update Modal UI - Full Attribute Sync */}
-{showUpdateModal && (
-    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1200 }}>
-        <div className="modal-dialog modal-xl modal-dialog-centered">
-            <div className="modal-content radius-24 border-0 shadow-lg overflow-hidden">
-                <div className="modal-header border-bottom px-32 py-20 bg-info-50">
-                    <div className="d-flex align-items-center gap-2">
-                        <Icon icon="solar:pen-new-square-bold" className="text-info-main fs-4" />
-                        <h5 className="fw-900 mb-0 text-info-main uppercase ls-1">Update Product Profile: {formData.name}</h5>
-                    </div>
-                    <button type="button" onClick={() => setShowUpdateModal(false)} className="btn-close shadow-none"></button>
-                </div>
 
-                <form onSubmit={handleUpdateSubmit} className="modal-body p-32" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
-                    <div className="row g-4 text-start">
-                        {/* COLUMN 1: PRICING & INVENTORY */}
-                        <div className="col-lg-4 border-end pe-lg-4">
-                            <h6 className="fw-bold text-dark mb-20 uppercase" style={{fontSize:'12px'}}>1. Pricing & Inventory</h6>
-                            <div className="mb-16">
-                                <label className="text-xxs fw-bold text-secondary uppercase">Product Name</label>
-                                <input type="text" className="form-control" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                            </div>
-                            <div className="row g-2 mb-16">
-                                <div className="col-6">
-                                    <label className="text-xxs fw-bold text-primary-600 uppercase">Selling Price (₹)</label>
-                                    <input type="number" className="form-control" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
-                                </div>
-                                <div className="col-6">
-                                    <label className="text-xxs fw-bold text-success-600 uppercase">Purchase Price (₹)</label>
-                                    <input type="number" className="form-control border-success" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} />
-                                </div>
-                            </div>
-                            <div className="row g-2 mb-16">
-                                <div className="col-6">
-                                    <label className="text-xxs fw-bold text-secondary uppercase">MRP (₹)</label>
-                                    <input type="number" className="form-control" value={formData.mrp} onChange={e => setFormData({...formData, mrp: e.target.value})} />
-                                </div>
-                                <div className="col-6">
-                                    <label className="text-xxs fw-bold text-secondary uppercase">Stock Count</label>
-                                    <input type="number" className="form-control" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* COLUMN 2: SPECS & NESTED DETAILS */}
-                        <div className="col-lg-4 border-end px-lg-4">
-                            <h6 className="fw-bold text-dark mb-20 uppercase" style={{fontSize:'12px'}}>2. Specifications</h6>
-                            <div className="mb-16">
-                                <label className="text-xxs fw-bold text-secondary uppercase">Description</label>
-                                <textarea className="form-control" rows="4" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
-                            </div>
-                            <div className="mb-16">
-                                <label className="text-xxs fw-bold text-secondary uppercase">Manufacturer Address</label>
-                                <input type="text" className="form-control" value={formData.manufacturerDetails?.manufacturerNameAddress} 
-                                       onChange={e => setFormData({...formData, manufacturerDetails: {...formData.manufacturerDetails, manufacturerNameAddress: e.target.value}})} />
-                            </div>
-                        </div>
-
-                        {/* COLUMN 3: LOGISTICS & VARIANTS */}
-                        <div className="col-lg-4 ps-lg-4">
-                            <h6 className="fw-bold text-dark mb-20 uppercase" style={{fontSize:'12px'}}>3. Logistics & Variants</h6>
-                            <div className="bg-light p-12 radius-12 border border-dashed mb-20">
-                                <div className="row g-2">
-                                    <div className="col-6">
-                                        <label className="text-xxs fw-bold uppercase">Returnable?</label>
-                                        <select className="form-select form-select-sm" value={formData.isReturnable} onChange={e => setFormData({...formData, isReturnable: e.target.value === 'true'})}>
-                                            <option value="false">No</option><option value="true">Yes</option>
-                                        </select>
-                                    </div>
-                                    <div className="col-6">
-                                        <label className="text-xxs fw-bold uppercase">Offer Tag</label>
-                                        <input type="text" className="form-control form-control-sm" value={formData.offerTag} onChange={e => setFormData({...formData, offerTag: e.target.value})} />
-                                    </div>
-                                </div>
-                            </div>
-                            {/* Variants logic remains same as Add Product */}
-                        </div>
-                    </div>
-
-                    <div className="mt-40">
-                        <button type="submit" disabled={isSubmitting} className="btn btn-info-600 w-100 py-16 radius-16 fw-black shadow-lg uppercase ls-1">
-                            {isSubmitting ? "UPDATING BACKEND..." : "Confirm & Save Changes to Catalog"}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-)}
 };
 
 export default AddProduct;

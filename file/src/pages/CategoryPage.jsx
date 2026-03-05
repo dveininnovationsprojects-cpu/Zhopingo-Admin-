@@ -289,23 +289,47 @@ const CategoryPage = () => {
       </div>
 
       {/* DELETE MODAL (Preserved Design) */}
-      {showDeleteModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1100 }}>
-          <div className="modal-dialog modal-dialog-centered" style={{maxWidth:'400px'}}>
-            <div className="modal-content radius-24 border-0 shadow-lg p-32 text-center">
-                <div className="w-80-px h-80-px bg-danger-focus text-danger-600 rounded-circle d-inline-flex justify-content-center align-items-center mb-24 animate__animated animate__shakeX">
-                    <Icon icon="lucide:trash-2" className="text-4xl" />
+{showDeleteModal && (
+    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1100 }}>
+        <div className="modal-dialog modal-dialog-centered" style={{maxWidth:'400px'}}>
+            <div className="modal-content radius-24 border-0 shadow-lg p-32 text-center bg-white">
+                
+                {/* 🌟 Icon Wrapper: Strictly Centered */}
+                <div className="d-flex justify-content-center align-items-center mb-24">
+                    <div 
+                        className="w-80-px h-80-px bg-danger-focus text-danger-600 rounded-circle d-flex justify-content-center align-items-center shadow-none animate__animated animate__shakeX"
+                        style={{ border: '1px dashed #EA5455' }}
+                    >
+                        {/* 🌟 Professional Trash Icon */}
+                        <Icon icon="lucide:trash-2" className="text-4xl" />
+                    </div>
                 </div>
-                <h5 className="mb-8 fw-bold">Delete Item?</h5>
-                <p className="text-secondary mb-32">Database-la irundhu permanent-aa delete aagidum.</p>
+
+                <h5 className="mb-8 fw-bold text-dark">Delete Category?</h5>
+                <p className="text-secondary-light mb-32 fw-medium text-sm">
+                    Are you sure you want to permanently delete this Category? <br/> 
+                    <small className="text-danger-600 fw-bold">This action cannot be undone.</small>
+                </p>
+
                 <div className="d-flex justify-content-center gap-3">
-                  <button onClick={() => setShowDeleteModal(false)} className="btn btn-light px-24 radius-12 fw-bold text-dark">Cancel</button>
-                  <button onClick={confirmDelete} className="btn btn-danger-600 px-24 radius-12 fw-bold shadow-lg">Confirm</button>
+                    <button 
+                        onClick={() => setShowDeleteModal(false)} 
+                        className="btn btn-light px-24 py-10 radius-12 fw-bold text-dark border-0 shadow-sm"
+                    >
+                        Cancel
+                    </button>
+                    {/* 🌟 Sync with confirmDelete logic */}
+                    <button 
+                        onClick={confirmDelete} 
+                        className="btn btn-danger-600 px-24 py-10 radius-12 fw-bold shadow-lg uppercase ls-1"
+                    >
+                        Confirm
+                    </button>
                 </div>
             </div>
-          </div>
         </div>
-      )}
+    </div>
+)}
       {isDrawerOpen && <div className="offcanvas-backdrop fade show" style={{ zIndex: 1050 }} onClick={() => setIsDrawerOpen(false)}></div>}
     </MasterLayout>
   );

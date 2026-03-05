@@ -35,7 +35,7 @@ const handleVariantChange = (index, field, value) => {
     const [keyFeatures, setKeyFeatures] = useState([""]);
     const [ingredientsList, setIngredientsList] = useState([""]);
     const [nutritionInfo, setNutritionInfo] = useState([{ label: "", value: "" }]);
-    const [imageSlots, setImageSlots] = useState([null, null, null, null, null]); // 🌟 5 Image Slots
+    const [imageSlots, setImageSlots] = useState([null, null, null, null, null]); 
     const [videoFile, setVideoFile] = useState(null);
 
     useEffect(() => {

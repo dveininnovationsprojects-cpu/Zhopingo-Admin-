@@ -83,16 +83,22 @@ const ReelsPage = () => {
     };
 
     const confirmDelete = async () => {
-        try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
-            const res = await axios.delete(`${API_BASE}/reels/${deleteModal.id}`, config);
-            if (res.data.success) {
-                toast.success("Reel deleted successfully!");
-                fetchReels();
-            }
-        } catch (err) { toast.error("Delete Failed!"); }
-        finally { setDeleteModal({ show: false, id: null }); }
-    };
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const res = await axios.delete(`${API_BASE}/reels/${deleteModal.id}`, config);
+        
+        if (res.data.success) {
+            toast.success("Reel deleted successfully!");
+            fetchReels(); // UI automatically updates
+        }
+    } catch (err) {
+        console.error("Delete Error Details:", err.response?.data);
+        // 🌟 Real-world standard: Show exact backend error message
+        toast.error(err.response?.data?.message || "Internal Server Error during delete");
+    } finally {
+        setDeleteModal({ show: false, id: null });
+    }
+};
 
     const handleVideoChange = (e) => {
         const file = e.target.files[0];
@@ -156,6 +162,12 @@ const ReelsPage = () => {
                             <button onClick={(e) => handleDeleteClick(e, reel._id)} className="position-absolute top-0 end-0 m-12 btn btn-danger w-32-px h-32-px p-0 rounded-8 d-flex align-items-center justify-content-center z-1 opacity-75 hover-opacity-100 shadow-lg border-0">
                                 <Icon icon="solar:trash-bin-minimalistic-bold" />
                             </button>
+                            {/* 🌟 BLOCKED LABEL (If Admin blocked this reel) */}
+{reel.isBlocked && (
+    <div className="position-absolute top-0 start-0 m-12 z-2 badge bg-danger text-white px-12 py-6 radius-4 shadow-lg animate__animated animate__pulse animate__infinite">
+        <Icon icon="solar:shield-warning-bold" className="me-1" /> BLOCKED BY ADMIN
+    </div>
+)}
 
                             <video src={reel.videoUrl} className="w-100 h-100 object-fit-cover" loop muted onMouseOver={e => e.target.play()} onMouseOut={e => e.target.pause()} />
                             
@@ -256,6 +268,11 @@ const ReelsPage = () => {
                             <Icon icon="solar:close-circle-bold" className="text-2xl text-primary-600" />
                         </button>
                         <video src={viewReel.videoUrl} className="w-100 h-100 radius-24 shadow-lg" style={{ objectFit: 'cover' }} controls autoPlay loop />
+                        {viewReel.isBlocked && (
+    <div className="badge bg-danger mb-12 d-inline-block">
+        BLOCKED: {viewReel.blockReason || "Content Violation"}
+    </div>
+)}
                         <div className="position-absolute bottom-0 w-100 p-24" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.98))', borderRadius: '0 0 24px 24px' }}>
                              <h6 className="text-white fw-bold mb-4">@{userData.shopName}</h6>
                              <div className="text-white-50 text-xs mb-16 px-1 custom-scroll" style={{ maxHeight: '100px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>{viewReel.description}</div>

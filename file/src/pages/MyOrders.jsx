@@ -6,13 +6,19 @@ import { toast, ToastContainer } from "react-toastify";
 const MyOrders = () => {
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [viewOrder, setViewOrder] = useState(null); // Detail view modal
+    const [viewOrder, setViewOrder] = useState(null);
+    // 🌟 41. Pagination States for Seller Orders
+const [currentPage, setCurrentPage] = useState(1);
+const [rowsPerPage, setRowsPerPage] = useState(10); // Detail view modal
     
     const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
     const sellerId = sellerData.id || sellerData._id;
     const token = localStorage.getItem("userToken");
     
     const API_BASE = "https://api.zhopingo.in/api/v1";
+    const indexOfLastOrder = currentPage * rowsPerPage;
+const indexOfFirstOrder = indexOfLastOrder - rowsPerPage;
+const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
 
     const fetchOrders = async () => {
         if (!sellerId) return;
@@ -80,25 +86,51 @@ const MyOrders = () => {
                     <table className='table basic-border-table mb-0 text-nowrap align-middle'>
                         <thead className="bg-light">
                             <tr>
-                                <th>Order ID</th><th>Customer</th><th>Products</th>
+                               <th className="ps-24">S.No</th> <th>Order ID</th><th>Customer (Receiver)</th> {/* 🌟 Title changed */}
+        <th>Address</th><th>Products</th>
                                 <th>Total Share</th><th>Tracking</th><th>Status</th>
                                 <th className="text-center">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {isLoading ? (
-                                <tr><td colSpan="7" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
-                            ) : orders.length > 0 ? orders.map((order) => {
-                                const sellerShare = order.sellerSplitData?.find(s => s.sellerId === sellerId);
-                                return (
-                                    <tr key={order._id}>
+                       <tbody>
+                        
+    {isLoading ? (
+        <tr><td colSpan="8" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
+    ) : orders.length > 0 ? orders.map((order, index) => {
+        // 🌟 41. Strictly find the share for this specific seller first
+        const sellerShare = order.sellerSplitData?.find(s => 
+            (s.sellerId?._id || s.sellerId) === sellerId
+        );
+
+        return (
+            <tr key={order._id}>
+                {/* 🌟 1. Descending S.No Logic */}
+                <td className="ps-24 fw-bold text-secondary">
+                    {orders.length - index}
+                </td>
                                         <td className="fw-bold text-primary-600">#{order._id.slice(-8).toUpperCase()}</td>
-                                        <td>
-                                            <div className="d-flex flex-column">
-                                                <span className="text-sm fw-bold text-dark">{order.customerId?.name || "Customer"}</span>
-                                                <small className="text-secondary">{order.shippingAddress?.pincode}</small>
-                                            </div>
-                                        </td>
+                                        {/* 🌟 1. Customer Details (Receiver Name from Backend) */}
+<td>
+    <div className="d-flex flex-column">
+        {/* Strictly using receiverName from shippingAddress object */}
+        <span className="text-sm fw-bold text-dark uppercase">
+            {order.shippingAddress?.receiverName || order.customerId?.name}
+        </span>
+        
+    </div>
+</td>
+
+{/* 🌟 2. New Address & Contact Column */}
+<td>
+    <div className="d-flex flex-column" style={{ maxWidth: '200px', whiteSpace: 'normal' }}>
+        {/* Contact Phone */}
+       
+        {/* Full Address String */}
+        <small className="text-secondary fw-medium" style={{ fontSize: '10px', lineHeight: '1.2' }}>
+            {order.shippingAddress?.flatNo}, {order.shippingAddress?.addressLine}, {order.shippingAddress?.pincode}
+        </small>
+    </div>
+</td>
                                         <td>
                                             <div className="d-flex flex-column gap-1">
                                                 {order.items.filter(i => (i.sellerId?._id || i.sellerId) === sellerId).map((item, idx) => (
@@ -113,37 +145,56 @@ const MyOrders = () => {
                                             {order.awbNumber ? (
                                                 <div className="d-flex flex-column">
                                                     <span className="badge bg-info-50 text-info-main text-xxs">AWB: {order.awbNumber}</span>
-                                                    <small className="text-xxs text-primary-600 fw-bold mt-1">ETA: {order.arrivedIn}</small>
+                                                    
                                                 </div>
                                             ) : <span className="text-muted text-xxs italic">Not Shipped</span>}
                                         </td>
 
-                                        <td>
-                                            <span className={`badge px-12 py-6 radius-pill text-xxs ${
-                                                order.status === 'Delivered' ? 'bg-success-focus text-success-main' :
-                                                order.status === 'Cancelled' ? 'bg-danger-focus text-danger-main' : 
-                                                order.status === 'Shipped' ? 'bg-info-focus text-info-main' : 'bg-warning-focus text-warning-main'
-                                            }`}>{order.status}</span>
-                                        </td>
+                                        {/* 🌟 41. Professional Status Badge Sync */}
+<td>
+    <span className={`badge px-12 py-6 radius-pill text-xxs fw-black uppercase ls-1 ${
+        order.status === 'Delivered' ? 'bg-success-focus text-success-main' : // 🟢 Delivered
+        order.status === 'Cancelled' ? 'bg-danger-focus text-danger-main' :   // 🔴 Cancelled
+        order.status === 'Shipped' ? 'bg-info-focus text-info-main' :         // 🔵 Shipped
+        'bg-warning-focus text-warning-main'                                 // 🟡 Placed/Pending
+    }`}>
+        {order.status}
+    </span>
+</td>
                                         
-                                        <td className="text-center">
-                                            <div className="d-flex gap-2 justify-content-center">
-                                                {/* Placed aana udane Ship Now varum */}
-                                                {order.status === 'Placed' && (
-                                                    <button onClick={() => handleShipOrder(order._id)} className="btn btn-primary-600 btn-xs radius-8 py-6 px-12 fw-bold d-flex align-items-center gap-1">
-                                                        <Icon icon="solar:delivery-bold" /> Ship Now
-                                                    </button>
-                                                )}
-                                                
-                                                {/* Shipped aana udane Delivered Mark panna mudiyum */}
-                                                {order.status === 'Shipped' && (
-                                                    <button onClick={() => handleMarkDelivered(order._id)} className="btn btn-success-600 btn-xs radius-8 py-6 px-12 fw-bold">
-                                                        Mark Delivered
-                                                    </button>
-                                                )}
-                                                <button onClick={() => setViewOrder(order)} className="btn btn-outline-neutral btn-xs radius-8 py-6 px-10"><Icon icon="solar:eye-bold" /></button>
-                                            </div>
-                                        </td>
+                                      {/* 🌟 41. Action logic strictly for Shipment status */}
+<td className="text-center">
+    <div className="d-flex gap-2 justify-content-center align-items-center">
+        
+        {/* Case 1: Placed -> Show SHIP NOW */}
+        {order.status === 'Placed' && (
+            <button onClick={() => setShipConfirmModal({ show: true, orderId: order._id })} 
+                    className="btn btn-primary-600 btn-sm radius-8 fw-bold d-flex align-items-center gap-1 shadow-sm px-16">
+                <Icon icon="solar:delivery-bold" /> SHIP NOW
+            </button>
+        )}
+        
+        {/* Case 2: Shipped -> Show MARK DELIVERED */}
+        {order.status === 'Shipped' && (
+            <button onClick={() => handleMarkDelivered(order._id)} 
+                    className="btn btn-success-600 btn-sm radius-8 fw-bold px-16 shadow-sm">
+                MARK DELIVERED
+            </button>
+        )}
+
+        {/* Case 3: Delivered -> Strictly Show COMPLETED */}
+        {order.status === 'Delivered' && (
+            <div className="d-flex align-items-center gap-1 text-success fw-black text-xxs uppercase">
+                <Icon icon="solar:check-circle-bold" className="fs-5" /> COMPLETED
+            </div>
+        )}
+
+        {/* Case 4: Cancelled -> Show Rejected Label */}
+        {order.status === 'Cancelled' && (
+            <span className="text-danger text-xxs fw-black uppercase">ORDER CANCELLED</span>
+        )}
+    </div>
+</td>
                                     </tr>
                                 );
                             }) : (
@@ -153,6 +204,55 @@ const MyOrders = () => {
                     </table>
                 </div>
             </div>
+            {/* 🌟 41. Advanced Dynamic Pagination Footer for Seller */}
+<div className="card-footer bg-white border-top py-16 px-24 d-flex align-items-center justify-content-end gap-3 flex-wrap">
+    <div className="d-flex align-items-center gap-2 border-end pe-3">
+        <span className="text-xs text-secondary fw-bold">Rows:</span>
+        <select className="form-select form-select-sm w-auto radius-8 border-0 fw-bold shadow-none" 
+                value={rowsPerPage} onChange={e => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}>
+            <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+        </select>
+    </div>
+
+    <div className="d-flex align-items-center gap-2">
+        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} 
+                className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm">
+            <Icon icon="solar:alt-arrow-left-linear" />
+        </button>
+
+        <div className="d-flex gap-1 align-items-center">
+            {(() => {
+                const totalPages = Math.ceil(orders.length / rowsPerPage);
+                const pages = [];
+                if (totalPages <= 5) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else {
+                    pages.push(1);
+                    if (currentPage > 3) pages.push('...');
+                    if (currentPage > 1 && currentPage < totalPages) {
+                        if (currentPage > 2) pages.push(currentPage - 1);
+                        pages.push(currentPage);
+                        if (currentPage < totalPages - 1) pages.push(currentPage + 1);
+                    }
+                    if (currentPage < totalPages - 2) pages.push('...');
+                    if (totalPages > 1) pages.push(totalPages);
+                }
+                return [...new Set(pages)].map((p, idx) => (
+                    p === '...' ? <span key={idx} className="px-2 text-muted text-xs">...</span> :
+                    <button key={idx} onClick={() => setCurrentPage(p)} 
+                            className={`btn btn-sm radius-8 border-0 w-32-px h-32-px p-0 fw-bold ${currentPage === p ? 'btn-primary shadow-sm' : 'btn-light text-secondary'}`}>
+                        {p}
+                    </button>
+                ));
+            })()}
+        </div>
+
+        <button disabled={indexOfLastOrder >= orders.length} onClick={() => setCurrentPage(prev => prev + 1)} 
+                className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm">
+            <Icon icon="solar:alt-arrow-right-linear" />
+        </button>
+    </div>
+</div>
             {/* Modal details loop item fix: neenga keta maari item.name product name theriyaum */}
         </div>
     );
