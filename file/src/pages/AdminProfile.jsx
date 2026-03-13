@@ -14,7 +14,7 @@ const AdminProfile = () => {
                 <div className="d-flex align-items-center gap-4 mb-32 p-16 radius-12 bg-light">
                    <img 
     src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" 
-    alt="Admin" 
+    alt="Admin"
     className="w-100-px h-100-px rounded-circle border p-4 bg-white shadow-sm" 
 />
                     <div>

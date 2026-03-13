@@ -125,7 +125,7 @@ const handleAddHsn = async (e) => {
           <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>
         ) : (
           <div className='table-responsive'>
-            <table className='table basic-border-table mb-0 text-nowrap'>
+<table className='table basic-border-table mb-0 align-middle'>
               <thead>
                 <tr><th>S.no</th><th>HSN Code</th><th>Description</th><th>GST Rate</th><th>Action</th></tr>
               </thead>
@@ -134,7 +134,20 @@ const handleAddHsn = async (e) => {
                   <tr key={item._id}>
                     <td>{index + 1}</td>
                     <td><span className="text-primary-600 fw-bold">{item.hsnCode}</span></td>
-                    <td className="text-wrap" style={{ minWidth: '300px' }}>{item.description}</td>
+                   {/* 🌟 41. Fixed HSN Description Wrap Logic */}
+{/* 🌟 41. Fixed HSN Description: Full Wrap without Ellipsis */}
+<td className="text-wrap" style={{ minWidth: '350px', maxWidth: '500px' }}>
+    <div style={{ 
+        whiteSpace: 'normal', // 🌟 Strictly allows text to flow to next line
+        wordBreak: 'break-word',
+        lineHeight: '1.6',
+        fontSize: '13px',
+        color: '#475467',
+        padding: '8px 0'
+    }}>
+        {item.description}
+    </div>
+</td>
                     <td><span className="badge bg-info-focus text-info-main px-12 py-4 radius-4">{item.gstRate}%</span></td>
                     <td>
                       <div className="d-flex align-items-center gap-3">

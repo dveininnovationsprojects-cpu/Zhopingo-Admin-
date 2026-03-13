@@ -137,22 +137,24 @@ const handleRejectRequest = async (requestId) => {
         setIsLoading(false);
     }
 };
+// 🌟 41. Fixed Fetch Logic to show Latest Master Products on Top
 const fetchInitialData = async () => {
     setIsLoading(true);
     try {
-        // 🌟 Parallel-ah Master Product List-aiyum sethu fetch panrom
         const [resCat, resHsn, resReq, resMasterFull] = await Promise.all([
             axios.get(`${API_BASE}/categories`),
             axios.get(`${HSN_API_URL}/active`),
             axios.get(`${API_BASE}/tokens/pending`),
-            // 🌟 TL sethurukka pudhu route: Full Catalog fetch
             axios.get(`${API_BASE}/master-products/all`) 
         ]);
         
-        // 🌟 Backend controller 'getAllMasterProducts' return pannura data-vai set panrom
         if (resMasterFull.data.success) {
-            console.log("Full Master Catalog Loaded:", resMasterFull.data.count);
-            setMasterProducts(resMasterFull.data.data);
+            // 🚀 THE MAGIC FIX: Created Date vachu latest-ai top-la kondu varoam
+            const sortedMaster = resMasterFull.data.data.sort((a, b) => 
+                new Date(b.createdAt) - new Date(a.createdAt)
+            );
+            setMasterProducts(sortedMaster);
+            console.log("Master Catalog Sorted (Latest First)");
         }
 
         if (resCat.data.success) setCategories(resCat.data.data);
@@ -307,7 +309,10 @@ const handleSubmit = async (e) => {
                                 {currentItems.map((item, index) => (
                                     <tr key={item._id}>
                                         {/* 🌟 42. S.No Descending with Hashtag */}
-                                       <td className="ps-24 fw-bold text-secondary">{filteredData.length - ((currentPage - 1) * rowsPerPage + index)}</td>
+                                      {/* 🌟 41. Syncing S.No with Sorted Latest Data */}
+<td className="ps-24 fw-bold text-secondary">
+    {filteredData.length - ((currentPage - 1) * rowsPerPage + index)}
+</td>
 
 {/* 🌟 Fixed Container to prevent Layout Shift */}
 <td style={{ width: '80px' }}>

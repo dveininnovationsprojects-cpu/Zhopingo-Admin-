@@ -341,6 +341,10 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import MyAccountPage from "./pages/MyAccountPage";
 import MasterProductListPage from "./pages/MasterProductListPage";
 
+import DeliveryTrackingPage from "./pages/DeliveryTrackingPage";
+import BusinessReportsPage from "./pages/BusinessReportsPage";
+import PayoutsPage from "./pages/PayoutsPage";
+
 function App() {
   // 🌟 Logic: Storage-la irundhu fresh data-va eppovum edukka useMemo use panrom
   const authData = useMemo(() => {
@@ -398,6 +402,22 @@ function App() {
           <Route exact path='/add-product' element={<AddProductPage />} />
           <Route exact path='/admin-reels' element={<AdminReels />} />
           <Route exact path='/admin-profile' element={<AdminProfile />} />
+          {/* 🚀 41. Professional Business Routes Setup */}
+          <Route 
+  path='/payouts' 
+  element={<PayoutsPage />} 
+/>
+
+
+<Route 
+  path='/delivery-tracking' 
+  element={<DeliveryTrackingPage />} 
+/>
+
+<Route 
+  path='/business-reports' 
+  element={<BusinessReportsPage />} 
+/>
           
           {/* Unga UI kit related routes (Protected) */}
           <Route exact path='/add-user' element={<AddUserPage />} />

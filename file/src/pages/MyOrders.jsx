@@ -11,14 +11,11 @@ const MyOrders = () => {
 const [currentPage, setCurrentPage] = useState(1);
 const [rowsPerPage, setRowsPerPage] = useState(10); // Detail view modal
     
-    const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
-    const sellerId = sellerData.id || sellerData._id;
-    const token = localStorage.getItem("userToken");
-    
-    const API_BASE = "https://api.zhopingo.in/api/v1";
-    const indexOfLastOrder = currentPage * rowsPerPage;
-const indexOfFirstOrder = indexOfLastOrder - rowsPerPage;
-const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
+const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
+const sellerId = sellerData.id || sellerData._id;
+const token = localStorage.getItem("userToken");
+const API_BASE = "https://api.zhopingo.in/api/v1";
+
 
     const fetchOrders = async () => {
         if (!sellerId) return;
@@ -35,40 +32,52 @@ const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
             toast.error("Failed to load orders!");
         } finally { setIsLoading(false); }
     };
+    
 
     useEffect(() => { fetchOrders(); }, [sellerId]);
 
-    // 🚚 1. Ship Now Logic (Delhivery Integration via update-status)
-    const handleShipOrder = async (orderId) => {
-        try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
-            // Admin/Seller can update to Shipped to trigger Delhivery
-            const res = await axios.put(`${API_BASE}/orders/update-status/${orderId}`, {
-                status: 'Shipped'
-            }, config);
+// 🚚 1. Ship Now Logic (window.confirm strictly removed)
+const handleShipOrder = async (orderId) => {
+    // 🌟 THE FIX: Browser confirm instantaneous-ah thookittaen
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const res = await axios.put(`${API_BASE}/orders/update-status/${orderId}`, {
+            status: 'Shipped'
+        }, config);
 
-            if (res.data.success) {
-                toast.success("Order Shipped & Waybill Generated!");
-                fetchOrders(); 
-            }
-        } catch (err) { toast.error("Shipping trigger failed!"); }
-    };
+        if (res.data.success) {
+            toast.success("Order Shipped & Waybill Generated!");
+            fetchOrders(); 
+        }
+    } catch (err) { toast.error("Shipping trigger failed!"); }
+};
 
-    // ✅ 2. Mark Delivered Logic (Triggers Payout)
-    const handleMarkDelivered = async (orderId) => {
-        try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
-            const res = await axios.put(`${API_BASE}/orders/update-status/${orderId}`, {
-                status: 'Delivered'
-            }, config);
+// ✅ 2. Mark Delivered Logic
+const handleMarkDelivered = async (orderId) => {
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const res = await axios.put(`${API_BASE}/orders/update-status/${orderId}`, {
+            status: 'Delivered'
+        }, config);
 
-            if (res.data.success) {
-                toast.success("Order Marked Delivered! Payout Generated.");
-                fetchOrders(); 
-            }
-        } catch (err) { toast.error("Delivery status update failed!"); }
-    };
-
+        if (res.data.success) {
+            toast.success("Order Marked Delivered!");
+            fetchOrders(); 
+        }
+    } catch (err) { toast.error("Delivery status update failed!"); }
+};
+    // 🌟 Intha logic strictly 'return' statement-ku mela irukanum
+const indexOfLastOrder = currentPage * rowsPerPage;
+const indexOfFirstOrder = indexOfLastOrder - rowsPerPage;
+const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
+// 🌟 41. Professional Confirmation Modal State
+const [confirmModal, setConfirmModal] = useState({ 
+    show: false, 
+    orderId: null, 
+    type: '', // 'Ship' or 'Deliver'
+    title: '',
+    message: ''
+});
     return (
         <div className='card h-100 p-0 radius-12 border-0 shadow-sm animate__animated animate__fadeIn'>
             <ToastContainer position="top-right" autoClose={2000} theme="colored" />
@@ -96,7 +105,7 @@ const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
                         
     {isLoading ? (
         <tr><td colSpan="8" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
-    ) : orders.length > 0 ? orders.map((order, index) => {
+    ) : currentOrders.length > 0 ? currentOrders.map((order, index) => {
         // 🌟 41. Strictly find the share for this specific seller first
         const sellerShare = order.sellerSplitData?.find(s => 
             (s.sellerId?._id || s.sellerId) === sellerId
@@ -106,7 +115,7 @@ const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
             <tr key={order._id}>
                 {/* 🌟 1. Descending S.No Logic */}
                 <td className="ps-24 fw-bold text-secondary">
-                    {orders.length - index}
+                    {orders.length - (indexOfFirstOrder + index)}
                 </td>
                                         <td className="fw-bold text-primary-600">#{order._id.slice(-8).toUpperCase()}</td>
                                         {/* 🌟 1. Customer Details (Receiver Name from Backend) */}
@@ -162,36 +171,40 @@ const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
     </span>
 </td>
                                         
-                                      {/* 🌟 41. Action logic strictly for Shipment status */}
+{/* 🌟 Action logic sync with Premium Modal */}
 <td className="text-center">
     <div className="d-flex gap-2 justify-content-center align-items-center">
         
-        {/* Case 1: Placed -> Show SHIP NOW */}
         {order.status === 'Placed' && (
-            <button onClick={() => setShipConfirmModal({ show: true, orderId: order._id })} 
-                    className="btn btn-primary-600 btn-sm radius-8 fw-bold d-flex align-items-center gap-1 shadow-sm px-16">
+            <button 
+                onClick={() => setConfirmModal({ 
+                    show: true, orderId: order._id, type: 'Ship', 
+                    title: 'Confirm Shipment', 
+                    message: 'Generate Waybill and Ship this order now?' 
+                })} 
+                className="btn btn-primary-600 btn-sm radius-8 fw-bold d-flex align-items-center gap-1 px-16 shadow-sm"
+            >
                 <Icon icon="solar:delivery-bold" /> SHIP NOW
             </button>
         )}
         
-        {/* Case 2: Shipped -> Show MARK DELIVERED */}
         {order.status === 'Shipped' && (
-            <button onClick={() => handleMarkDelivered(order._id)} 
-                    className="btn btn-success-600 btn-sm radius-8 fw-bold px-16 shadow-sm">
+            <button 
+                onClick={() => setConfirmModal({ 
+                    show: true, orderId: order._id, type: 'Deliver', 
+                    title: 'Mark as Delivered', 
+                    message: 'Are you sure this order reached the customer?' 
+                })} 
+                className="btn btn-success-600 btn-sm radius-8 fw-bold px-16 shadow-sm"
+            >
                 MARK DELIVERED
             </button>
         )}
 
-        {/* Case 3: Delivered -> Strictly Show COMPLETED */}
         {order.status === 'Delivered' && (
-            <div className="d-flex align-items-center gap-1 text-success fw-black text-xxs uppercase">
+            <div className="text-success fw-black text-xxs uppercase">
                 <Icon icon="solar:check-circle-bold" className="fs-5" /> COMPLETED
             </div>
-        )}
-
-        {/* Case 4: Cancelled -> Show Rejected Label */}
-        {order.status === 'Cancelled' && (
-            <span className="text-danger text-xxs fw-black uppercase">ORDER CANCELLED</span>
         )}
     </div>
 </td>
@@ -204,6 +217,34 @@ const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
                     </table>
                 </div>
             </div>
+            {confirmModal.show && (
+                <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 2000 }}>
+                    <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '400px' }}>
+                        <div className="modal-content radius-24 border-0 shadow-lg p-32 text-center bg-white">
+                            <div className="d-flex justify-content-center mb-24">
+                                <div className={`w-80-px h-80-px ${confirmModal.type === 'Ship' ? 'bg-primary-focus text-primary-600' : 'bg-success-focus text-success-600'} rounded-circle d-flex justify-content-center align-items-center`}>
+                                    <Icon icon={confirmModal.type === 'Ship' ? "solar:delivery-bold" : "solar:check-circle-bold"} className="text-4xl" />
+                                </div>
+                            </div>
+                            <h4 className="mb-8 fw-900 text-dark">{confirmModal.title}</h4>
+                            <p className="text-secondary-light mb-32 fw-medium">{confirmModal.message}</p>
+                            <div className="d-flex justify-content-center gap-3">
+                                <button onClick={() => setConfirmModal({ show: false })} className="btn btn-light px-32 py-12 radius-12 fw-bold">Cancel</button>
+                                <button 
+                                    onClick={async () => {
+                                        if (confirmModal.type === 'Ship') await handleShipOrder(confirmModal.orderId);
+                                        else await handleMarkDelivered(confirmModal.orderId);
+                                        setConfirmModal({ show: false });
+                                    }} 
+                                    className={`btn ${confirmModal.type === 'Ship' ? 'btn-primary-600' : 'btn-success-600'} px-32 py-12 radius-12 fw-bold text-white uppercase`}
+                                >
+                                    Confirm Action
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* 🌟 41. Advanced Dynamic Pagination Footer for Seller */}
 <div className="card-footer bg-white border-top py-16 px-24 d-flex align-items-center justify-content-end gap-3 flex-wrap">
     <div className="d-flex align-items-center gap-2 border-end pe-3">
@@ -257,5 +298,6 @@ const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
         </div>
     );
 };
+
 
 export default MyOrders;

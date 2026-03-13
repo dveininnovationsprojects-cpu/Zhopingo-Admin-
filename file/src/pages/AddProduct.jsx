@@ -20,6 +20,9 @@ const AddProduct = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
 const [myRequests, setMyRequests] = useState([]);
+// 🌟 41. Pagination States for Inventory
+const [currentPage, setCurrentPage] = useState(1);
+const [rowsPerPage, setRowsPerPage] = useState(10);
 
 const [editId, setEditId] = useState(null);
 const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -149,7 +152,7 @@ const [showDeleteModal, setShowDeleteModal] = useState(false);
     
 // 🌟 41. Handle Delete Logic strictly matching your Backend Router
 const confirmDelete = async () => {
-    if (!editId) return toast.error("Error: Product ID missing");
+    if (!editId) return toast.error("Error: Product ID missing");1
     
     setIsLoading(true);
     try {
@@ -171,20 +174,34 @@ const confirmDelete = async () => {
     }
 };
 
-    const fetchData = async () => {
-        if (!token) return;
-        setIsLoading(true);
-        try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
-            const prodRes = await axios.get(`${API_BASE}/products/my-products`, config);
-            if (prodRes.data.success) setProducts(prodRes.data.data);
-            const catRes = await axios.get(`${API_BASE}/catalog/categories`);
-            if (catRes.data.success) setCategories(catRes.data.data);
-            const subRes = await axios.get(`${API_BASE}/catalog/sub-categories/all`);
-            if (subRes.data.success) setAllSubCategories(subRes.data.data);
-        } catch (err) { toast.error("Catalog load error"); } 
-        finally { setIsLoading(false); }
-    };
+  // 🌟 41. Fixed Fetch Logic to show Latest Products on Top
+const fetchData = async () => {
+    if (!token) return;
+    setIsLoading(true);
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const prodRes = await axios.get(`${API_BASE}/products/my-products`, config);
+        
+        if (prodRes.data.success) {
+            // 🚀 THE FIX: Latest Date first-ah vara sort panroam
+            const sortedProducts = prodRes.data.data.sort((a, b) => 
+                new Date(b.createdAt) - new Date(a.createdAt)
+            );
+            setProducts(sortedProducts);
+        }
+
+        const catRes = await axios.get(`${API_BASE}/catalog/categories`);
+        if (catRes.data.success) setCategories(catRes.data.data);
+        
+        const subRes = await axios.get(`${API_BASE}/catalog/sub-categories/all`);
+        if (subRes.data.success) setAllSubCategories(subRes.data.data);
+        
+    } catch (err) { 
+        toast.error("Catalog load error"); 
+    } finally { 
+        setIsLoading(false); 
+    }
+};
 const fetchMyRequestStatus = async () => {
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -296,6 +313,7 @@ const handleMasterProductSelect = (masterId) => {
         } catch (err) { toast.error(err.response?.data?.message || "Listing failed."); } 
         finally { setIsSubmitting(false); }
     };
+    
 
    const handleRequestAdmin = async (e) => {
     e.preventDefault();
@@ -330,6 +348,9 @@ const handleMasterProductSelect = (masterId) => {
         setIsSubmitting(false);
     }
 };
+const indexOfLastProduct = currentPage * rowsPerPage;
+const indexOfFirstProduct = indexOfLastProduct - rowsPerPage;
+const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
     return (
         
         <div className="p-0 animate__animated animate__fadeIn">
@@ -388,10 +409,15 @@ const handleMasterProductSelect = (masterId) => {
                     <th className="text-center">Action</th>
                 </tr>
             </thead>
-            <tbody>
-                {products.length > 0 ? products.map((item, index) => (
-                    <tr key={item._id} className="hover-bg-neutral-50 transition-all">
-                        <td className="ps-24 fw-bold text-secondary">{products.length - index}</td>
+            
+            
+<tbody>
+    {currentProducts.length > 0 ? currentProducts.map((item, index) => (
+        <tr key={item._id} className="...">
+            {/* S.No logic strictly sync with global index */}
+            <td className="ps-24 fw-bold text-secondary">
+                {products.length - (indexOfFirstProduct + index)}
+            </td>
                         <td style={{ width: '80px' }}>
                             <div className="w-50-px h-50-px radius-8 border bg-light d-flex align-items-center justify-content-center overflow-hidden shadow-sm">
                                 <img 
@@ -452,6 +478,55 @@ const handleMasterProductSelect = (masterId) => {
                 )) : <tr><td colSpan="7" className="text-center py-80 text-muted">No products listed yet.</td></tr>}
             </tbody>
         </table>
+        {/* 🌟 41. Advanced Dynamic Pagination Footer */}
+<div className="card-footer bg-white border-top py-16 px-24 d-flex align-items-center justify-content-end gap-3 flex-wrap">
+    <div className="d-flex align-items-center gap-2 border-end pe-3">
+        <span className="text-xs text-secondary fw-bold">Rows:</span>
+        <select className="form-select form-select-sm w-auto radius-8 border-0 fw-bold shadow-none" 
+                value={rowsPerPage} onChange={e => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}>
+            <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+        </select>
+    </div>
+
+    <div className="d-flex align-items-center gap-2">
+        <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} 
+                className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm">
+            <Icon icon="solar:alt-arrow-left-linear" />
+        </button>
+
+        <div className="d-flex gap-1 align-items-center">
+            {(() => {
+                const totalPages = Math.ceil(products.length / rowsPerPage);
+                const pages = [];
+                if (totalPages <= 5) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else {
+                    pages.push(1);
+                    if (currentPage > 3) pages.push('...');
+                    if (currentPage > 1 && currentPage < totalPages) {
+                        if (currentPage > 2) pages.push(currentPage - 1);
+                        pages.push(currentPage);
+                        if (currentPage < totalPages - 1) pages.push(currentPage + 1);
+                    }
+                    if (currentPage < totalPages - 2) pages.push('...');
+                    if (totalPages > 1) pages.push(totalPages);
+                }
+                return [...new Set(pages)].map((p, idx) => (
+                    p === '...' ? <span key={idx} className="px-2 text-muted text-xs">...</span> :
+                    <button key={idx} onClick={() => setCurrentPage(p)} 
+                            className={`btn btn-sm radius-8 border-0 w-32-px h-32-px p-0 fw-bold ${currentPage === p ? 'btn-primary shadow-sm' : 'btn-light text-secondary'}`}>
+                        {p}
+                    </button>
+                ));
+            })()}
+        </div>
+
+        <button disabled={indexOfLastProduct >= products.length} onClick={() => setCurrentPage(prev => prev + 1)} 
+                className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm">
+            <Icon icon="solar:alt-arrow-right-linear" />
+        </button>
+    </div>
+</div>
     </div>
 </div>
 

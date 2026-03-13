@@ -2326,6 +2326,47 @@ else if (location.pathname === "/form-layout") {
     <span>My Account</span>
   </NavLink>
 </li>
+{/* 🌟 41. Finance / Payouts - Professional Wallet Entry */}
+<li>
+  <NavLink
+    to='/payouts'
+    className={(navData) => (navData.isActive ? "active-page" : "")}
+  >
+    <Icon
+      icon='solar:wallet-money-bold-duotone' // Professional Earnings icon sync
+      className='menu-icon'
+    />
+    <span>Finance & Payouts</span>
+  </NavLink>
+</li>
+
+{/* 🌟 41. Delivery Logistics - Shipment Tracking Entry 
+<li>
+  <NavLink
+    to='/delivery-tracking'
+    className={(navData) => (navData.isActive ? "active-page" : "")}
+  >
+    <Icon
+      icon='solar:delivery-bold-duotone' // Professional Truck icon
+      className='menu-icon'
+    />
+    <span>Delivery Status</span>
+  </NavLink>
+</li>*/}
+
+{/* 🌟 41. Business Reports - Analytical Insights Entry */}
+<li>
+  <NavLink
+    to='/business-reports'
+    className={(navData) => (navData.isActive ? "active-page" : "")}
+  >
+    <Icon
+      icon='solar:chart-square-bold-duotone' // Professional Reports icon
+      className='menu-icon'
+    />
+    <span>Reports</span>
+  </NavLink>
+</li>
 
             {/* Invoice & Logistics Dropdown */}
             {/* <li className='dropdown'>
