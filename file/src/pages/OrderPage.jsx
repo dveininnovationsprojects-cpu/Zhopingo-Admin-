@@ -86,73 +86,109 @@ if (searchQuery) {
 const onlinePayments = filteredOrders.filter(o => o.paymentMethod?.toUpperCase() === "ONLINE").length;
 const walletPayments = filteredOrders.filter(o => o.paymentMethod?.toUpperCase() === "WALLET").length;
 
-    // 🌟 3. INVOICE PDF GENERATION logic
-    // 🌟 41. Professional Invoice Generator with Strict Attributes
 const downloadInvoice = (order) => {
     const doc = new jsPDF();
     
-    // 1. Header Section [cite: 1, 2]
-    doc.setFontSize(20);
-    doc.setTextColor(72, 94, 196); // Zhopingo Theme Blue
-    doc.text("ZHOPINGO TAX INVOICE", 105, 20, { align: "center" });
+    // 1. Header Section - Clean Black Text
+    doc.setFontSize(22);
+    doc.setTextColor(0, 0, 0); // Pure Black
+    doc.setFont(undefined, 'bold');
+    doc.text("TAX INVOICE", 105, 20, { align: "center" });
 
-    // 2. Core Order Info Section [cite: 3, 11]
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Order ID: #${order._id.slice(-8).toUpperCase()}`, 14, 35);
-    doc.text(`Order Date: ${new Date(order.createdAt).toLocaleDateString('en-GB')}`, 14, 40);
-    doc.text(`Status: ${order.status}`, 14, 45);
-    doc.text(`Payment Mode: ${order.paymentMethod?.toUpperCase()}`, 14, 50);
+    // 2. Branding Placeholder (Zhopingo)
+    doc.setFontSize(12);
+    doc.text("ZHOPINGO - INDIA'S FIRST ORGANIC APP", 14, 30);
+    doc.setLineWidth(0.5);
+    doc.line(14, 32, 196, 32); // Horizontal Divider
 
-    // 3. Customer & Address Details [cite: 4, 5]
-    doc.setFontSize(11);
-    doc.text("BILL TO:", 14, 60);
+    // 3. Order Metadata (Left Side)
     doc.setFontSize(10);
-    doc.text(`${order.customerId?.name || "Customer"}`, 14, 65);
-    doc.text(`Phone: ${order.customerId?.phone || "N/A"}`, 14, 70);
-    doc.text(`Address: ${order.shippingAddress?.flatNo}, ${order.shippingAddress?.addressLine}, ${order.shippingAddress?.pincode}`, 14, 75, { maxWidth: 80 });
+    doc.setFont(undefined, 'normal');
+    doc.text(`Invoice No: #INV-${order._id.slice(-6).toUpperCase()}`, 14, 42);
+    doc.text(`Order ID: #${order._id.slice(-8).toUpperCase()}`, 14, 47);
+    doc.text(`Order Date: ${new Date(order.createdAt).toLocaleDateString('en-GB')}`, 14, 52);
+    doc.text(`Payment Mode: ${order.paymentMethod?.toUpperCase()}`, 14, 57);
 
-    // 4. Seller Details [cite: 7, 10]
-    doc.setFontSize(11);
-    doc.text("SELLER DETAILS:", 120, 60);
-    doc.setFontSize(10);
+    // 4. Seller & Shipping Address Section (Side-by-Side)
+    // 🏠 SELLER DETAILS (Fetching Pickup Address)
+    doc.setFont(undefined, 'bold');
+    doc.text("SOLD BY (SELLER):", 14, 70);
+    doc.setFont(undefined, 'normal');
     const seller = order.items?.[0]?.sellerId;
-    doc.text(`${seller?.shopName || "Zhopingo Store"}`, 120, 65);
-    doc.text(`Owner: ${seller?.name || "Admin"}`, 120, 70);
+    doc.text(`${seller?.shopName || "Zhopingo Store"}`, 14, 75);
+    // 🌟 SELLER SHIPPING ADDRESS FETCH
+    const sAddr = seller?.shopAddress;
+    const sellerFullAddr = sAddr ? `${sAddr.flatNo}, ${sAddr.area}, ${sAddr.pincode}` : "Pickup Address Not Set";
+    doc.text(sellerFullAddr, 14, 80, { maxWidth: 80 });
+    doc.text(`GSTIN: ${seller?.gstNumber || "N/A"}`, 14, 90);
 
-    // 5. Products Table Section [cite: 12, 13]
-    const tableHeaders = [['S.No', 'Product Name', 'Quantity', 'Price', 'Total']];
+    // 👤 BILL TO (CUSTOMER DETAILS)
+    doc.setFont(undefined, 'bold');
+    doc.text("BILL TO (CUSTOMER):", 120, 70);
+    doc.setFont(undefined, 'normal');
+    doc.text(`${order.customerId?.name || "Customer"}`, 120, 75);
+    const cAddr = order.shippingAddress;
+    const custFullAddr = `${cAddr?.flatNo}, ${cAddr?.addressLine}, ${cAddr?.pincode}`;
+    doc.text(custFullAddr, 120, 80, { maxWidth: 80 });
+    doc.text(`Phone: ${order.customerId?.phone || "N/A"}`, 120, 90);
+
+    // 5. Products Table - B&W Theme
+    const tableHeaders = [['S.No', 'Description of Goods', 'Qty', 'Unit Price', 'Total Amount']];
     const tableData = order.items.map((item, index) => [
         index + 1,
         item.product?.name || item.name,
         item.quantity,
-        `Rs. ${item.price}`, // Rupee Text for better PDF compatibility
-        `Rs. ${item.price * item.quantity}`
+        `Rs. ${item.price.toLocaleString()}`,
+        `Rs. ${(item.price * item.quantity).toLocaleString()}`
     ]);
 
     autoTable(doc, {
         head: tableHeaders,
         body: tableData,
-        startY: 90,
-        theme: 'striped',
-        headStyles: { fillColor: [72, 94, 196] }, // Theme Blue
-        styles: { fontSize: 9, cellPadding: 4 }
+        startY: 100,
+        theme: 'grid', // Solid Grid for Professional Look
+        headStyles: { 
+            fillColor: [0, 0, 0], // Black Header
+            textColor: [255, 255, 255], // White Text
+            fontSize: 10,
+            halign: 'center'
+        },
+        styles: { 
+            fontSize: 9, 
+            cellPadding: 5, 
+            textColor: [0, 0, 0], // Black Body Text
+            lineColor: [0, 0, 0] // Black Border Lines
+        },
+        columnStyles: {
+            0: { halign: 'center' },
+            2: { halign: 'center' },
+            3: { halign: 'right' },
+            4: { halign: 'right' }
+        }
     });
 
-    // 6. Summary Section [cite: 22]
-    const finalY = doc.lastAutoTable.finalY + 15;
-    doc.setFontSize(12);
-    doc.setTextColor(72, 94, 196);
+    // 6. Summary Section
+    const finalY = doc.lastAutoTable.finalY + 10;
     doc.setFont(undefined, 'bold');
-    doc.text(`GRAND TOTAL: Rs. ${order.totalAmount}`, 196, finalY, { align: "right" });
+    doc.setFontSize(12);
+    doc.text(`GRAND TOTAL (Incl. GST): Rs. ${order.totalAmount.toLocaleString()}`, 196, finalY, { align: "right" });
+
+    // 7. Footer - Signature Placeholder
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'italic');
+    doc.text("This is a computer-generated invoice and does not require a physical signature.", 105, finalY + 25, { align: "center" });
     
-    // 🌟 43. Final Download Call
-    doc.save(`Zhopingo_Invoice_${order._id.slice(-8).toUpperCase()}.pdf`);
+    // Final Save
+    doc.save(`Invoice_${order._id.slice(-8).toUpperCase()}.pdf`);
 };
 
-    const indexOfLastOrder = currentPage * rowsPerPage;
-    const indexOfFirstOrder = indexOfLastOrder - rowsPerPage;
-    const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+// Pagination Logic - Idhai oru vaati verify pannunga
+const rowsPerPageInt = parseInt(rowsPerPage); // Ensure it's a number
+const indexOfLastOrder = currentPage * rowsPerPageInt;
+const indexOfFirstOrder = indexOfLastOrder - rowsPerPageInt;
+
+// Filtered data-vai ippo slice panrom
+const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
 
     return (
         <MasterLayout>
@@ -205,7 +241,7 @@ const downloadInvoice = (order) => {
                                 {isLoading ? (
                                     <tr><td colSpan="13" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
                                 ) : currentOrders.length > 0 ? currentOrders.map((order, index) => (
-                                    <tr key={order._id}>
+                                   <tr key={`${order._id}-${index}`}>
                                        {/* 🌟 42. Order Serial Number Descending with Hashtag */}
 <td>
     <span className="fw-bold text-secondary-light">
@@ -222,26 +258,16 @@ const downloadInvoice = (order) => {
                                         <td><div className="fw-bold text-dark text-sm">{order.customerId?.name || "User"}</div></td>
                                         
                                        {/* 🌟 15. Advanced Seller Details Sync */}
+{/* 🌟 Updated Seller Details Column (Single Seller Only) */}
 <td>
     {order.items && order.items.length > 0 ? (
         <div className="d-flex flex-column gap-1">
-            {/* Displaying First Item's Seller Details like Product List Page */}
             <div className="text-xs fw-bold text-primary-600">
                 {order.items[0].sellerId?.name || "Store Owner"}
             </div>
             <small className="text-muted italic d-block" style={{ fontSize: '10px' }}>
                 {order.items[0].sellerId?.shopName || "Admin Hub"}
             </small>
-            
-            {/* 🌟 12. More Sellers Logic for Multiple Vendors in one order */}
-            {order.items.length > 1 && (
-                <button 
-                    onClick={(e) => { e.stopPropagation(); setMultiSellerView(order.items); }}
-                    className="btn btn-sm p-0 text-info-main fw-black text-xxs text-start border-0 bg-transparent underline"
-                >
-                    + {order.items.length - 1} More Sellers
-                </button>
-            )}
         </div>
     ) : (
         <span className="text-xs text-secondary italic">No Seller Info</span>
@@ -279,13 +305,17 @@ const downloadInvoice = (order) => {
             backgroundColor: 
                 order.status === 'Delivered' ? '#E7F7EF' : // Light Green
                 order.status === 'Placed' ? '#FFF4E5' :    // Light Orange
-                order.status === 'Shipped' ? '#E8EFFF' :   // Light Blue
+                order.status === 'Shipped' ? '#E8EFFF' :
+                order.status === 'Cancelled' ? '#FCEAEA' : 
+               order.status === 'Return Requested' ? '#F4EBFF' :  // Light Blue
                 '#F2F4F7', // Default Grey
             
             color: 
                 order.status === 'Delivered' ? '#28C76F' : // Dark Green
                 order.status === 'Placed' ? '#FF9F43' :    // Dark Orange
-                order.status === 'Shipped' ? '#485EC4' :   // Dark Blue
+                order.status === 'Shipped' ? '#485EC4' :
+                order.status === 'Cancelled' ? '#EA5455' :
+                order.status === 'Return Requested' ? '#7F56D9' :   // Dark Blue
                 '#5E6366',
 
            

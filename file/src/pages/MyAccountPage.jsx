@@ -120,7 +120,7 @@ const MyAccountPage = () => {
                                 <DetailBox label="State" value={display.state} icon="solar:map-point-bold" onEdit={() => {setEditData({field:"state", label:"State", value:display.state}); setShowEditModal(true);}} />
                                 <DetailBox label="Country" value={display.country} icon="solar:global-bold" onEdit={() => {setEditData({field:"country", label:"Country", value:display.country}); setShowEditModal(true);}} />
 
-                                {/* 🌟 Current Password Visibility Box */}
+                                {/* 🌟 Current Password Visibility Box 
                                 <div className="col-md-6">
                                     <div className="p-16 radius-12 border bg-neutral-50 h-100 d-flex align-items-center justify-content-between">
                                         <div className="d-flex align-items-center gap-3">
@@ -137,7 +137,7 @@ const MyAccountPage = () => {
                                             <button onClick={() => setShowPassModal(true)} className="btn btn-primary-600 btn-xs radius-8 fw-bold px-12">CHANGE PASSWORD</button>
                                         </div>
                                     </div>
-                                </div>
+                                </div>*/}
                             </div>
                         </div>
                     </div>

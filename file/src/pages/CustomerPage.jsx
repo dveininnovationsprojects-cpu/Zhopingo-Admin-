@@ -83,7 +83,7 @@ const CustomerPage = () => {
                         <table className='table basic-border-table mb-0 text-nowrap align-middle'>
                             <thead className="bg-light">
                                 <tr>
-                                    <th>S.no</th><th>Name</th><th>Joined On</th><th>Wallet Balance</th><th>Total Revenue</th><th className="text-center">View Details</th>
+                                    <th>S.no</th><th>Name</th><th>Joined On</th><th>Wallet Balance</th><th className="text-center">View Details</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -111,7 +111,7 @@ const CustomerPage = () => {
 </td>
                                             <td className="text-xs text-secondary fw-bold">{new Date(item.createdAt).toLocaleDateString('en-GB')}</td>
                                             <td className="fw-900 text-success-main text-sm">₹{item.walletBalance || 0}</td>
-                                            <td className="fw-bold text-primary-600">₹{item.totalSpent || 0}</td>
+                                           
                                             <td className="text-center">
                                                 <button onClick={() => { setSelectedUser(item); setModalType('details'); }} className="btn btn-info-focus text-info-main btn-sm radius-8 px-12 fw-bold d-inline-flex align-items-center gap-1">
                                                     <Icon icon="solar:eye-bold" /> View Details
@@ -246,12 +246,16 @@ const CustomerPage = () => {
                                                     backgroundColor: 
                                                         order.status === 'Delivered' ? '#E7F7EF' : // Green
                                                         order.status === 'Placed' ? '#FFF4E5' :    // Orange
-                                                        order.status === 'Shipped' ? '#E8EFFF' :   // Blue
+                                                        order.status === 'Shipped' ? '#E8EFFF' : 
+                                                        order.status === 'Cancelled' ? '#FCEAEA' :
+                                                        order.status === 'Return Requested' ? '#F4EBFF' :  // Blue
                                                         '#F2F4F7',
                                                     color: 
                                                         order.status === 'Delivered' ? '#28C76F' : 
                                                         order.status === 'Placed' ? '#FF9F43' :    
-                                                        order.status === 'Shipped' ? '#485EC4' :   
+                                                        order.status === 'Shipped' ? '#485EC4' :  
+                                                        order.status === 'Cancelled' ? '#EA5455' : 
+                                                        order.status === 'Return Requested' ? '#7F56D9' :
                                                         '#5E6366'
                                                 }}
                                             >

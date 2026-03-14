@@ -51,22 +51,47 @@ const ProfilePage = () => {
     } catch (err) { console.error("Revenue Fetch Error", err); }
   };
 
-  const handleUpdateField = async (e) => {
+const handleUpdateField = async (e) => {
     e.preventDefault();
     setIsUpdating(true);
     try {
-        const res = await axios.put(`${API_BASE}/seller/update-profile/${sellerId}`, 
-            { [editData.field]: editData.value },
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const isAddressField = ["flatNo", "area", "pincode", "receiverName"].includes(editData.field);
+        
+        let payload = {};
+        let url = "";
+
+        if (isAddressField) {
+            url = `${API_BASE}/seller/add-address/${sellerId}`;
+            // 🌟 IMPORTANT: Backend expects ALL fields for validation
+            // Namma existing data-voda serthu anuppanum
+            payload = {
+                receiverName: editData.field === "receiverName" ? editData.value : (sellerDetails?.shopAddress?.receiverName || "Seller"),
+                flatNo: editData.field === "flatNo" ? editData.value : (sellerDetails?.shopAddress?.flatNo || "N/A"),
+                area: editData.field === "area" ? editData.value : (sellerDetails?.shopAddress?.area || "N/A"),
+                pincode: editData.field === "pincode" ? editData.value : (sellerDetails?.shopAddress?.pincode || ""),
+                phone: sellerDetails?.phone || userData?.phone
+            };
+        } else {
+            url = `${API_BASE}/seller/update-profile/${sellerId}`;
+            payload = { [editData.field]: editData.value };
+        }
+
+        const res = await axios.put(url, payload, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
         if (res.data.success) {
-            toast.success(`${editData.label} Updated!`);
+            toast.success("Updated Successfully!");
             fetchProfileData();
             setShowEditModal(false);
         }
-    } catch (err) { toast.error("Update failed"); } 
-    finally { setIsUpdating(false); }
-  };
+    } catch (err) {
+        console.error("Update Error:", err.response?.data);
+        toast.error(err.response?.data?.message || "Update failed");
+    } finally {
+        setIsUpdating(false);
+    }
+};
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -149,6 +174,42 @@ const ProfilePage = () => {
             </div>
           </div>
         </div>
+        {/* --- PICKUP ADDRESS SECTION (New) --- */}
+<div className="col-12 mt-4">
+  <div className="card radius-16 border-0 shadow-sm p-32">
+    <div className="d-flex justify-content-between align-items-center mb-24">
+        <h6 className="fw-bold mb-0 uppercase text-primary-600 ls-1" style={{fontSize: '13px'}}>Pickup & Shipping Address</h6>
+        <span className="badge bg-info-focus text-info-main text-xxs">REQUIRED FOR DELIVERY</span>
+    </div>
+    
+    <div className="row g-4">
+      <DetailBox 
+        label="Receiver Name" 
+        value={displayData.shopAddress?.receiverName} 
+        icon="solar:user-speak-bold" 
+        onEdit={() => openEditor("receiverName", "Receiver Name", displayData.shopAddress?.receiverName)} 
+      />
+      <DetailBox 
+        label="Flat / Building No" 
+        value={displayData.shopAddress?.flatNo} 
+        icon="solar:home-bold" 
+        onEdit={() => openEditor("flatNo", "Flat No", displayData.shopAddress?.flatNo)} 
+      />
+      <DetailBox 
+        label="Area / Street" 
+        value={displayData.shopAddress?.area} 
+        icon="solar:map-point-bold" 
+        onEdit={() => openEditor("area", "Area", displayData.shopAddress?.area)} 
+      />
+      <DetailBox 
+        label="Pincode" 
+        value={displayData.shopAddress?.pincode} 
+        icon="solar:streets-navigation-bold" 
+        onEdit={() => openEditor("pincode", "Pincode", displayData.shopAddress?.pincode)} 
+      />
+    </div>
+  </div>
+</div>
 
         {/* --- REVENUE --- */}
         <div className="col-lg-12">

@@ -167,7 +167,8 @@ const CategoryPage = () => {
             <table className='table basic-border-table mb-0 align-middle'>
               <thead className="bg-light">
                 <tr>
-                  <th className="ps-24">S.no</th><th>Image</th><th>Name</th><th>App Status</th><th className="text-center">Action</th>
+                  {/* 🌟 Intha line-ai (150) update pannunga */}
+<th className="ps-24">S.no</th><th>Image</th><th>Name</th><th>Description</th><th>App Status</th><th className="text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -176,7 +177,22 @@ const CategoryPage = () => {
                     <td className="ps-24 fw-bold text-secondary-light">{filteredData.length - (indexOfFirstItem + index)}</td>
                     <td><img src={item.image} alt="" className="w-40-px h-40-px radius-8 object-fit-cover shadow-sm border" onError={(e) => e.target.src = "assets/images/default.png"} /></td>
                     <td className="text-primary-600 fw-bold">{item.name}</td>
-                    <td>
+                   {/* 🌟 Description Column logic */}
+{/* 🌟 Description Column - Full Text Wrap Logic */}
+<td className="text-secondary-light text-sm">
+    <div 
+        style={{ 
+            minWidth: '200px',         // Minimum width fix panrom
+            maxWidth: '350px',         // Romba perusa pogaama thadukka
+            whiteSpace: 'pre-wrap',    // 🌟 Idhu dhaan mukkiyam! Backend-la Enter click pannirundhaalum, illana line perusa ponaalum "one by one" kaatum.
+            wordBreak: 'break-word',   // Word perusa irundha break panni next line anuppum
+            lineHeight: '1.5',         // Padding spacing nalla irukka
+            textAlign: 'justify'       // Text neat-ah align aaga
+        }}
+    >
+        {item.description || "---"}
+    </div>
+</td>             <td>
                       <span className={`badge ${item.isPermanent ? 'bg-success-focus text-success-main' : 'bg-info-focus text-info-main'} radius-pill px-12 py-6 fw-bold uppercase ls-1`} style={{fontSize:'10px'}}>
                         {item.isPermanent ? 'Top Bar Icon' : 'Normal Item'}
                       </span>
@@ -267,7 +283,6 @@ const CategoryPage = () => {
 
            
 
-            <div className="col-12"><label className="form-label fw-bold text-xs">GST RATE (Auto)</label><input type="text" className="form-control bg-light radius-8" value={formData.gstRate} readOnly /></div>
             <div className="col-12"><label className="form-label fw-bold">Description</label><textarea className="form-control radius-8" rows="3" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}></textarea></div>
 
             <div className="col-12">

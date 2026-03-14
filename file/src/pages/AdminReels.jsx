@@ -18,6 +18,8 @@ const [showProductInfo, setShowProductInfo] = useState(null);
 // 🌟 41. Show views count and Show liked   customers list logic
 // 🌟 combined state for list title
 const [listTitle, setListTitle] = useState("Viewers List");
+// 🌟 1. Pudhu States for Reports
+const [reports, setReports] = useState([]);
 
 // 🌟 41. combined logic for Viewers & Likers
 // 🌟 43. combined logic for Viewers & Likers with Latest First Sort
@@ -63,7 +65,21 @@ const openUserList = (e, userList, title) => {
         e.stopPropagation(); 
         setDeleteModal({ show: true, id: id });
     };
+const fetchReports = async () => {
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const res = await axios.get(`${API_BASE}/reels/admin/reports`, config);
+        if (res.data.success) {
+            setReports(res.data.data); // 🌟 Postman-la neenga paatha andha list ippo inga store aagum
+        }
+    } catch (err) { console.error("Report Fetch Error", err); }
+};
 
+// Initial useEffect update pannunga
+useEffect(() => {
+    fetchAllReels();
+    fetchReports(); // 🌟 Initial load-laye reports-um vandhurum
+}, []);
 const confirmDelete = async () => {
     try {
         // 🌟 AUTH SYNC: Backend 'protect' middleware-ku Token thevai
@@ -113,28 +129,54 @@ const openProductInfo = (e, product, seller) => {
                         <div className="text-center py-50"><div className="spinner-border text-primary"></div></div>
                     ) : (
                         <div className='row gy-4'>
-                            {reels.length > 0 ? reels.map((reel) => (
-                                <div className='col-xxl-3 col-md-4 col-sm-6' key={reel._id}>
-                                    <div 
-                                        className='card border-0 bg-black radius-16 overflow-hidden shadow-sm h-100 position-relative cursor-pointer transition-all hover-scale'
-                                        style={{ height: '420px', zIndex: 0 }}
-                                        onClick={() => setViewReel(reel)}
-                                    >
-                                        {/* 🌟 BLOCKED LABEL (If Backend isBlocked is true) */}
-                                        {reel.isBlocked && (
-                                            <div className="position-absolute top-0 start-0 m-12 z-2 badge bg-danger text-white px-12 py-6 radius-4 shadow-lg animate__animated animate__pulse animate__infinite">
-                                                <Icon icon="solar:shield-warning-bold" className="me-1" /> BLOCKED
-                                            </div>
-                                        )}
+{reels.length > 0 ? reels.map((reel) => {
+    // 🌟 Structure mapping fix - Postman data-voda match panrom
+    const reelReports = reports.filter(r => (r.reelId?._id || r.reelId) === reel._id);
+    const hasReports = reelReports.length > 0;
 
-                                        <button 
-                                            onClick={(e) => openDeleteModal(e, reel._id)}
-                                            className='btn btn-danger w-36-px h-36-px d-flex justify-content-center align-items-center position-absolute top-0 end-0 m-12 z-1 radius-8 shadow-lg border-0 opacity-75 hover-opacity-100'
-                                        >
-                                            <Icon icon='solar:trash-bin-minimalistic-bold' className="text-lg" />
-                                        </button>
+    return (
+        <div className='col-xxl-3 col-md-4 col-sm-6' key={reel._id}>
+            <div className='card border-0 bg-black radius-16 overflow-hidden shadow-sm h-100 position-relative cursor-pointer'>
+                
+                {/* ⚠️ Danger Icon with Reason Mapping */}
+                {hasReports && (
+                    <button 
+                        onClick={(e) => openUserList(e, reelReports.map(r => ({ ...r.reporterId, reason: r.reason })), "Reel Violation Reports")}
+                        className='btn btn-warning w-36-px h-36-px d-flex justify-content-center align-items-center position-absolute top-0 start-0 m-12 z-3 radius-8 shadow-lg border-0 animate__animated animate__flash animate__infinite'
+                        style={{ backgroundColor: '#FF9F43', color: '#fff' }}
+                    >
+                        <Icon icon='solar:danger-triangle-bold' className="text-lg" />
+                    </button>
+                )}
+                {/* Matha video and delete button code... */}
+                {/* Existing video and delete button code... */}
 
-                                        <video src={reel.videoUrl} className='w-100 h-100 object-fit-cover' loop muted onMouseOver={e => e.target.play()} onMouseOut={e => e.target.pause()} />
+                {/* --- 🌟 BLOCKED LABEL (Optional existing logic) --- */}
+                {reel.isBlocked && (
+                    <div className="position-absolute top-0 start-0 m-12 mt-56 z-2 badge bg-danger text-white px-12 py-6 radius-4 shadow-lg animate__animated animate__pulse animate__infinite">
+                        <Icon icon="solar:shield-warning-bold" className="me-1" /> BLOCKED
+                    </div>
+                )}
+                {/* 🌟 141-vathu line kitta video tag-ai ippadi update pannunga */}
+<video 
+    src={reel.videoUrl} 
+    className='w-100 h-100 object-fit-cover' 
+    loop 
+    muted 
+    onMouseOver={e => e.target.play()} 
+    onMouseOut={e => e.target.pause()} 
+    onClick={() => setViewReel(reel)} // 🌟 IDHU THAAN MISSING! Zoom view open aaga
+/>
+
+                {/* --- DELETE BUTTON (Existing Top-Right) --- */}
+                <button 
+                    onClick={(e) => openDeleteModal(e, reel._id)}
+                    className='btn btn-danger w-36-px h-36-px d-flex justify-content-center align-items-center position-absolute top-0 end-0 m-12 z-1 radius-8 shadow-lg border-0 opacity-75 hover-opacity-100'
+                >
+                    <Icon icon='solar:trash-bin-minimalistic-bold' className="text-lg" />
+                </button>
+
+
 
                                         <div className="position-absolute bottom-0 w-100 p-16" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.95))', zIndex: 2 }}>
                                           {/* 🌟 41. Clickable Product & Seller Info Area */}
@@ -201,7 +243,8 @@ const openProductInfo = (e, product, seller) => {
 </div>                       </div>
                                     </div>
                                 </div>
-                            )) : (
+                           ); // Logic Block Return End
+}) : (
                                 <div className="text-center py-80 w-100 bg-white radius-16 shadow-sm border mx-3">
                                     <Icon icon="solar:videocamera-off-broken" className="text-6xl text-neutral-200 mb-16" />
                                     <p className="text-secondary fw-semibold">No Reels Found in Database.</p>
@@ -212,41 +255,41 @@ const openProductInfo = (e, product, seller) => {
                 </div>
             </div>
 
-            {/* FULL VIEW MODAL & DELETE MODAL (Design preserved) */}
-            {viewReel && (
-                <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center z-3" style={{ backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 99999 }} onClick={() => setViewReel(null)}>
-                    <div className="position-relative animate__animated animate__zoomIn" style={{ width: '100%', maxWidth: '380px', height: '85vh' }} onClick={(e) => e.stopPropagation()}>
-                        <button className="position-absolute top-0 end-0 m-16 btn btn-white rounded-circle p-8 d-flex z-3 shadow" onClick={() => setViewReel(null)}>
-                            <Icon icon="solar:close-circle-bold" className="text-2xl text-primary-600" />
-                        </button>
-                        <video src={viewReel.videoUrl} className="w-100 h-100 radius-24 shadow-lg" style={{ objectFit: 'cover' }} controls autoPlay loop />
-                        <div className="position-absolute bottom-0 w-100 p-24 radius-24" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.95))' }}>
-                            {viewReel.isBlocked && <div className="badge bg-danger mb-2">BLOCKED: {viewReel.blockReason || "Content Violation"}</div>}
-                            <div className="d-flex align-items-center gap-2 mb-12"><Icon icon="solar:heart-linear" className="text-white text-xl opacity-75" /><span className="text-white fw-bold text-sm">{viewReel.likes || 0} Likes</span></div>
-                            <h6 className="text-white fw-bold mb-4">@{viewReel.sellerId?.shopName || "Store"}</h6>
-                            <div className="text-white-50 text-xs mb-16 px-1" style={{ maxHeight: '100px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>{viewReel.description}</div>
-                            {/* 🌟 41. Inside Zoom Reel Modal - Clickable Product Info */}
-{viewReel.productId && (
-    <div 
-        className="p-12 radius-16 d-flex align-items-center shadow-lg border border-white-10 cursor-pointer transition-all hover-bg-white-20" 
-        style={{ background: 'rgba(255, 255, 255, 0.25)', backdropFilter: 'blur(15px)' }}
-        // 🌟 Ippo zoom modal-la irundhu click pannaalum same details modal open aagum
-        onClick={(e) => openProductInfo(e, viewReel.productId, viewReel.sellerId)}
-    >
-        <div className="w-44-px h-44-px radius-8 bg-white d-flex align-items-center justify-content-center me-12 shadow-sm">
-            <Icon icon="solar:box-bold" className="text-primary-600 text-xl" />
-        </div>
-        <div className="overflow-hidden text-white">
-            <p className="mb-0 text-xs fw-black text-truncate uppercase ls-1">{viewReel.productId.name}</p>
-            <p className="mb-0 text-xxs fw-bold opacity-90">MRP: ₹{viewReel.productId.price}</p>
-            <small className="text-white-50 fw-bold" style={{ fontSize: '9px' }}>Tap for Seller Details</small>
+{/* 🌟 DELETE MODAL-ku keela idhai podunga */}
+{viewReel && (
+    <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center z-3" style={{ backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 99999 }} onClick={() => setViewReel(null)}>
+        <div className="position-relative animate__animated animate__zoomIn" style={{ width: '100%', maxWidth: '380px', height: '85vh' }} onClick={(e) => e.stopPropagation()}>
+            <button className="position-absolute top-0 end-0 m-16 btn btn-white rounded-circle p-8 d-flex z-3 shadow" onClick={() => setViewReel(null)}>
+                <Icon icon="solar:close-circle-bold" className="text-2xl text-primary-600" />
+            </button>
+            <video src={viewReel.videoUrl} className="w-100 h-100 radius-24 shadow-lg" style={{ objectFit: 'cover' }} controls autoPlay loop />
+            <div className="position-absolute bottom-0 w-100 p-24 radius-24" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.95))' }}>
+                <div className="d-flex align-items-center gap-2 mb-12">
+                    <Icon icon="solar:heart-linear" className="text-white text-xl opacity-75" />
+                    <span className="text-white fw-bold text-sm">{(viewReel.likedBy?.length || 0)} Likes</span>
+                </div>
+                <h6 className="text-white fw-bold mb-4">@{viewReel.sellerId?.shopName || "Store"}</h6>
+                <div className="text-white-50 text-xs mb-16 px-1" style={{ maxHeight: '100px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>{viewReel.description}</div>
+                
+                {viewReel.productId && (
+                    <div 
+                        className="p-12 radius-16 d-flex align-items-center shadow-lg border border-white-10 cursor-pointer transition-all hover-bg-white-20" 
+                        style={{ background: 'rgba(255, 255, 255, 0.25)', backdropFilter: 'blur(15px)' }}
+                        onClick={(e) => openProductInfo(e, viewReel.productId, viewReel.sellerId)}
+                    >
+                        <div className="w-44-px h-44-px radius-8 bg-white d-flex align-items-center justify-content-center me-12 shadow-sm">
+                            <Icon icon="solar:box-bold" className="text-primary-600 text-xl" />
+                        </div>
+                        <div className="overflow-hidden text-white">
+                            <p className="mb-0 text-xs fw-black text-truncate uppercase ls-1">{viewReel.productId.name}</p>
+                            <p className="mb-0 text-xxs fw-bold opacity-90">MRP: ₹{viewReel.productId.price}</p>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     </div>
 )}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {deleteModal.show && (
                 <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 99999 }}>
@@ -264,47 +307,47 @@ const openProductInfo = (e, product, seller) => {
                     </div>
                 </div>
             )}
-            {/* 🌟 Viewer List Modal UI */}
-{/* 🌟 Viewer/Liker List Modal UI with Internal Scroll */}
+{/* 🌟 USER INTERACTION MODAL (Dynamic Color Logic Based on Title) */}
 {showViewerModal && (
-    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 999999 }}>
+    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 99999 }}>
         <div className="modal-dialog modal-dialog-centered modal-sm">
             <div className="modal-content radius-24 border-0 shadow-lg bg-white overflow-hidden">
-                <div className="modal-header border-bottom p-20 bg-light">
-                    <h6 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
-                        <Icon icon="solar:users-group-rounded-bold" className="text-primary-600" /> 
+                
+                {/* 🌟 HEADER: Title-la 'Violation' or 'Report' irundha RED, illana BLUE */}
+                <div className={`modal-header border-bottom p-20 ${listTitle.includes("Report") || listTitle.includes("Violation") ? 'bg-danger-50' : 'bg-primary-50'}`}>
+                    <h6 className={`mb-0 fw-bold d-flex align-items-center gap-2 ${listTitle.includes("Report") || listTitle.includes("Violation") ? 'text-danger-600' : 'text-primary-600'}`}>
+                        <Icon icon={listTitle.includes("Report") || listTitle.includes("Violation") ? "solar:shield-warning-bold" : "solar:users-group-rounded-bold"} /> 
                         {listTitle}
                     </h6>
                     <button onClick={() => setShowViewerModal(false)} className="btn-close shadow-none"></button>
                 </div>
                 
-                {/* 🌟 Scroll logic: list perusa pona modal body-kullaeye scroll aagum */}
                 <div className="modal-body p-0" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                    {currentViewers.length > 0 ? (
-                        <ul className="list-group list-group-flush">
-                            {currentViewers.map((user, idx) => (
-                                <li key={idx} className="list-group-item d-flex align-items-center gap-3 p-16 border-bottom">
-                                    <div className="w-32-px h-32-px bg-primary-50 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0">
-                                        <Icon icon="solar:user-bold" className="text-primary-600" />
-                                    </div>
-                                    <div className="overflow-hidden">
-                                        <p className="mb-0 text-sm fw-bold text-dark text-truncate">
-                                            {user.name || "Zhopingo User"}
-                                        </p>
-                                        <small className="text-secondary text-xxs">
-                                            {user.phone || "No Phone"}
-                                        </small>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <div className="text-center py-40 opacity-50">
-                            <Icon icon="solar:ghost-broken" className="text-4xl mb-2" />
-                            <p className="text-sm fw-bold">No interactions recorded yet.</p>
+                    {currentViewers.length > 0 ? currentViewers.map((user, idx) => (
+                        <div key={idx} className="p-16 border-bottom">
+                            <div className="d-flex align-items-center gap-3 mb-8">
+                                {/* 🌟 USER ICON BG: Red for Reports, Blue for Viewers */}
+                                <div className={`w-32-px h-32-px rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 ${listTitle.includes("Report") || listTitle.includes("Violation") ? 'bg-danger-100' : 'bg-primary-50'}`}>
+                                    <Icon icon="solar:user-bold" className={listTitle.includes("Report") || listTitle.includes("Violation") ? 'text-danger-600' : 'text-primary-600'} />
+                                </div>
+                                <div className="overflow-hidden">
+                                    <p className="mb-0 text-sm fw-bold text-dark text-truncate">{user.name || "User"}</p>
+                                    <small className="text-secondary text-xxs d-block">{user.phone || "No Phone"}</small>
+                                </div>
+                            </div>
+                            
+                            {/* 🌟 REASON: Only visible and Red strictly if it's a Report */}
+                            {(listTitle.includes("Report") || listTitle.includes("Violation")) && user.reason && (
+                                <div className="mt-4 p-10 radius-8 bg-danger-focus text-danger-main text-xxs fw-bold border border-danger-100">
+                                    REASON: {user.reason}
+                                </div>
+                            )}
                         </div>
+                    )) : (
+                        <div className="text-center py-40 opacity-50"><p className="text-xs fw-bold">No interactions recorded.</p></div>
                     )}
                 </div>
+                
                 <div className="modal-footer p-12 bg-light border-top text-center">
                     <small className="text-xxs fw-bold text-muted uppercase">Total: {currentViewers.length}</small>
                 </div>

@@ -160,13 +160,21 @@ const [confirmModal, setConfirmModal] = useState({
                                         </td>
 
                                         {/* 🌟 41. Professional Status Badge Sync */}
+{/* 🌟 41. Differentiated Status Badge Logic */}
 <td>
     <span className={`badge px-12 py-6 radius-pill text-xxs fw-black uppercase ls-1 ${
-        order.status === 'Delivered' ? 'bg-success-focus text-success-main' : // 🟢 Delivered
-        order.status === 'Cancelled' ? 'bg-danger-focus text-danger-main' :   // 🔴 Cancelled
-        order.status === 'Shipped' ? 'bg-info-focus text-info-main' :         // 🔵 Shipped
-        'bg-warning-focus text-warning-main'                                 // 🟡 Placed/Pending
-    }`}>
+        order.status === 'Delivered' ? 'bg-success-focus text-success-main' : // 🟢 Delivered (Green)
+        order.status === 'Cancelled' ? 'bg-danger-focus text-danger-main' :   // 🔴 Cancelled (Red)
+        order.status === 'Shipped'   ? 'bg-info-focus text-info-main' :      // 🔵 Shipped (Blue)
+        order.status === 'Placed'    ? 'bg-warning-focus text-warning-main' : 
+        order.status === 'Return Requested' ? 'text-primary-600' :// 🟡 Placed (Yellow/Orange)
+        'bg-neutral-200 text-secondary'                                      // ⚪ Pending (Grey)
+    }`}style={order.status === 'Return Requested' ? {
+        backgroundColor: '#F4EBFF', // Light Purple BG
+        color: '#7F56D9',           // Dark Purple Text
+        border: '1px solid #E9D7FE'
+    } : {}}
+    >
         {order.status}
     </span>
 </td>
@@ -205,6 +213,10 @@ const [confirmModal, setConfirmModal] = useState({
             <div className="text-success fw-black text-xxs uppercase">
                 <Icon icon="solar:check-circle-bold" className="fs-5" /> COMPLETED
             </div>
+        )}
+        {/* 🌟 4. If Pending (or any other state) -> Show Placeholder Dash */}
+        {(order.status === 'Pending' || !['Placed', 'Shipped', 'Delivered'].includes(order.status)) && (
+            <span className="text-secondary-light fw-bold">—</span>
         )}
     </div>
 </td>

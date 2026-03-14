@@ -491,7 +491,7 @@ const handleSubmit = async (e) => {
                         </div>
 
                         <div className="col-12"><label className="form-label fw-bold text-xs">GST RATE (Auto-Fetch)</label><input type="text" className="form-control bg-light radius-8 fw-bold text-success-main" value={formData.gstRate ? `${formData.gstRate}%` : ""} readOnly /></div>
-                        <div className="col-12"><label className="form-label fw-bold">Admin Description</label><textarea className="form-control radius-8" rows="3" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea></div>
+                        <div className="col-12"><label className="form-label fw-bold">Description</label><textarea className="form-control radius-8" rows="3" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}></textarea></div>
                         <div className="col-12">
     <label className="form-label fw-bold">Variety Image (Thumbnail)</label>
     <div className="upload-box border-dashed p-16 radius-8 text-center bg-info-50 position-relative">

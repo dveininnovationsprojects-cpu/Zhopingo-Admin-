@@ -289,22 +289,32 @@ const ReelsPage = () => {
                 </div>
             )}
 
-            {/* DELETE MODAL (Preserved) */}
-            {deleteModal.show && (
-                <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 99999 }}>
-                    <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '380px' }}>
-                        <div className="modal-content radius-24 border-0 p-40 text-center bg-white shadow-lg">
-                            <Icon icon="solar:trash-bin-minimalistic-bold" className="text-danger-600 display-4 mb-24" />
-                            <h5 className="fw-bold text-dark">Delete Reel Promos?</h5>
-                            <p className="text-secondary-light mb-32">This action cannot be undone.</p>
-                            <div className="d-flex justify-content-center gap-3">
-                                <button onClick={() => setDeleteModal({show:false, id:null})} className="btn btn-outline-neutral px-24 radius-12 fw-bold">Cancel</button>
-                                <button onClick={confirmDelete} className="btn btn-danger-600 px-24 radius-12 fw-bold shadow-sm">Yes, Delete</button>
-                            </div>
+           {/* DELETE MODAL (Strictly Centered Icon Fix) */}
+{deleteModal.show && (
+    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 99999 }}>
+        <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '380px' }}>
+            <div className="modal-content radius-24 border-0 shadow-lg bg-white">
+                <div className="modal-body text-center p-40">
+                    
+                    {/* 🌟 THE FIX: Added d-flex, justify-content-center & mx-auto */}
+                    <div className="d-flex justify-content-center mb-24">
+                        <div className="w-80-px h-80-px bg-danger-focus text-danger-600 rounded-circle d-flex justify-content-center align-items-center animate__animated animate__shakeX">
+                            <Icon icon="solar:trash-bin-minimalistic-bold" className="text-4xl" />
                         </div>
                     </div>
+
+                    <h5 className="mb-12 fw-bold text-dark">Delete Reel?</h5>
+                    <p className="text-secondary-light mb-32 text-sm">Are you sure you want to delete this reel? This action cannot be undone.</p>
+                    
+                    <div className="d-flex justify-content-center gap-3">
+                        <button onClick={() => setDeleteModal({show:false, id:null})} className="btn btn-light px-24 py-12 radius-12 fw-bold text-dark border-0">Cancel</button>
+                        <button onClick={confirmDelete} className="btn btn-danger-600 px-24 py-12 radius-12 fw-bold shadow-sm uppercase ls-1">Yes, Delete</button>
+                    </div>
                 </div>
-            )}
+            </div>
+        </div>
+    </div>
+)}
 
             {/* CREATE REEL MODAL (Functionality preserved) */}
             {showModal && (
