@@ -51,7 +51,7 @@ const confirmDelete = async () => {
             toast.success("Successfully removed from Catalog!");
             await fetchInitialData(); // 🌟 Wait for refresh
             setShowDeleteModal(false);
-            setFormData({id: ""}); // Reset
+            setFormData({id: ""}); 
         }
     } catch (err) {
         console.error("Delete Error:", err.response?.data);

@@ -264,55 +264,69 @@ const handleMasterProductSelect = (masterId) => {
         setFiles({ ...files, images: newImages });
     };
 
-    const handlePublish = async (e) => {
-        e.preventDefault();
-        const currentSellerId = sellerData.id || sellerData._id;
+const handlePublish = async (e) => {
+    e.preventDefault();
+    const currentSellerId = sellerData.id || sellerData._id;
 
-        if (!formData.masterProductId || !formData.price || !formData.stock) {
-            return toast.error("Select a product from Catalog and fill price/stock!");
-        }
+    // 🌟 Validation: Price, Stock, Master Product and Return Window (if returnable)
+    if (!formData.masterProductId || !formData.price || !formData.stock) {
+        return toast.error("Select a product from Catalog and fill price/stock!");
+    }
 
-        setIsSubmitting(true);
-        const data = new FormData();
-        
-        // Append all nested objects
-        Object.keys(formData).forEach(key => {
-            if (typeof formData[key] === 'object' && formData[key] !== null) {
-                Object.keys(formData[key]).forEach(subKey => {
-                    data.append(`${key}[${subKey}]`, formData[key][subKey]);
-                });
-            } else {
-                data.append(key, formData[key]);
-            }
-        });
+    if (formData.isReturnable && (!formData.returnWindow || formData.returnWindow < 1)) {
+        return toast.error("Please specify a valid Return Window (1-30 days)!");
+    }
 
-        data.append("seller", currentSellerId);
-        data.append("variants", JSON.stringify(variants)); 
-        data.append("ingredients", ingredientsList.filter(i => i.trim()).join(", "));
-
-        keyFeatures.filter(f => f.trim()).forEach((f, i) => data.append(`keyFeatures[${i}]`, f));
-        nutritionInfo.filter(n => n.label.trim()).forEach((n, i) => {
-            data.append(`nutritionInfo[${i}][label]`, n.label);
-            data.append(`nutritionInfo[${i}][value]`, n.value);
-        });
-
-        files.images.forEach(img => { if (img) data.append("images", img); });
-        if (files.video) data.append("video", files.video);
-
-        try {
-            const res = await axios.post(`${API_BASE}/products/add`, data, { 
-                headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` } 
+    setIsSubmitting(true);
+    const data = new FormData();
+    
+    // 🚀 THE CORE FIX: Append all formData keys
+    Object.keys(formData).forEach(key => {
+        if (typeof formData[key] === 'object' && formData[key] !== null) {
+            // Nested objects handling (Highlights, ManufacturerDetails)
+            Object.keys(formData[key]).forEach(subKey => {
+                data.append(`${key}[${subKey}]`, formData[key][subKey]);
             });
-            if (res.data.success) {
-                toast.success("Listed successfully!");
-                setShowAddModal(false);
-                fetchData();
-                setFormData(initialForm);
-                setFiles({ images: [null, null, null, null, null], video: null });
-            }
-        } catch (err) { toast.error(err.response?.data?.message || "Listing failed."); } 
-        finally { setIsSubmitting(false); }
-    };
+        } else {
+            // 🌟 SYNC: This will strictly append isReturnable (boolean) and returnWindow (number)
+            data.append(key, formData[key]);
+        }
+    });
+
+    // Lists & Relations mapping
+    data.append("seller", currentSellerId);
+    data.append("variants", JSON.stringify(variants)); 
+    data.append("ingredients", ingredientsList.filter(i => i.trim()).join(", "));
+
+    keyFeatures.filter(f => f.trim()).forEach((f, i) => data.append(`keyFeatures[${i}]`, f));
+    nutritionInfo.filter(n => n.label.trim()).forEach((n, i) => {
+        data.append(`nutritionInfo[${i}][label]`, n.label);
+        data.append(`nutritionInfo[${i}][value]`, n.value);
+    });
+
+    // Files handling
+    files.images.forEach(img => { if (img) data.append("images", img); });
+    if (files.video) data.append("video", files.video);
+
+    try {
+        const config = { 
+            headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` } 
+        };
+        const res = await axios.post(`${API_BASE}/products/add`, data, config);
+
+        if (res.data.success) {
+            toast.success("Listed successfully with Return Policy!");
+            setShowAddModal(false);
+            fetchData(); // Refresh Inventory
+            setFormData(initialForm); // Reset form strictly
+            setFiles({ images: [null, null, null, null, null], video: null });
+        }
+    } catch (err) { 
+        toast.error(err.response?.data?.message || "Listing failed."); 
+    } finally { 
+        setIsSubmitting(false); 
+    }
+};
     
 
    const handleRequestAdmin = async (e) => {
@@ -636,7 +650,38 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                                         <div className="bg-primary-focus p-16 radius-16 border border-primary-100 mb-24">
                                             <div className="row g-2">
                                                 <div className="col-6"><label className="text-xxs fw-bold uppercase">Free Delivery?</label><select className="form-select form-select-sm" onChange={e => setFormData({...formData, isFreeDelivery: e.target.value === 'true'})}><option value="false">No</option><option value="true">Yes</option></select></div>
-                                                <div className="col-6"><label className="text-xxs fw-bold uppercase">Returnable?</label><select className="form-select form-select-sm" onChange={e => setFormData({...formData, isReturnable: e.target.value === 'true'})}><option value="false">No</option><option value="true">Yes</option></select></div>
+                                                <div className="col-6"><label className="text-xxs fw-bold uppercase">Returnable?</label><select 
+    className="form-select form-select-sm" 
+    value={formData.isReturnable} 
+    onChange={e => {
+        const val = e.target.value === 'true';
+        setFormData({
+            ...formData, 
+            isReturnable: val, 
+            returnWindow: val ? formData.returnWindow : 0 // 🌟 Return No-na window-ai 0-vaakidurom
+        });
+    }}
+>
+    <option value="false">No</option>
+    <option value="true">Yes</option>
+</select></div>
+                                                <div className="col-12 animate__animated animate__fadeIn">
+                <label className="text-xxs fw-bold text-primary-600 uppercase mb-4">Return Window (Days) *</label>
+                <div className="input-group input-group-sm">
+                    <input 
+                        type="number" 
+                        className="form-control radius-8" 
+                        placeholder="e.g. 7" 
+                        value={formData.returnWindow} 
+                        onChange={e => setFormData({...formData, returnWindow: Number(e.target.value)})}
+                        min="1"
+                        max="30"
+                        required
+                    />
+                    <span className="input-group-text bg-white text-xxs fw-bold">Days</span>
+                </div>
+                <small className="text-muted" style={{fontSize: '9px'}}>Maximum 30 days allowed strictly.</small>
+            </div>
                                             </div>
                                         </div>
 

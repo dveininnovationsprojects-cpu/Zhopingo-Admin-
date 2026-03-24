@@ -83,58 +83,77 @@ const fetchFilteredOrders = async (sId, week) => {
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
         const res = await axios.get(`${API_BASE}/orders/all`, config);
+        
         if (res.data.success) {
             const filtered = res.data.data.filter(order => {
-                // 🌟 THE FIX: Order status eppo Delivered/Returned aacho andha date-ai edukkuroam
-                const statusDate = order.updatedAt ? new Date(order.updatedAt) : new Date(order.createdAt);
+                const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sId);
+                if (!myPackage) return false;
+
+                // 🌟 THE CRITICAL SYNC LOGIC:
+                // 1. Intha order intha week window-kulla varudha-nu check panna 'updatedAt' use panrom.
+                // 2. Oru order multiple times update aanaalum (Delivered then Return), 
+                //    adha 'Last Action Date' vechi dhaan filter pannanum.
                 
-                const isMyOrder = order.sellerSplitData?.some(s => (s.sellerId?._id || s.sellerId) === sId);
-                const isRelevantStatus = ['Delivered', 'Returned', 'Return Requested'].includes(order.status);
-                
-                // 📅 Week range check strictly based on status update date
-                const isInWeek = statusDate >= new Date(week.start) && statusDate <= new Date(week.end);
-                
-                return isMyOrder && isRelevantStatus && isInWeek;
+                const lastActionDate = new Date(order.updatedAt || order.createdAt);
+                const isInWeek = lastActionDate >= new Date(week.start) && lastActionDate <= new Date(week.end);
+
+                // Status check: Only show if its current state in THIS week is Delivered or Returned
+                const currentStatus = myPackage.packageStatus || order.status;
+                const isRelevantStatus = ['Delivered', 'Returned', 'Return Requested'].includes(currentStatus);
+
+                return isRelevantStatus && isInWeek;
             });
             setOrders(filtered);
         }
-    } catch (err) { toast.error("Algorithm Fetch Failed"); }
+    } catch (err) { toast.error("Algorithm Sync Failed"); }
     finally { setIsLoading(false); }
 };
 
 const calculateOrderPayout = (order) => {
-    const split = order.sellerSplitData.find(s => (s.sellerId?._id || s.sellerId) === selectedSeller._id);
+    // 🌟 THE SYNC: Finding seller data strictly
+    const split = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === selectedSeller?._id);
+    
     const totalPaidByCustomer = order.totalAmount || 0; 
     const productAmount = split?.sellerSubtotal || 0; 
     const deliveryDeduction = totalPaidByCustomer - productAmount;
 
-    // ⚖️ Commission Calculations
-    const commission = split?.commissionTotal || (productAmount * (financeSettings.commissionPercent / 100));
-    const gstOnComm = split?.gstTotal || (commission * (financeSettings.gstOnCommissionPercent / 100));
-    
-    // 🌟 TDS Deduction Logic (Product Amount * TDS %)
-    const tdsDeduction = productAmount * (financeSettings.tdsPercent / 100);
-
-    // 🏷️ Total Platform Deduction (Comm + GST + TDS)
-    const totalPlatformDeduction = commission + gstOnComm + tdsDeduction;
-
     const isReturned = order.status === 'Returned' || order.status === 'Return Requested';
-    
-    // 💸 Final Share: Total - Deductions - Delivery
-    const finalShare = isReturned 
-        ? -(totalPaidByCustomer) 
-        : (totalPaidByCustomer - (totalPlatformDeduction + deliveryDeduction));
 
-    return { 
-        totalPaid: totalPaidByCustomer, 
-        commGst: commission + gstOnComm, 
-        tds: tdsDeduction, // 🌟 TDS separate-ah pass panrom
-        delivery: deliveryDeduction, 
-        finalShare, 
-        isReturned 
-    };
+    if (isReturned) {
+        // Return aana platform commission zero
+        return { 
+            totalPaid: totalPaidByCustomer, 
+            commGst: 0, 
+            tds: 0,
+            delivery: deliveryDeduction, 
+            finalShare: -(totalPaidByCustomer + deliveryDeduction), 
+            isReturned: true 
+        };
+    } else {
+        // 🚀 FRONTEND DYNAMIC CALCULATION (Ignoring Backend Values)
+        
+        // 1. Platform Commission: Product Amount-la irundhu strictly
+        const platformComm = (productAmount * (Number(financeSettings.commissionPercent) / 100));
+
+        // 2. GST: Intha Platform Commission-la irundhu (Ex: 18% of platformComm)
+        const gstAmount = (platformComm * (Number(financeSettings.gstOnCommissionPercent) / 100));
+
+        // 3. TDS: Intha Platform Commission-la irundhu strictly (Ex: 2% of platformComm)
+        const tdsAmount = (platformComm * (Number(financeSettings.tdsPercent) / 100));
+
+        // 🏷️ Total Deduction for Seller
+        const totalDeductions = platformComm + gstAmount + tdsAmount;
+
+        return { 
+            totalPaid: totalPaidByCustomer, 
+            commGst: platformComm + gstAmount, // Commission + GST display-ku
+            tds: tdsAmount,
+            delivery: deliveryDeduction, 
+            finalShare: (totalPaidByCustomer - (totalDeductions + deliveryDeduction)), 
+            isReturned: false 
+        };
+    }
 };
-// ✅ Insert here (After calculateOrderPayout function)
 
 const weeklyGrandTotal = orders.reduce((sum, order) => {
     const p = calculateOrderPayout(order);
@@ -167,23 +186,25 @@ const downloadInvoice = () => {
 
 const tableBody = orders.map((o, i) => {
     const p = calculateOrderPayout(o);
-    const sDate = o.updatedAt ? new Date(o.updatedAt).toLocaleDateString() : "-";
-    
+    // Find individual status for PDF
+    const myPkg = o.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === selectedSeller?._id);
+    const currentStatus = myPkg?.packageStatus || o.status;
+
     return [
         i+1, 
         new Date(o.createdAt).toLocaleDateString(), 
-        sDate, 
+        o.updatedAt ? new Date(o.updatedAt).toLocaleDateString() : "-", 
         o._id.slice(-6).toUpperCase(), 
         `Rs. ${p.totalPaid}`, 
-        o.status, 
-        `Rs. ${Math.ceil(p.commGst + p.tds)}`, // 🌟 Deductions included
+        currentStatus.toUpperCase(), // 🌟 Updated individual status
+        `Rs. ${Math.ceil(p.commGst + p.tds)}`, 
         `Rs. ${p.delivery}`, 
         `Rs. ${p.finalShare.toFixed(2)}`
     ];
 });
 
     autoTable(doc, {
-        head: [['#', 'Date', 'Order ID', 'Total Paid', 'Status', 'Comm+GST', 'Delivery', 'Net Share']],
+        head: [['#', 'Order Date','Status Date','Order ID', 'Total Paid', 'Status', 'Comm+GST', 'Delivery', 'Net Share']],
         body: tableBody,
         startY: 42,
         theme: 'grid',
@@ -262,28 +283,41 @@ const tableBody = orders.map((o, i) => {
     const statusDateDisplay = order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : new Date(order.createdAt).toLocaleDateString();
 
     return (
-        <tr key={order._id}>
-            <td className="ps-24 text-xs fw-bold">{new Date(order.createdAt).toLocaleDateString()}</td>
-            <td className="text-xs fw-bold text-primary-600">{statusDateDisplay}</td>
-            <td className="fw-bold text-secondary">#{order._id.slice(-6).toUpperCase()}</td>
-            <td className="fw-black">₹{p.totalPaid}</td> 
-            <td>
-                <span className={`badge radius-pill px-12 py-6 text-xxs fw-black uppercase ${p.isReturned ? 'bg-danger-focus text-danger-main' : 'bg-success-focus text-success-main'}`}>
-                    {order.status === 'Return Requested' ? 'RETURNED' : order.status}
+       <tr key={order._id} style={p.isReturned ? { backgroundColor: '#fff5f5' } : {}}>
+    <td className="ps-24 text-xs fw-bold">{new Date(order.createdAt).toLocaleDateString()}</td>
+    <td className="text-xs fw-bold text-primary-600">{order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : "-"}</td>
+    <td className="fw-bold text-secondary">#{order._id.slice(-6).toUpperCase()}</td>
+    <td className="fw-black">₹{p.totalPaid}</td> 
+<td>
+        {(() => {
+            // Find this seller's specific package status
+            const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === selectedSeller?._id);
+            const currentStatus = myPackage?.packageStatus || order.status;
+            const isRtn = currentStatus === 'Returned' || currentStatus === 'Return Requested';
+
+            return (
+                <span className={`badge radius-pill px-12 py-6 text-xxs fw-black uppercase ${isRtn ? 'bg-danger-focus text-danger-main' : 'bg-success-focus text-success-main'}`}>
+                    {currentStatus}
                 </span>
-            </td>
-            
-            {/* 🌟 COMMISSION + GST + TDS Column */}
-            <td className="text-danger-main fw-bold">
-                - ₹{Math.ceil(p.commGst + p.tds)} 
-                <small className="d-block text-xxs opacity-75">(Incl. TDS: ₹{p.tds.toFixed(2)})</small>
-            </td>
-            
-            <td className="text-danger-main fw-bold">- ₹{p.delivery}</td>
-            <td className={`pe-24 text-end fw-900 ${p.finalShare < 0 ? 'text-danger' : 'text-dark'}`}>
-                ₹{p.finalShare.toLocaleString()}
-            </td>
-        </tr>
+            );
+        })()}
+    </td>
+    
+    {/* 🌟 COMMISSION: Return-na Blur panni 0 kaatuvom */}
+    <td className={`fw-bold ${p.isReturned ? 'text-muted opacity-25' : 'text-danger-main'}`}>
+        {p.isReturned ? '₹ 0' : `- ₹${Math.ceil(p.commGst + p.tds)}`}
+    </td>
+    
+    {/* 🌟 DELIVERY: Delivered-ku Minus, Returned-ku Plus */}
+    <td className={`fw-bold ${p.isReturned ? 'text-danger-main' : 'text-danger-main'}`}>
+        {p.isReturned ? `+ ₹${p.delivery}` : `- ₹${p.delivery}`}
+    </td>
+
+    {/* 💸 FINAL SHARE */}
+    <td className={`pe-24 text-end fw-900 ${p.finalShare < 0 ? 'text-danger' : 'text-dark'}`}>
+        {p.finalShare < 0 ? `- ₹${Math.abs(p.finalShare).toLocaleString()}` : `₹${p.finalShare.toLocaleString()}`}
+    </td>
+</tr>
     );
                                         }) : (
                                             <tr><td colSpan="7" className="text-center py-80 text-muted italic">No Settlements found for this cycle.</td></tr>
@@ -306,7 +340,6 @@ const tableBody = orders.map((o, i) => {
         </div>
     </div>
 
-    {/* 🌟 DYNAMIC BUTTON VISIBILITY */}
     {orders.length > 0 && canDownloadReport() ? (
         <button onClick={downloadInvoice} className="btn btn-dark radius-8 fw-bold d-flex align-items-center gap-2 shadow-sm">
             <Icon icon="solar:file-download-bold" className="text-lg" /> DOWNLOAD REPORT

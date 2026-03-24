@@ -298,36 +298,43 @@ const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
                                         <td className="fw-900 text-sm">₹{order.totalAmount}</td>
                                     {/* 🌟 4 & 5. Status color sync */}
 {/* 🌟 4 & 5. Status Colors & Shadow Design Sync */}
+{/* 🌟 Admin Status Logic: Synced with Seller Split */}
 <td>
-    <span className={`badge px-16 py-8 radius-pill text-xxs fw-black uppercase ls-1 shadow-sm animate__animated animate__fadeIn`}
-        style={{
-            // 🌟 Dynamic Colors & Blue Shadow logic
-            backgroundColor: 
-                order.status === 'Delivered' ? '#E7F7EF' : // Light Green
-                order.status === 'Placed' ? '#FFF4E5' :    // Light Orange
-                order.status === 'Shipped' ? '#E8EFFF' :
-                order.status === 'Cancelled' ? '#FCEAEA' : 
-               order.status === 'Return Requested' ? '#F4EBFF' :  // Light Blue
-                '#F2F4F7', // Default Grey
-            
-            color: 
-                order.status === 'Delivered' ? '#28C76F' : // Dark Green
-                order.status === 'Placed' ? '#FF9F43' :    // Dark Orange
-                order.status === 'Shipped' ? '#485EC4' :
-                order.status === 'Cancelled' ? '#EA5455' :
-                order.status === 'Return Requested' ? '#7F56D9' :   // Dark Blue
-                '#5E6366',
+    {(() => {
+        // Step A: Find the status for this specific seller in this row
+        const mySellerId = order.seller?._id || order.seller;
+        const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === mySellerId);
+        
+        // Priority: Split status first, then global status
+        const currentStatus = myPackage?.packageStatus || order.status;
 
-           
-            boxShadow: order.status === 'Shipped' ? '0 0 10px rgba(72, 94, 196, 0.2)' : 'none',
-            display: 'inline-block',
-            minWidth: '90px',
-            textAlign: 'center'
-        }}
-    >
-        {order.status}
-    </span>
-</td>                                 
+        // Step B: Return Badge with correct color logic
+        return (
+            <span className={`badge px-16 py-8 radius-pill text-xxs fw-black uppercase ls-1 shadow-sm animate__animated animate__fadeIn`}
+                style={{
+                    backgroundColor: 
+                        currentStatus === 'Delivered' ? '#E7F7EF' : 
+                        currentStatus === 'Placed' ? '#FFF4E5' :    
+                        currentStatus === 'Shipped' ? '#E8EFFF' :
+                        currentStatus === 'Cancelled' ? '#FCEAEA' : 
+                        currentStatus === 'Returned' || currentStatus === 'Return Requested' ? '#F4EBFF' : 
+                        '#F2F4F7',
+                    color: 
+                        currentStatus === 'Delivered' ? '#28C76F' : 
+                        currentStatus === 'Placed' ? '#FF9F43' :    
+                        currentStatus === 'Shipped' ? '#485EC4' :
+                        currentStatus === 'Cancelled' ? '#EA5455' :
+                        currentStatus === 'Returned' || currentStatus === 'Return Requested' ? '#7F56D9' : 
+                        '#5E6366',
+                    minWidth: '90px',
+                    textAlign: 'center'
+                }}
+            >
+                {currentStatus}
+            </span>
+        );
+    })()}
+</td>                                
                                         {/* 🌟 INVOICE & DETAILS ACTIONS */}
                                         <td>
                                             <div className="d-flex align-items-center gap-2">
@@ -408,9 +415,17 @@ const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
                                         <p className="text-xs mb-1 fw-bold text-secondary"><Icon icon="solar:phone-bold" className="me-1" /> {viewOrder.customerId?.phone}</p>
                                         <p className="text-xs text-muted"><Icon icon="solar:map-point-bold" className="me-1" /> {viewOrder.shippingAddress?.flatNo}, {viewOrder.shippingAddress?.addressLine}, {viewOrder.shippingAddress?.pincode}</p>
                                     </div>
-                                    <div className="col-md-6 ps-md-4">
-                                        <label className="text-xxs fw-bold text-success-600 uppercase mb-4">Order Information</label>
-                                        <p className="text-xs mb-1"><b>Status:</b> <span className="badge bg-primary-focus text-primary-600 ms-1">{viewOrder.status}</span></p>
+
+<div className="col-md-6 ps-md-4">
+    <label className="text-xxs fw-bold text-success-600 uppercase mb-4">Order Information</label>
+    <p className="text-xs mb-1">
+        <b>Package Status:</b> 
+        {(() => {
+            const sId = viewOrder.seller?._id || viewOrder.seller;
+            const split = viewOrder.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sId);
+            return <span className="badge bg-primary-focus text-primary-600 ms-1">{split?.packageStatus || viewOrder.status}</span>;
+        })()}
+    </p>
                                         <p className="text-xs mb-1"><b>Booked On:</b> {new Date(viewOrder.createdAt).toLocaleString()}</p>
                                         <p className="text-xs mb-1"><b>Expected Date:</b> <span className="text-dark fw-bold">{viewOrder.expectedDelivery || "3-5 Working Days"}</span></p>
                                         <p className="text-xs mb-0"><b>Primary Seller:</b> <span className="text-primary-600 fw-bold">{viewOrder.items[0]?.sellerId?.shopName || "Admin Hub"}</span></p>

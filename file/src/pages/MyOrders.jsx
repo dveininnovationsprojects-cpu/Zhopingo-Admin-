@@ -35,36 +35,54 @@ const API_BASE = "https://api.zhopingo.in/api/v1";
     
 
     useEffect(() => { fetchOrders(); }, [sellerId]);
-
-// 🚚 1. Ship Now Logic (window.confirm strictly removed)
+// 🚚 1. Ship Now Logic (Added sellerId in payload)
 const handleShipOrder = async (orderId) => {
-    // 🌟 THE FIX: Browser confirm instantaneous-ah thookittaen
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
         const res = await axios.put(`${API_BASE}/orders/update-status/${orderId}`, {
-            status: 'Shipped'
+            status: 'Shipped',
+            sellerId: sellerId, // 🌟 EXTREMELY CRITICAL
+            awbNumber: "128374922" // Oru vaelai manual AWB kudukanum-na inga add pannalam
         }, config);
 
         if (res.data.success) {
-            toast.success("Order Shipped & Waybill Generated!");
+            toast.success("Your package is Shipped!");
             fetchOrders(); 
         }
     } catch (err) { toast.error("Shipping trigger failed!"); }
 };
 
-// ✅ 2. Mark Delivered Logic
+// ✅ 2. Mark Delivered Logic (Added sellerId in payload)
 const handleMarkDelivered = async (orderId) => {
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
         const res = await axios.put(`${API_BASE}/orders/update-status/${orderId}`, {
-            status: 'Delivered'
+            status: 'Delivered',
+            sellerId: sellerId // 🌟 EXTREMELY CRITICAL
         }, config);
 
         if (res.data.success) {
-            toast.success("Order Marked Delivered!");
+            toast.success("Your part of the order is Delivered!");
             fetchOrders(); 
         }
     } catch (err) { toast.error("Delivery status update failed!"); }
+};
+// 🔄 Handle Return Approval by Seller
+const handleReturnAction = async (orderId, approvalStatus) => {
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        // Status: 'Returned' (Approved) or 'Delivered' (Rejected - keep as delivered)
+        const res = await axios.put(`${API_BASE}/orders/update-status/${orderId}`, {
+            status: approvalStatus === 'Approved' ? 'Returned' : 'Delivered',
+            sellerId: sellerId,
+            adminNote: `Seller ${approvalStatus} the return request.`
+        }, config);
+
+        if (res.data.success) {
+            toast.success(`Return request ${approvalStatus} successfully!`);
+            fetchOrders(); 
+        }
+    } catch (err) { toast.error("Return update failed!"); }
 };
     // 🌟 Intha logic strictly 'return' statement-ku mela irukanum
 const indexOfLastOrder = currentPage * rowsPerPage;
@@ -159,65 +177,95 @@ const [confirmModal, setConfirmModal] = useState({
                                             ) : <span className="text-muted text-xxs italic">Not Shipped</span>}
                                         </td>
 
-                                        {/* 🌟 41. Professional Status Badge Sync */}
-{/* 🌟 41. Differentiated Status Badge Logic */}
 <td>
-    <span className={`badge px-12 py-6 radius-pill text-xxs fw-black uppercase ls-1 ${
-        order.status === 'Delivered' ? 'bg-success-focus text-success-main' : // 🟢 Delivered (Green)
-        order.status === 'Cancelled' ? 'bg-danger-focus text-danger-main' :   // 🔴 Cancelled (Red)
-        order.status === 'Shipped'   ? 'bg-info-focus text-info-main' :      // 🔵 Shipped (Blue)
-        order.status === 'Placed'    ? 'bg-warning-focus text-warning-main' : 
-        order.status === 'Return Requested' ? 'text-primary-600' :// 🟡 Placed (Yellow/Orange)
-        'bg-neutral-200 text-secondary'                                      // ⚪ Pending (Grey)
-    }`}style={order.status === 'Return Requested' ? {
-        backgroundColor: '#F4EBFF', // Light Purple BG
-        color: '#7F56D9',           // Dark Purple Text
-        border: '1px solid #E9D7FE'
-    } : {}}
-    >
-        {order.status}
-    </span>
+    {(() => {
+        // 🌟 THE CRITICAL FIX: Check individual item status first
+        const myItems = order.items?.filter(i => (i.sellerId?._id || i.sellerId) === sellerId);
+        
+        // Items-la eadhachum "Return Requested" irundha adhai prioritise pannanum
+        const hasReturnRequest = myItems.some(i => i.itemStatus === 'Return Requested');
+        const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+        
+        const currentStatus = hasReturnRequest ? 'Return Requested' : (myPackage?.packageStatus || order.status);
+
+        let badgeClass = "bg-neutral-200 text-secondary";
+        let customStyle = {};
+
+        if (currentStatus === 'Delivered') badgeClass = "bg-success-focus text-success-main";
+        else if (currentStatus === 'Returned') badgeClass = "bg-danger-focus text-danger-main";
+        else if (currentStatus === 'Shipped') badgeClass = "bg-info-focus text-info-main";
+        else if (currentStatus === 'Placed') badgeClass = "bg-warning-focus text-warning-main";
+        else if (currentStatus === 'Return Requested') {
+            customStyle = { backgroundColor: '#F4EBFF', color: '#7F56D9', border: '1px solid #E9D7FE' };
+        }
+
+        return (
+            <span className={`badge px-12 py-6 radius-pill text-xxs fw-black uppercase ls-1 ${badgeClass}`} style={customStyle}>
+                {currentStatus}
+            </span>
+        );
+    })()}
 </td>
-                                        
-{/* 🌟 Action logic sync with Premium Modal */}
+
+{/* 🌟 Action Logic: Synced with Seller Part Only */}
 <td className="text-center">
     <div className="d-flex gap-2 justify-content-center align-items-center">
-        
-        {order.status === 'Placed' && (
-            <button 
-                onClick={() => setConfirmModal({ 
-                    show: true, orderId: order._id, type: 'Ship', 
-                    title: 'Confirm Shipment', 
-                    message: 'Generate Waybill and Ship this order now?' 
-                })} 
-                className="btn btn-primary-600 btn-sm radius-8 fw-bold d-flex align-items-center gap-1 px-16 shadow-sm"
-            >
-                <Icon icon="solar:delivery-bold" /> SHIP NOW
-            </button>
-        )}
-        
-        {order.status === 'Shipped' && (
-            <button 
-                onClick={() => setConfirmModal({ 
-                    show: true, orderId: order._id, type: 'Deliver', 
-                    title: 'Mark as Delivered', 
-                    message: 'Are you sure this order reached the customer?' 
-                })} 
-                className="btn btn-success-600 btn-sm radius-8 fw-bold px-16 shadow-sm"
-            >
-                MARK DELIVERED
-            </button>
-        )}
+        {(() => {
+            const myItems = order.items?.filter(i => (i.sellerId?._id || i.sellerId) === sellerId);
+            const hasReturnRequest = myItems.some(i => i.itemStatus === 'Return Requested');
+            const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+            const myStatus = myPackage?.packageStatus || order.status;
 
-        {order.status === 'Delivered' && (
-            <div className="text-success fw-black text-xxs uppercase">
-                <Icon icon="solar:check-circle-bold" className="fs-5" /> COMPLETED
-            </div>
-        )}
-        {/* 🌟 4. If Pending (or any other state) -> Show Placeholder Dash */}
-        {(order.status === 'Pending' || !['Placed', 'Shipped', 'Delivered'].includes(order.status)) && (
-            <span className="text-secondary-light fw-bold">—</span>
-        )}
+            // 1. If Placed -> Show SHIP NOW
+            if (myStatus === 'Placed') {
+                return (
+                    <button 
+                        onClick={() => setConfirmModal({ 
+                            show: true, orderId: order._id, type: 'Ship', 
+                            title: 'Confirm Shipment', 
+                            message: 'Ship only your products from this order?' 
+                        })} 
+                        className="btn btn-primary-600 btn-sm radius-8 fw-bold d-flex align-items-center gap-1 px-16 shadow-sm"
+                    >
+                        <Icon icon="solar:delivery-bold" /> SHIP NOW
+                    </button>
+                );
+            }
+            
+            // 2. If Shipped -> Show MARK DELIVERED
+            if (myStatus === 'Shipped') {
+                return (
+                    <button 
+                        onClick={() => setConfirmModal({ 
+                            show: true, orderId: order._id, type: 'Deliver', 
+                            title: 'Mark as Delivered', 
+                            message: 'Confirm your items reached the customer?' 
+                        })} 
+                        className="btn btn-success-600 btn-sm radius-8 fw-bold px-16 shadow-sm"
+                    >
+                        MARK DELIVERED
+                    </button>
+                );
+            }
+            // 🌟 3. RETURN REQUESTED (New Logic)
+            if (hasReturnRequest) {
+                return (
+                    <div className="d-flex flex-column gap-1">
+                        <small className="text-primary-600 fw-bold" style={{fontSize: '9px'}}>RETURN REQUESTED</small>
+                        <div className="d-flex gap-2 justify-content-center">
+                            <button onClick={() => handleReturnAction(order._id, 'Approved')} className="btn btn-success btn-sm radius-8 py-4 px-12 fw-bold text-xxs">ACCEPT</button>
+                            <button onClick={() => handleReturnAction(order._id, 'Rejected')} className="btn btn-outline-danger btn-sm radius-8 py-4 px-12 fw-bold text-xxs">REJECT</button>
+                        </div>
+                    </div>
+                );
+            }
+
+// 3. FINAL BADGES
+            if (myStatus === 'Delivered') return <div className="text-success fw-black text-xxs uppercase"><Icon icon="solar:check-circle-bold" className="fs-5" /> COMPLETED</div>;
+            if (myStatus === 'Returned') return <div className="text-danger fw-black text-xxs uppercase"><Icon icon="solar:back-bold" className="fs-5" /> RETURNED</div>;
+
+            return <span className="text-secondary-light fw-bold">—</span>;
+        })()}
     </div>
 </td>
                                     </tr>
