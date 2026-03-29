@@ -190,7 +190,7 @@ const renderDashboard = () => (
                             <Link to='#'><Icon icon='solar:clipboard-list-bold' className='menu-icon' /> <span>My Orders</span></Link>
                         </li>
                         <li onClick={() => {setActiveTab("add"); setMobileMenu(false)}} className={activeTab === 'add' ? 'active-page' : ''}>
-                            <Link to='#'><Icon icon='solar:add-circle-bold' className='menu-icon' /> <span>Add Product</span></Link>
+                            <Link to='#'><Icon icon='solar:add-circle-bold' className='menu-icon' /> <span>Inventory Management</span></Link>
                         </li>
                         <li onClick={() => {setActiveTab("reels"); setMobileMenu(false)}} className={activeTab === 'reels' ? 'active-page' : ''}>
                             <Link to='#'><Icon icon='ri:play-circle-line' className='menu-icon' /> <span>My Reels</span></Link>

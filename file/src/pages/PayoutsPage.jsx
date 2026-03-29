@@ -6,6 +6,7 @@ import { toast, ToastContainer } from "react-toastify";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
+
 const PayoutsPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState("settlements");
@@ -89,24 +90,58 @@ const fetchFilteredOrders = async (sId, week) => {
                 const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sId);
                 if (!myPackage) return false;
 
-                // 🌟 THE CRITICAL SYNC LOGIC:
-                // 1. Intha order intha week window-kulla varudha-nu check panna 'updatedAt' use panrom.
-                // 2. Oru order multiple times update aanaalum (Delivered then Return), 
-                //    adha 'Last Action Date' vechi dhaan filter pannanum.
-                
+                // 🌟 Filter strictly by 'updatedAt' for current week window
                 const lastActionDate = new Date(order.updatedAt || order.createdAt);
                 const isInWeek = lastActionDate >= new Date(week.start) && lastActionDate <= new Date(week.end);
 
-                // Status check: Only show if its current state in THIS week is Delivered or Returned
+                // Check status and also ensure it's NOT already settled
                 const currentStatus = myPackage.packageStatus || order.status;
                 const isRelevantStatus = ['Delivered', 'Returned', 'Return Requested'].includes(currentStatus);
-
-                return isRelevantStatus && isInWeek;
+                
+                // 🛡️ SYNC: Settled orders-ai list-la kaatta koodadhu (Clean Slate logic)
+                return isRelevantStatus && isInWeek && order.isSettled !== true;
             });
             setOrders(filtered);
         }
-    } catch (err) { toast.error("Algorithm Sync Failed"); }
+    } catch (err) { toast.error("Fetch Sync Failed"); }
     finally { setIsLoading(false); }
+};
+const handleMarkAsPaid = async () => {
+    if (!selectedSeller || !selectedWeek || orders.length === 0) return;
+
+    setIsLoading(true);
+    const weekObj = JSON.parse(selectedWeek);
+
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        
+        // 🚀 STEP 1: Generate Settlement in Backend 
+        // (Idhu automatic-ah orders-ah settle panni, Ledger-la entry podum)
+        const genRes = await axios.post(`${API_BASE}/admin/generate-settlement`, {
+            sellerId: selectedSeller._id,
+            startDate: weekObj.start.split('T')[0],
+            endDate: weekObj.end.split('T')[0]
+        }, config);
+
+        if (genRes.data.success) {
+            const settlementId = genRes.data.data._id;
+
+            // 🚀 STEP 2: Immediately mark as PAID
+            const payRes = await axios.put(`${API_BASE}/admin/mark-settlement-paid/${settlementId}`, {}, config);
+
+            if (payRes.data.success) {
+                toast.success(`Week ${weekObj.weekNo} Payout Processed Successfully! ✅`);
+                // Clear table after payment success
+                setOrders([]); 
+                fetchFilteredOrders(selectedSeller._id, weekObj); 
+            }
+        }
+    } catch (err) {
+        console.error("Payout Error:", err);
+        toast.error(err.response?.data?.message || "Settlement sync failed!");
+    } finally {
+        setIsLoading(false);
+    }
 };
 
 const calculateOrderPayout = (order) => {
@@ -325,31 +360,49 @@ const tableBody = orders.map((o, i) => {
                                     </tbody>
                                 </table>
                             </div>
-                           <div className="card-footer bg-white border-top py-20 px-24 d-flex justify-content-between align-items-center">
+<div className="card-footer bg-white border-top py-20 px-24 d-flex justify-content-between align-items-center">
     <div className="d-flex align-items-center gap-4">
         <div>
-            <span className="text-xxs fw-bold text-secondary uppercase d-block">Settlement Cycle</span>
-            <span className="badge bg-dark text-white">WEEK NO: {(selectedWeek && JSON.parse(selectedWeek).weekNo) || 0}</span>
+            <span className="text-xxs fw-bold text-secondary uppercase d-block">Cycle Info</span>
+            <span className="badge bg-dark text-white text-xxs">WEEK NO: {(selectedWeek && JSON.parse(selectedWeek).weekNo) || 0}</span>
         </div>
-        {/* 🌟 NEW: Weekly Grand Total Display */}
         <div className="border-start ps-4">
-            <span className="text-xxs fw-bold text-secondary uppercase d-block">Weekly Grand Total</span>
-            <h6 className={`mb-0 fw-black ${weeklyGrandTotal < 0 ? 'text-danger' : 'text-dark'}`}>
+            <span className="text-xxs fw-bold text-secondary uppercase d-block">Net Weekly Share</span>
+            <h6 className={`mb-0 fw-black ${weeklyGrandTotal < 0 ? 'text-danger' : 'text-success-main'}`}>
                 ₹{weeklyGrandTotal.toLocaleString()}
             </h6>
         </div>
     </div>
 
+    <div className="d-flex gap-2">
     {orders.length > 0 && canDownloadReport() ? (
-        <button onClick={downloadInvoice} className="btn btn-dark radius-8 fw-bold d-flex align-items-center gap-2 shadow-sm">
-            <Icon icon="solar:file-download-bold" className="text-lg" /> DOWNLOAD REPORT
-        </button>
-    ) : orders.length > 0 && (
-        <div className="text-muted text-xs fw-bold italic border p-2 radius-8 bg-light">
-            <Icon icon="solar:clock-circle-bold" className="me-1" />
-            Report will be available after week ends.
-        </div>
-    )}
+        <>
+            {/* Find if orders in this list are already settled */}
+            {orders.some(o => o.isSettled === true) ? (
+                <div className="badge bg-success-focus text-success-main px-16 py-10 radius-8 fw-black border border-success-200">
+                    <Icon icon="solar:check-circle-bold" className="me-1" /> SETTLED & SYNCED
+                </div>
+            ) : (
+                <button 
+                    onClick={handleMarkAsPaid} 
+                    disabled={isLoading}
+                    className="btn btn-primary-600 radius-8 fw-bold d-flex align-items-center gap-2 shadow-lg animate__animated animate__pulse animate__infinite"
+                >
+                    {isLoading ? <span className="spinner-border spinner-border-sm"></span> : <Icon icon="solar:wad-of-money-bold" />}
+                    MARK AS PAID
+                </button>
+            )}
+            
+            <button onClick={downloadInvoice} className="btn btn-outline-dark radius-8 fw-bold">
+                <Icon icon="solar:file-download-bold" /> REPORT
+            </button>
+        </>
+        ) : (
+            <div className="text-muted text-xxs fw-bold italic border p-2 radius-8 bg-light">
+                Settlement window opens after cycle ends.
+            </div>
+        )}
+    </div>
 </div>
                         </div>
                     </div>

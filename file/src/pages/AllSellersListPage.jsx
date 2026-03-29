@@ -6,12 +6,16 @@ import { toast, ToastContainer } from "react-toastify";
 import { useNavigate } from "react-router-dom"; // 🌟 For redirection
 import "react-toastify/dist/ReactToastify.css";
 
+
+
 const AllSellersListPage = () => {
     const [sellers, setSellers] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedSeller, setSelectedSeller] = useState(null); // 🌟 Detail modal state
     const navigate = useNavigate();
+    const [kycView, setKycView] = useState(null); // 🌟 KYC View state
+const IMAGE_BASE = "https://api.zhopingo.in/"; // 🌟 Documents base URL
 
     // Pagination States
     const [currentPage, setCurrentPage] = useState(1);
@@ -86,6 +90,7 @@ const handleToggleBrand = async (item) => {
     const indexOfFirstItem = indexOfLastItem - rowsPerPage;
     const currentItems = filteredSellers.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredSellers.length / rowsPerPage);
+    
 
     return (
         <MasterLayout>
@@ -125,7 +130,7 @@ const handleToggleBrand = async (item) => {
                             <thead className="bg-light">
                                 <tr>
                                     <th>S.no</th><th>Sellers Name</th><th>Shop Name</th>
-                                    <th>Email & Phone</th><th>KYC Status</th><th className="text-center">View Details</th>
+                                    <th>Email & Phone</th><th>KYC Status</th><th className="text-center">KYC Docs</th><th className="text-center">View Details</th>
                                     <th className="text-center">Is Brand</th><th className="text-center">Shop Status</th>
                                 </tr>
                             </thead>
@@ -158,6 +163,15 @@ const handleToggleBrand = async (item) => {
                                                     {item.kycStatus}
                                                 </span>
                                             </td>
+                                            <td className="text-center">
+    <button 
+        onClick={() => setKycView(item)} 
+        className="btn btn-outline-primary btn-sm radius-8 px-12 fw-bold d-flex align-items-center gap-1 mx-auto"
+        style={{ fontSize: '10px' }}
+    >
+        <Icon icon="solar:document-bold" /> VIEW DOCS
+    </button>
+</td>
                                             {/* 🌟 View Details Action */}
                                             <td className="text-center">
                                                 <button onClick={() => setSelectedSeller(item)} className="btn btn-info-focus text-info-main p-6 radius-8 shadow-sm border-0">
@@ -231,6 +245,52 @@ const handleToggleBrand = async (item) => {
                             </tbody>
                         </table>
                     </div>
+                    {/* 🌟 KYC DOCUMENTS VIEWER MODAL */}
+{kycView && (
+    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1100 }}>
+        <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content radius-24 border-0 shadow-lg">
+                <div className="modal-header border-bottom p-24 bg-light">
+                    <h6 className="mb-0 fw-black text-primary-600 uppercase ls-1">Verification Documents: {kycView.shopName}</h6>
+                    <button onClick={() => setKycView(null)} className="btn-close shadow-none"></button>
+                </div>
+                <div className="modal-body p-32">
+                    <div className="row g-4">
+                        {[
+                            { label: "PAN CARD", doc: kycView.kycDocuments?.panDoc, num: kycView.panNumber },
+                            { label: "GST CERTIFICATE", doc: kycView.kycDocuments?.gstDoc, num: kycView.gstNumber },
+                            { label: "FSSAI LICENSE", doc: kycView.kycDocuments?.fssaiDoc, num: kycView.fssaiNumber || "N/A" },
+                            { label: "MSME / UDYAM", doc: kycView.kycDocuments?.msmeDoc, num: kycView.msmeNumber || "N/A" }
+                        ].map((d, i) => (
+                            <div className="col-md-6" key={i}>
+                                <div className="p-16 radius-16 border bg-light h-100">
+                                    <label className="text-xxs fw-black text-secondary uppercase d-block mb-8">{d.label}</label>
+                                    <p className="fw-bold text-dark text-xs mb-12">No: {d.num}</p>
+                                    
+                                    {d.doc?.fileUrl ? (
+                                        <a 
+                                            href={`${IMAGE_BASE}${d.doc.fileUrl}`} 
+                                            target="_blank" 
+                                            rel="noreferrer"
+                                            className="btn btn-sm btn-white w-100 radius-8 border shadow-sm d-flex align-items-center justify-content-center gap-2 text-primary-600 fw-bold"
+                                        >
+                                            <Icon icon="solar:file-download-bold" /> Open Document
+                                        </a>
+                                    ) : (
+                                        <div className="text-muted text-xxs italic border-top pt-8 mt-4">Document not uploaded</div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="modal-footer border-0 p-24 pt-0">
+                    <button onClick={() => setKycView(null)} className="btn btn-secondary w-100 radius-12 fw-bold">CLOSE VIEWER</button>
+                </div>
+            </div>
+        </div>
+    </div>
+)}
 
                     {/* 🌟 ADVANCED DYNAMIC PAGINATION */}
                     <div className="card-footer bg-white border-top py-16 px-0 d-flex align-items-center justify-content-end gap-3 flex-wrap">
@@ -264,6 +324,7 @@ const handleToggleBrand = async (item) => {
                     </div>
                 </div>
             </div>
+            
 
             {/* 🌟 SELLER SUMMARY MODAL */}
             {selectedSeller && (

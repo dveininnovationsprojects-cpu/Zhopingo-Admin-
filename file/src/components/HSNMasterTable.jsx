@@ -10,6 +10,9 @@ const HSNMasterTable = () => {
   const [showModal, setShowModal] = useState(false);
   const [isUpdate, setIsUpdate] = useState(false); // 🌟 Edit Flag
   const [editingId, setEditingId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // 🌟 Added missing state
+  const [currentPage, setCurrentPage] = useState(1);
+const [rowsPerPage, setRowsPerPage] = useState(10);
   
   // 🌟 Professional Delete States
   const [deleteModal, setDeleteModal] = useState({ show: false, id: null });
@@ -60,30 +63,41 @@ const HSNMasterTable = () => {
     setShowModal(true);
   };
 
-// 🌟 38. Handle Add & Update Logic with correct API Routes
 const handleAddHsn = async (e) => {
   e.preventDefault();
+  
+  // Basic Validation
+  if (!newHsn.hsnCode || !newHsn.gstRate) {
+    return toast.error("Please fill mandatory fields!");
+  }
+
+  setIsSubmitting(true); 
   try {
-    let response;
+    const token = localStorage.getItem("userToken");
+    const config = { headers: { Authorization: `Bearer ${token}` } };
     
+    let response;
     if (isUpdate) {
-      // 🌟 UPDATED: Route synced with your new backend router (put('/hsn/update/:id'))
-      response = await axios.put(`https://api.zhopingo.in/api/v1/catalog/hsn/update/${editingId}`, newHsn);
+      // 🚀 THE FIX: Put method matching your router strictly
+      response = await axios.put(`${API_URL}/${editingId}`, newHsn, config);
       toast.success("HSN Code updated successfully!");
     } else {
-      // Create logic remains same
-      response = await axios.post(API_URL, newHsn);
+      // Create logic
+      response = await axios.post(API_URL, newHsn, config);
       toast.success("HSN Code added successfully!");
     }
     
-    if (response.data.success || response.status === 201) {
+    if (response.data.success) {
       setNewHsn({ hsnCode: "", description: "", gstRate: "" });
       setShowModal(false);
       setIsUpdate(false);
       fetchHsnData(); // Refresh table
     }
   } catch (error) {
-    toast.error(error.response?.data?.error || "Operation failed. Please try again.");
+    console.error("HSN Error:", error.response?.data);
+    toast.error(error.response?.data?.message || "Operation failed.");
+  } finally {
+    setIsSubmitting(false); // 🌟 Loading stop
   }
 };
 
@@ -100,6 +114,16 @@ const handleAddHsn = async (e) => {
       toast.error("Delete failed");
     }
   };
+  // 🌟 Advanced Pagination Logic
+const indexOfLastItem = currentPage * rowsPerPage;
+const indexOfFirstItem = indexOfLastItem - rowsPerPage;
+const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+
+// Reset to page 1 when searching
+useEffect(() => {
+    setCurrentPage(1);
+}, [searchTerm]);
 
   const filteredData = hsnData.filter(item => 
     item.hsnCode?.toString().includes(searchTerm) || 
@@ -130,9 +154,10 @@ const handleAddHsn = async (e) => {
                 <tr><th>S.no</th><th>HSN Code</th><th>Description</th><th>GST Rate</th><th>Action</th></tr>
               </thead>
               <tbody>
-                {filteredData.map((item, index) => (
-                  <tr key={item._id}>
-                    <td>{index + 1}</td>
+  {currentItems.map((item, index) => (
+    <tr key={item._id}>
+      {/* 🌟 Serial Number sync with pagination logic */}
+      <td>{indexOfFirstItem + index + 1}</td>
                     <td><span className="text-primary-600 fw-bold">{item.hsnCode}</span></td>
                    {/* 🌟 41. Fixed HSN Description Wrap Logic */}
 {/* 🌟 41. Fixed HSN Description: Full Wrap without Ellipsis */}
@@ -171,6 +196,7 @@ const handleAddHsn = async (e) => {
               </tbody>
             </table>
           </div>
+          
         )}
       </div>
 
@@ -191,7 +217,16 @@ const handleAddHsn = async (e) => {
                 </div>
                 <div className="modal-footer border-top p-24">
                   <button type="button" className="btn btn-neutral-100 radius-8 fw-bold" onClick={() => setShowModal(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary-600 radius-8 px-24 fw-bold">{isUpdate ? "Update HSN" : "Save HSN"}</button>
+                  <button 
+    type="submit" 
+    disabled={isSubmitting} 
+    className="btn btn-primary-600 radius-8 px-24 fw-bold"
+>
+    {isSubmitting ? (
+        <span className="spinner-border spinner-border-sm me-2"></span>
+    ) : null}
+    {isUpdate ? "Update HSN" : "Save HSN"}
+</button>
                 </div>
               </form>
             </div>
@@ -242,6 +277,7 @@ const handleAddHsn = async (e) => {
         </div>
     </div>
 )}
+
     </div>
   );
 };

@@ -27,30 +27,33 @@ const CategoryPage = () => {
 
   const API_BASE_URL = "https://api.zhopingo.in/api/v1/catalog/categories";
 
-  const fetchCategories = async () => {
+const fetchCategories = async () => {
     setIsLoading(true);
     try {
-      // 🌟 FIX: Fetching both normal and permanent categories to prevent table removal
-      const [resNormal, resPermanent] = await Promise.all([
-        axios.get(API_BASE_URL),
-        axios.get(`${API_BASE_URL}/permanent`)
-      ]);
-      
-      let allCats = [];
-      if (resNormal.data.success) allCats = [...resNormal.data.data];
-      if (resPermanent.data.success) {
-        const permIds = new Set(allCats.map(c => c._id));
-        resPermanent.data.data.forEach(p => {
-          if (!permIds.has(p._id)) allCats.push(p);
-        });
-      }
-      setCategories(allCats);
+        const [resNormal, resPermanent] = await Promise.all([
+            axios.get(API_BASE_URL),
+            axios.get(`${API_BASE_URL}/permanent`)
+        ]);
+        
+        let allCats = [];
+        if (resNormal.data.success) allCats = [...resNormal.data.data];
+        if (resPermanent.data.success) {
+            const permIds = new Set(allCats.map(c => c._id));
+            resPermanent.data.data.forEach(p => {
+                if (!permIds.has(p._id)) allCats.push(p);
+            });
+        }
+
+        // 🚀 THE FIX: Sort Categories by creation date (Oldest First)
+        const sortedCats = allCats.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        
+        setCategories(sortedCats);
     } catch (error) {
-      toast.error("Failed to load categories");
+        toast.error("Failed to load categories");
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
-  };
+};
 
   const fetchHsnData = async () => {
     try {
@@ -171,12 +174,23 @@ const CategoryPage = () => {
 <th className="ps-24">S.no</th><th>Image</th><th>Name</th><th>Description</th><th>App Status</th><th className="text-center">Action</th>
                 </tr>
               </thead>
-              <tbody>
-                {currentItems.map((item, index) => (
-                  <tr key={item._id}>
-                    <td className="ps-24 fw-bold text-secondary-light">{filteredData.length - (indexOfFirstItem + index)}</td>
-                    <td><img src={item.image} alt="" className="w-40-px h-40-px radius-8 object-fit-cover shadow-sm border" onError={(e) => e.target.src = "assets/images/default.png"} /></td>
-                    <td className="text-primary-600 fw-bold">{item.name}</td>
+<tbody>
+    {currentItems.map((item, index) => (
+        <tr key={item._id}>
+            {/* 🌟 THE FIX: Ascending S.No Sync with Pagination */}
+            <td className="ps-24 fw-bold text-secondary-light">
+                {indexOfFirstItem + index + 1}
+            </td>
+            
+            <td>
+                <img 
+                    src={item.image} 
+                    alt="" 
+                    className="w-40-px h-40-px radius-8 object-fit-cover shadow-sm border" 
+                    onError={(e) => e.target.src = "assets/images/default.png"} 
+                />
+            </td>
+            <td className="text-primary-600 fw-bold">{item.name}</td>
                    {/* 🌟 Description Column logic */}
 {/* 🌟 Description Column - Full Text Wrap Logic */}
 <td className="text-secondary-light text-sm">

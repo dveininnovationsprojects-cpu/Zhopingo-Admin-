@@ -20,27 +20,28 @@ const CustomerPage = () => {
     useEffect(() => { fetchInitialData(); }, []);
 
     const fetchInitialData = async () => {
-        setIsLoading(true);
-        try {
-            const token = localStorage.getItem("userToken");
-            const config = { headers: { Authorization: `Bearer ${token}` } };
-            
-            // 🌟 Fetching both Customers and Orders to show "Orders Table at Bottom"
-            const [custRes, orderRes] = await Promise.all([
-                axios.get(`${API_BASE}/customers`, config),
-                axios.get(`https://api.zhopingo.in/api/v1/orders/all`, config)
-            ]);
+    setIsLoading(true);
+    try {
+        const token = localStorage.getItem("userToken");
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        
+        const [custRes, orderRes] = await Promise.all([
+            axios.get(`${API_BASE}/customers`, config),
+            axios.get(`https://api.zhopingo.in/api/v1/orders/all`, config)
+        ]);
 
-            if (custRes.data.success) {
-                setCustomers(custRes.data.data);
-                setFilteredCustomers(custRes.data.data);
-            }
-            if (orderRes.data.success) setAllOrders(orderRes.data.data);
+        if (custRes.data.success) {
+            // 🚀 THE FIX: Sort data by oldest first (Ascending)
+            const sortedData = custRes.data.data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            setCustomers(sortedData);
+            setFilteredCustomers(sortedData);
+        }
+        if (orderRes.data.success) setAllOrders(orderRes.data.data);
 
-        } catch (error) {
-            console.error("Fetch Error:", error.message);
-        } finally { setIsLoading(false); }
-    };
+    } catch (error) {
+        console.error("Fetch Error:", error.message);
+    } finally { setIsLoading(false); }
+};
 
     // SEARCH FILTER LOGIC
     useEffect(() => {
@@ -86,43 +87,42 @@ const CustomerPage = () => {
                                     <th>S.no</th><th>Name</th><th>Joined On</th><th>Wallet Balance</th><th className="text-center">View Details</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {isLoading ? (
-                                    <tr><td colSpan="6" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
-                                ) : currentCustomersList.length > 0 ? (
-                                    currentCustomersList.map((item, index) => (
-                                        <tr key={item._id}>
-                                            {/* 🌟 42. Customer List Serial Number Descending logic */}
-<td>
-    <span className="fw-bold text-secondary-light">
-        {filteredCustomers.length - (indexOfFirstItem + index)}
-    </span>
-</td>
-                                            {/* 🌟 Handle Empty Name in Table */}
-<td>
-    <div className="d-flex flex-column gap-1">
-        {/* Name illai na 'User' nu kaattum */}
-        <span className="fw-bold text-dark text-sm">
-            {item.name && item.name.trim() !== "" ? item.name : "User"}
-        </span>
-        <span className="text-secondary text-xs fw-bold">{item.phone}</span>
-        <span className="text-muted text-xxs italic fw-medium">{item.email || "No Email"}</span>
-    </div>
-</td>
-                                            <td className="text-xs text-secondary fw-bold">{new Date(item.createdAt).toLocaleDateString('en-GB')}</td>
-                                            <td className="fw-900 text-success-main text-sm">₹{item.walletBalance || 0}</td>
-                                           
-                                            <td className="text-center">
-                                                <button onClick={() => { setSelectedUser(item); setModalType('details'); }} className="btn btn-info-focus text-info-main btn-sm radius-8 px-12 fw-bold d-inline-flex align-items-center gap-1">
-                                                    <Icon icon="solar:eye-bold" /> View Details
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr><td colSpan="6" className="text-center py-80 text-secondary italic">No matching customers found.</td></tr>
-                                )}
-                            </tbody>
+                          
+<tbody>
+    {isLoading ? (
+        <tr><td colSpan="5" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
+    ) : currentCustomersList.length > 0 ? (
+        currentCustomersList.map((item, index) => (
+            <tr key={item._id}>
+                {/* 🌟 THE FIX: Ascending S.No Sync with Pagination */}
+                <td>
+                    <span className="fw-bold text-secondary-light">
+                        {indexOfFirstItem + index + 1}
+                    </span>
+                </td>
+                {/* ... Name and other columns same ... */}
+                <td>
+                    <div className="d-flex flex-column gap-1">
+                        <span className="fw-bold text-dark text-sm">
+                            {item.name && item.name.trim() !== "" ? item.name : "User"}
+                        </span>
+                        <span className="text-secondary text-xs fw-bold">{item.phone}</span>
+                        <span className="text-muted text-xxs italic fw-medium">{item.email || "No Email"}</span>
+                    </div>
+                </td>
+                <td className="text-xs text-secondary fw-bold">{new Date(item.createdAt).toLocaleDateString('en-GB')}</td>
+                <td className="fw-900 text-success-main text-sm">₹{item.walletBalance || 0}</td>
+                <td className="text-center">
+                    <button onClick={() => { setSelectedUser(item); setModalType('details'); }} className="btn btn-info-focus text-info-main btn-sm radius-8 px-12 fw-bold d-inline-flex align-items-center gap-1">
+                        <Icon icon="solar:eye-bold" /> View Details
+                    </button>
+                </td>
+            </tr>
+        ))
+    ) : (
+        <tr><td colSpan="5" className="text-center py-80 text-secondary italic">No matching customers found.</td></tr>
+    )}
+</tbody>
                         </table>
                     </div>
 

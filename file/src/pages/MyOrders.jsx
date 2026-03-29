@@ -52,37 +52,53 @@ const handleShipOrder = async (orderId) => {
     } catch (err) { toast.error("Shipping trigger failed!"); }
 };
 
-// ✅ 2. Mark Delivered Logic (Added sellerId in payload)
+// ✅ MARK DELIVERED Logic (Postman Sync)
 const handleMarkDelivered = async (orderId) => {
+    setIsLoading(true);
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const res = await axios.put(`${API_BASE}/orders/update-status/${orderId}`, {
-            status: 'Delivered',
-            sellerId: sellerId // 🌟 EXTREMELY CRITICAL
-        }, config);
-
-        if (res.data.success) {
-            toast.success("Your part of the order is Delivered!");
-            fetchOrders(); 
-        }
-    } catch (err) { toast.error("Delivery status update failed!"); }
-};
-// 🔄 Handle Return Approval by Seller
-const handleReturnAction = async (orderId, approvalStatus) => {
-    try {
-        const config = { headers: { Authorization: `Bearer ${token}` } };
-        // Status: 'Returned' (Approved) or 'Delivered' (Rejected - keep as delivered)
-        const res = await axios.put(`${API_BASE}/orders/update-status/${orderId}`, {
-            status: approvalStatus === 'Approved' ? 'Returned' : 'Delivered',
+        
+        // 🚀 THE CRITICAL FIX: URL strictly matching Postman
+        const res = await axios.put(`${API_BASE}/seller/update-order-status`, {
+            orderId: orderId,
             sellerId: sellerId,
-            adminNote: `Seller ${approvalStatus} the return request.`
+            status: 'Delivered'
         }, config);
 
         if (res.data.success) {
-            toast.success(`Return request ${approvalStatus} successfully!`);
+            toast.success("Package Delivered & Date Logged! ✅");
             fetchOrders(); 
         }
-    } catch (err) { toast.error("Return update failed!"); }
+    } catch (err) { 
+        console.error("Sync Error:", err.response?.data);
+        toast.error(err.response?.data?.message || "Delivery sync failed!"); 
+    } finally {
+        setIsLoading(false);
+    }
+};
+
+// 🔄 RETURN ACTION Logic (Postman Sync)
+const handleReturnAction = async (orderId, approvalStatus) => {
+    setIsLoading(true);
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        
+        // Same endpoint as Postman strictly
+        const res = await axios.put(`${API_BASE}/seller/update-order-status`, {
+            orderId: orderId,
+            sellerId: sellerId,
+            status: approvalStatus === 'Approved' ? 'Returned' : 'Delivered'
+        }, config);
+
+        if (res.data.success) {
+            toast.success(`Return Action Sync Success! ✅`);
+            fetchOrders(); 
+        }
+    } catch (err) { 
+        toast.error("Return sync failed!"); 
+    } finally {
+        setIsLoading(false);
+    }
 };
     // 🌟 Intha logic strictly 'return' statement-ku mela irukanum
 const indexOfLastOrder = currentPage * rowsPerPage;
@@ -121,43 +137,21 @@ const [confirmModal, setConfirmModal] = useState({
                         </thead>
                        <tbody>
                         
-    {isLoading ? (
-        <tr><td colSpan="8" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
+{isLoading ? (
+        <tr><td colSpan="9" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
     ) : currentOrders.length > 0 ? currentOrders.map((order, index) => {
-        // 🌟 41. Strictly find the share for this specific seller first
-        const sellerShare = order.sellerSplitData?.find(s => 
-            (s.sellerId?._id || s.sellerId) === sellerId
-        );
-
-        return (
-            <tr key={order._id}>
-                {/* 🌟 1. Descending S.No Logic */}
-                <td className="ps-24 fw-bold text-secondary">
-                    {orders.length - (indexOfFirstOrder + index)}
-                </td>
-                                        <td className="fw-bold text-primary-600">#{order._id.slice(-8).toUpperCase()}</td>
-                                        {/* 🌟 1. Customer Details (Receiver Name from Backend) */}
-<td>
-    <div className="d-flex flex-column">
-        {/* Strictly using receiverName from shippingAddress object */}
-        <span className="text-sm fw-bold text-dark uppercase">
-            {order.shippingAddress?.receiverName || order.customerId?.name}
-        </span>
+        const sellerShare = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
         
-    </div>
-</td>
+        return (
+            <tr key={`${order._id}-${index}`}>
+                <td className="ps-24 fw-bold text-secondary">{orders.length - (indexOfFirstOrder + index)}</td>
+                <td className="fw-bold text-primary-600">#{order._id.slice(-8).toUpperCase()}</td>
+                {/* 🌟 Ensure no gaps between <td> tags in your code */}
+                <td><span className="text-sm fw-bold text-dark uppercase">{order.shippingAddress?.receiverName || order.customerId?.name}</span></td>
+                <td><small className="text-secondary fw-medium" style={{ fontSize: '10px' }}>{order.shippingAddress?.flatNo}, {order.shippingAddress?.pincode}</small></td>
 
 {/* 🌟 2. New Address & Contact Column */}
-<td>
-    <div className="d-flex flex-column" style={{ maxWidth: '200px', whiteSpace: 'normal' }}>
-        {/* Contact Phone */}
-       
-        {/* Full Address String */}
-        <small className="text-secondary fw-medium" style={{ fontSize: '10px', lineHeight: '1.2' }}>
-            {order.shippingAddress?.flatNo}, {order.shippingAddress?.addressLine}, {order.shippingAddress?.pincode}
-        </small>
-    </div>
-</td>
+
                                         <td>
                                             <div className="d-flex flex-column gap-1">
                                                 {order.items.filter(i => (i.sellerId?._id || i.sellerId) === sellerId).map((item, idx) => (

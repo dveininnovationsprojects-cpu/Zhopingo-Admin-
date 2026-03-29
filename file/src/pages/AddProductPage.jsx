@@ -11,18 +11,24 @@ const AddProductPage = () => {
     const [filteredSubCategories, setFilteredSubCategories] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [masterProductList, setMasterProductList] = useState([]); // 🌟 Master list state
 
     const API_BASE = "https://api.zhopingo.in/api/v1";
     const token = localStorage.getItem("userToken");
 
     const initialForm = {
-        seller: "", // Backend needs ID, UI shows Name
-        name: "", category: "", subCategory: "", price: "", mrp: "", purchasePrice: "", // 🌟 Added Purchase Price
-        stock: "", brand: "", description: "", lowStockAlert: "", hsnCode: "",
-        isVeg: true, isFreeDelivery: false, isReturnable: false, offerTag: "",
-        highlights: { productType: "", cocoaContent: "" },
-        manufacturerDetails: { manufacturerNameAddress: "", countryOfOrigin: "India" }
-    };
+    seller: "", 
+    masterProductId: "", // 🌟 Changed from "" to null for backend sync
+    name: "", category: "", subCategory: "", 
+    price: "", mrp: "", purchasePrice: "", 
+    stock: "", brand: "", description: "", lowStockAlert: "", hsnCode: "",
+    weight: "", shelfLife: "", fssaiLicense: "", // 🌟 Added Seller fields
+    isVeg: true, isFreeDelivery: false, isReturnable: false, 
+    returnWindow: 0, // 🌟 Return Window added
+    offerTag: "",
+    highlights: { productType: "", cocoaContent: "" },
+    manufacturerDetails: { manufacturerNameAddress: "", countryOfOrigin: "India" }
+};
 
     const [formData, setFormData] = useState(initialForm);
     const [variants, setVariants] = useState([]);
@@ -39,23 +45,27 @@ const handleVariantChange = (index, field, value) => {
     const [videoFile, setVideoFile] = useState(null);
 
     useEffect(() => {
-        const fetchInitialData = async () => {
-            setIsLoading(true);
-            try {
-                const config = { headers: { Authorization: `Bearer ${token}` } };
-                const [sellerRes, catRes, subRes] = await Promise.all([
-                    axios.get(`${API_BASE}/admin/sellers`, config),
-                    axios.get(`${API_BASE}/catalog/categories`, config),
-                    axios.get(`${API_BASE}/catalog/sub-categories/all`, config)
-                ]);
-                if (sellerRes.data.success) setSellers(sellerRes.data.data);
-                if (catRes.data.success) setCategories(catRes.data.data);
-                if (subRes.data.success) setAllSubCategories(subRes.data.data);
-            } catch (err) { toast.error("Catalog Load Error"); }
-            finally { setIsLoading(false); }
-        };
-        fetchInitialData();
-    }, [token]);
+    const fetchInitialData = async () => {
+        setIsLoading(true);
+        try {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            // 🚀 Strictly fetching only existing valid categories and sellers
+            const [sellerRes, catRes, subRes] = await Promise.all([
+                axios.get(`${API_BASE}/admin/sellers`, config),
+                axios.get(`${API_BASE}/catalog/categories`, config),
+                axios.get(`${API_BASE}/catalog/sub-categories/all`, config)
+            ]);
+            
+            if (sellerRes.data.success) setSellers(sellerRes.data.data);
+            if (catRes.data.success) setCategories(catRes.data.data);
+            if (subRes.data.success) setAllSubCategories(subRes.data.data);
+        } catch (err) { 
+            console.error("Initial Load Error:", err);
+            toast.error("Failed to load Catalog Data"); 
+        } finally { setIsLoading(false); }
+    };
+    fetchInitialData();
+}, [token]);
 
     const handleCategoryChange = (catId) => {
         setFormData({ ...formData, category: catId, subCategory: "", hsnCode: "" });
@@ -63,10 +73,41 @@ const handleVariantChange = (index, field, value) => {
         setFilteredSubCategories(filtered);
     };
 
-    const handleSubCatChange = (subId) => {
-        const selectedSub = allSubCategories.find(s => s._id === subId);
-        setFormData({ ...formData, subCategory: subId, hsnCode: selectedSub?.hsnCode || "" });
-    };
+    // Function around line 80
+const handleSubCatChange = async (subId) => {
+    const selectedSub = allSubCategories.find(s => s._id === subId);
+    setFormData({ ...formData, subCategory: subId, hsnCode: selectedSub?.hsnCode || "" });
+
+    // 🚀 THE SYNC: Fetch Master List strictly for this Sub-Category
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const res = await axios.get(`${API_BASE}/products/master-list/${subId}`, config);
+        if (res.data.success) {
+            setMasterProductList(res.data.data);
+        }
+    } catch (err) {
+        setMasterProductList([]);
+        console.warn("No master products found for this category");
+    }
+};
+    // Function around line 85
+const handleMasterProductSelect = (masterId) => {
+    // 🚀 THE SYNC: Finding the master product details from the list
+    const selectedMaster = masterProductList.find(m => m._id === masterId);
+    
+    if (selectedMaster) {
+        setFormData({ 
+            ...formData, 
+            masterProductId: masterId,
+            // 🌟 AUTO-FILL LOGIC: Fetching HSN from populated hsnMasterId
+            hsnCode: selectedMaster.hsnMasterId?.hsnCode || "N/A",
+            gstPercentage: selectedMaster.hsnMasterId?.gstRate || 0,
+            // Optional: Name sync panna indha line use pannalam
+            // name: selectedMaster.name 
+        });
+        
+    }
+};
 
     const handleImageChange = (index, file) => {
         const newSlots = [...imageSlots];
@@ -146,7 +187,12 @@ const handleSubmit = async (e) => {
                             {/* COLUMN 1: Core Details */}
                             <div className="col-lg-4 border-end">
                                 <h6 className="fw-bold text-primary-600 mb-20">Core Details</h6>
-                                <div className="mb-16"><label className="text-xxs fw-bold text-secondary">Product Name *</label><input type="text" className="form-control radius-10" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div>
+<div className="mb-16">
+        <label className="text-xxs fw-bold text-secondary uppercase">Product Name *</label>
+        <input type="text" className="form-control radius-10" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+    </div>
+
+    
                                 <div className="row g-2 mb-16">
                                    <div className="col-md-6">
         <label className="text-xxs fw-bold text-primary-600 uppercase mb-8 d-block">Selling Price (₹) *</label>
@@ -158,17 +204,7 @@ const handleSubmit = async (e) => {
             required 
         />
     </div>
-    {/* 🌟 NEW: Neenga vaangiya vilai */}
-    <div className="col-md-6">
-        <label className="text-xxs fw-bold text-success-600 uppercase mb-8 d-block">Purchase Price (₹) *</label>
-        <input 
-            type="number" 
-            className="form-control border-success" 
-            value={formData.purchasePrice} 
-            onChange={e => setFormData({...formData, purchasePrice: e.target.value})} 
-            required 
-        />
-    </div>
+  
                                 </div>
                                 <div className="row g-2 mb-16">
                                     <div className="col-6"><label className="text-xxs fw-bold text-secondary">MRP (₹)</label><input type="number" className="form-control" value={formData.mrp} onChange={e => setFormData({...formData, mrp: e.target.value})} /></div>
@@ -177,6 +213,34 @@ const handleSubmit = async (e) => {
                                 <div className="row g-2 mb-20">
                                     <div className="col-6"><label className="text-xxs fw-bold text-secondary">Category *</label><select className="form-select" value={formData.category} onChange={e => handleCategoryChange(e.target.value)} required><option value="">Select</option>{categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}</select></div>
                                     <div className="col-6"><label className="text-xxs fw-bold text-secondary">Sub-Category *</label><select className="form-select" value={formData.subCategory} onChange={e => handleSubCatChange(e.target.value)} required disabled={!filteredSubCategories.length}><option value="">Select</option>{filteredSubCategories.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}</select></div>
+                                    <div className="mb-16 p-12 radius-12 bg-primary-50 border border-dashed border-primary-200">
+    <label className="text-xxs fw-black text-primary-600 uppercase mb-8 d-block">Select Master Catalog *</label>
+    <select 
+        className="form-select form-select-sm radius-8 shadow-none" 
+        value={formData.masterProductId} 
+        onChange={e => handleMasterProductSelect(e.target.value)} 
+        required
+        disabled={!formData.subCategory}
+    >
+        <option value="">-- Choose Master Product --</option>
+        {masterProductList.map(m => (
+            <option key={m._id} value={m._id}>{m.name}</option>
+        ))}
+    </select>
+    {!formData.subCategory && <small className="text-danger-main text-xxs mt-1 d-block">Select Sub-Category first to unlock catalog.</small>}
+</div>
+                                    {/* COLUMN 2 update - Line 170 approx */}
+<div className="mb-16">
+    <label className="text-xxs fw-bold text-secondary uppercase">HSN Code</label>
+    <input 
+        type="text" 
+        className="form-control bg-light fw-bold text-primary-600" 
+        value={formData.hsnCode} 
+        readOnly 
+        placeholder="Select Master product first..."
+        style={{ cursor: 'not-allowed' }}
+    />
+</div>
                                 </div>
 {/* 🌟 29. 5 IMAGE SLOTS WITH RED X MARK DELETE */}
 <label className="text-xxs fw-bold text-secondary uppercase mb-8">Image Assets (Max 5)</label>
@@ -238,6 +302,18 @@ const handleSubmit = async (e) => {
                             {/* COLUMN 2: Specs & Ingredients */}
                             <div className="col-lg-4 border-end">
                                 <h6 className="fw-bold text-primary-600 mb-20">Specifications & Ingredients</h6>
+                                <div className="row g-2 mb-16">
+        <div className="col-6">
+            <label className="text-xxs fw-bold text-secondary uppercase">Weight/Vol</label>
+            <input type="text" className="form-control" placeholder="500g" value={formData.weight} onChange={e => setFormData({...formData, weight: e.target.value})} />
+        </div>
+        <div className="col-6">
+            <label className="text-xxs fw-bold text-secondary uppercase">Shelf Life</label>
+            <input type="text" className="form-control" placeholder="6 Months" value={formData.shelfLife} onChange={e => setFormData({...formData, shelfLife: e.target.value})} />
+        </div>
+    </div>
+    
+   
                                 <div className="mb-20"><label className="text-xxs fw-bold text-secondary">Key Features</label>
                                     {keyFeatures.map((f, i) => (<div className="d-flex gap-2 mb-2" key={i}><input className="form-control form-control-sm" value={f} onChange={e => { const n = [...keyFeatures]; n[i] = e.target.value; setKeyFeatures(n); }} placeholder="Highlight point"/><Icon icon="solar:close-circle-bold" className="text-danger fs-4 mt-1 cursor-pointer" onClick={() => setKeyFeatures(keyFeatures.filter((_, idx) => idx !== i))} /></div>))}
                                     <button type="button" className="btn btn-sm text-primary-600 fw-bold p-0" onClick={() => setKeyFeatures([...keyFeatures, ""])}>+ Add Point</button>
@@ -255,7 +331,32 @@ const handleSubmit = async (e) => {
                                 <div className="bg-primary-50 p-16 radius-16 border mb-24">
                                     <div className="row g-2 mb-12">
                                         <div className="col-6"><label className="text-xxs fw-bold text-secondary">Free Delivery?</label><select className="form-select form-select-sm" value={formData.isFreeDelivery} onChange={e => setFormData({...formData, isFreeDelivery: e.target.value === 'true'})}><option value="false">No</option><option value="true">Yes</option></select></div>
-                                        <div className="col-6"><label className="text-xxs fw-bold text-secondary">Returnable?</label><select className="form-select form-select-sm" value={formData.isReturnable} onChange={e => setFormData({...formData, isReturnable: e.target.value === 'true'})}><option value="false">No</option><option value="true">Yes</option></select></div>
+<div className="col-6">
+    <label className="text-xxs fw-bold text-secondary">Returnable?</label>
+    <select 
+        className="form-select form-select-sm" 
+        value={formData.isReturnable} 
+        onChange={e => setFormData({...formData, isReturnable: e.target.value === 'true'})}
+    >
+        <option value="false">No</option>
+        <option value="true">Yes</option>
+    </select>
+</div>
+
+{/* 🌟 NEW: Show Return Window ONLY if Returnable is Yes */}
+{formData.isReturnable && (
+    <div className="col-12 mt-2 animate__animated animate__fadeIn">
+        <label className="text-xxs fw-bold text-primary-600 uppercase">Return Window (Days) *</label>
+        <input 
+            type="number" 
+            className="form-control form-control-sm border-primary" 
+            placeholder="e.g. 7" 
+            value={formData.returnWindow}
+            onChange={e => setFormData({...formData, returnWindow: e.target.value})}
+            required
+        />
+    </div>
+)}
                                     </div>
                                     <label className="text-xxs fw-bold text-secondary">Offer Tag (Display)</label><input type="text" className="form-control form-control-sm" value={formData.offerTag} onChange={e => setFormData({...formData, offerTag: e.target.value})} placeholder="e.g. Buy 1 Get 1" />
                                 </div>
