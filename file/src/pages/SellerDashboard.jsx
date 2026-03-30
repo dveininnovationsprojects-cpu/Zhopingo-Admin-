@@ -36,6 +36,8 @@ const SellerDashboard = () => {
     const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
     const sellerId = sellerData.id || sellerData._id;
     const token = localStorage.getItem("userToken");
+    const [timeFilter, setTimeFilter] = useState("Weekly"); // Default Weekly
+const [displayRevenue, setDisplayRevenue] = useState(0); // Filter-ku yetha dynamic revenue
 
     const API_BASE = "https://api.zhopingo.in/api/v1";
     // 🌟 Image Base path for sellers
@@ -61,70 +63,112 @@ const SellerDashboard = () => {
         }
     };
 
-    const fetchSellerLiveStats = async () => {
-        setIsLoading(true);
-        try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
-            const res = await axios.get(`${API_BASE}/orders/all`, config);
-            
-            if (res.data.success) {
-                const myOrders = res.data.data.filter(order => 
-                    order.sellerSplitData?.some(split => split.sellerId === sellerId)
+const fetchSellerLiveStats = async () => {
+    setIsLoading(true);
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        
+        // 1. Fetch ALL data needed for calculations and backend official revenue
+        const [ordersRes, dashboardRes] = await Promise.all([
+            axios.get(`${API_BASE}/orders/all`, config),
+            axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config)
+        ]);
+
+        if (ordersRes.data.success && dashboardRes.data.success) {
+            const myOrders = ordersRes.data.data.filter(order => 
+                order.sellerSplitData?.some(split => (split.sellerId?._id || split.sellerId) === sellerId)
+            );
+            const dashboardData = dashboardRes.data.data;
+
+            // 🚀 REVENUE & STATS SYNC: Using Backend Official Data + Local Status Filter
+            setStats({
+                new: myOrders.filter(o => o.status === "Placed").length,
+                placed: myOrders.filter(o => o.status === "Placed").length,
+                shipped: myOrders.filter(o => o.status === "Shipped").length,
+                delivered: myOrders.filter(o => o.status === "Delivered").length,
+                cancelled: myOrders.filter(o => o.status === "Cancelled").length,
+                revenue: dashboardData.revenue || 0 // 💰 Backend verified revenue
+            });
+
+            // 🚀 DYNAMIC CHART LOGIC (Re-introduced & Fixed Scope)
+            const now = new Date();
+            let chartData = [];
+
+            // Helper function strictly defined inside this scope to avoid ReferenceError
+            const getOrderRevenue = (order) => {
+                const split = order.sellerSplitData.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+                return split ? (split.sellerSubtotal || 0) : 0;
+            };
+
+            if (timeFilter === "Daily") {
+                chartData = new Array(7).fill(0);
+                const todayOrders = myOrders.filter(o => 
+                    new Date(o.createdAt).toDateString() === now.toDateString()
                 );
-                
-                let sellerOnlyRevenue = 0;
-                myOrders.filter(o => o.status === "Delivered").forEach(order => {
-                    const sellerShare = order.sellerSplitData.find(s => s.sellerId === sellerId);
-                    if (sellerShare) sellerOnlyRevenue += (sellerShare.sellerSubtotal || 0);
+                todayOrders.forEach(o => {
+                    const hour = new Date(o.createdAt).getHours();
+                    const slot = Math.floor(hour / 3.5); 
+                    chartData[slot] += getOrderRevenue(o);
                 });
+            } else if (timeFilter === "Weekly") {
+                chartData = [0, 0, 0, 0, 0, 0, 0];
+                myOrders.forEach(o => {
+                    const day = new Date(o.createdAt).getDay();
+                    chartData[day] += getOrderRevenue(o);
+                });
+            } else if (timeFilter === "Monthly") {
+                // 🚀 Professional 12 Months Yearly View
+                chartData = new Array(12).fill(0);
+                const currentYear = now.getFullYear();
+                myOrders.filter(o => o.status === "Delivered").forEach(o => {
+                    const d = new Date(o.createdAt);
+                    if (d.getFullYear() === currentYear) {
+                        chartData[d.getMonth()] += getOrderRevenue(o);
+                    }
+                });
+            }
 
-              // 🌟 41. Syncing with backend: Only Placed, Shipped, Delivered & Revenue
-// 🌟 Stats sync with real Backend status
-setStats({
-    new: myOrders.filter(o => o.status === "Placed").length,
-    placed: myOrders.filter(o => o.status === "Placed").length, // 🌟 Box replacement
-    shipped: myOrders.filter(o => o.status === "Shipped").length,
-    delivered: myOrders.filter(o => o.status === "Delivered").length,
-    cancelled: myOrders.filter(o => o.status === "Cancelled").length, // 🌟 Box replacement
-    revenue: sellerOnlyRevenue
-});
+            setWeeklySalesData(chartData);
 
-                const productMap = {};
-                myOrders.forEach(order => {
-                    order.items.forEach(item => {
-                        const pid = item.productId?._id || item.productId;
+            // 🚀 TOP PRODUCTS SYNC
+            const productMap = {};
+            myOrders.forEach(order => {
+                order.items.forEach(item => {
+                    const pid = item.productId?._id || item.productId;
+                    if ((item.sellerId?._id || item.sellerId) === sellerId) {
                         if (!productMap[pid]) productMap[pid] = { name: item.name, count: 0 };
                         productMap[pid].count += item.quantity;
-                    });
+                    }
                 });
-                setTopProducts(Object.values(productMap).sort((a, b) => b.count - a.count).slice(0, 7));
+            });
+            setTopProducts(Object.values(productMap).sort((a, b) => b.count - a.count).slice(0, 7));
 
-                const dailyCounts = [0, 0, 0, 0, 0, 0, 0];
-                myOrders.forEach(order => {
-                    const day = new Date(order.createdAt).getDay();
-                    dailyCounts[day] += order.items.reduce((sum, item) => sum + item.quantity, 0);
-                });
-                setWeeklySalesData(dailyCounts);
-            }
-        } catch (err) {
-            console.error("Stats Fetch Error", err);
-        } finally {
-            setIsLoading(false);
+            // 🚀 PROFILE SYNC
+            setSellerProfile(dashboardData.seller);
         }
-    };
+    } catch (err) {
+        console.error("Dashboard Sync Error:", err);
+        toast.error("Analytics sync failed!");
+    } finally {
+        setIsLoading(false);
+    }
+};
+    useEffect(() => {
+    fetchSellerLiveStats();
+}, [timeFilter]);
 
     const sidebarControl = () => setSidebarActive(!sidebarActive);
     const mobileMenuControl = () => setMobileMenu(!mobileMenu);
     const handleLogout = () => { localStorage.clear(); navigate("/sign-in"); };
 
-    // Helper: Profile Image Logic
-    const getProfileImg = () => {
-        if (sellerProfile?.profileImage && sellerProfile.profileImage !== "sellers/default-avatar.png") {
-            return `${IMAGE_BASE}${sellerProfile.profileImage}`;
-        }
-        // Professional Icon Placeholder if no image
-        return `https://api.dicebear.com/7.x/initials/svg?seed=${sellerProfile?.shopName || 'Seller'}&backgroundColor=064e3b`;
-    };
+const getProfileImg = () => {
+    
+    const imgPath = sellerProfile?.profileImage || sellerProfile?.shopLogo;
+    if (imgPath) {
+        return imgPath.startsWith('http') ? imgPath : `${IMAGE_BASE}${imgPath}`;
+    }
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${sellerProfile?.shopName || 'Seller'}`;
+};
 
     const lineData = { 
         labels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], 
@@ -133,7 +177,30 @@ setStats({
             borderColor: "#485EC4", backgroundColor: "rgba(72, 94, 196, 0.1)", tension: 0.4 
         }] 
     };
+// 🌟 41. Dynamic Chart Config based on Filter
+const getChartConfig = () => {
+    let labels = [];
+    if (timeFilter === "Daily") {
+        labels = ["6am", "9am", "12pm", "3pm", "6pm", "9pm", "12am"]; // Hour slots
+    } else if (timeFilter === "Weekly") {
+        labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    } else if (timeFilter === "Monthly") {
+        labels = ["Week 1", "Week 2", "Week 3", "Week 4"];
+    }
 
+    return {
+        labels: labels,
+        datasets: [{
+            fill: true,
+            data: weeklySalesData, // Backend-la irundhu filter aagi vara data
+            borderColor: "#485EC4",
+            backgroundColor: "rgba(72, 94, 196, 0.1)",
+            tension: 0.4,
+            pointRadius: 4,
+            pointBackgroundColor: "#485EC4"
+        }]
+    };
+};
 const renderDashboard = () => (
     <div className="animate__animated animate__fadeIn">
         <div className="row gy-4 mb-24">
@@ -146,18 +213,54 @@ const renderDashboard = () => (
             
             <StatCard label="Shipped" val={stats.shipped} color="secondary" />
             <StatCard label="Delivered" val={stats.delivered} color="success" />
-            <StatCard label="Revenue" val={`₹${stats.revenue.toLocaleString()}`} color="success" />
+            {/* Change your Revenue card call to this */}
+<StatCard 
+    label={`${timeFilter} Revenue`} 
+    val={`₹${weeklySalesData.reduce((a, b) => a + b, 0).toLocaleString()}`} 
+    color="success" 
+/>
         </div>
 
             <div className="row gy-4">
                 <div className="col-lg-8">
-                    <div className="card radius-12 border-0 shadow-sm p-24  h-100">
-                        <h6 className="fw-bold mb-20 text-primary-light">Weekly Sales Overview</h6>
-                        <div style={{ height: "300px" }}>
-                            <Line data={lineData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
-                        </div>
-                    </div>
-                </div>
+    <div className="card radius-12 border-0 shadow-sm p-24 h-100">
+        <div className="d-flex align-items-center justify-content-between mb-20">
+            <h6 className="fw-bold mb-0 text-primary-light">Revenue Analytics</h6>
+            
+            {/* 🌟 41. Professional Time Filter Buttons */}
+            <div className="d-flex gap-2 bg-light p-4 radius-8">
+                {["Daily", "Weekly", "Monthly"].map(f => (
+                    <button 
+                        key={f}
+                        onClick={() => setTimeFilter(f)}
+                        className={`btn btn-xs px-12 py-4 radius-6 fw-bold transition-all ${timeFilter === f ? 'bg-primary-600 text-white shadow-sm' : 'text-secondary'}`}
+                        style={{ fontSize: '10px' }}
+                    >
+                        {f.toUpperCase()}
+                    </button>
+                ))}
+            </div>
+        </div>
+        
+        <div style={{ height: "300px" }}>
+    {/* 🚀 THE FIX: Use getChartConfig() instead of lineData */}
+    <Line 
+        data={getChartConfig()} 
+        options={{ 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { legend: { display: false } },
+            scales: { 
+                y: { 
+                    beginAtZero: true, 
+                    ticks: { callback: (val) => '₹' + val } 
+                } 
+            } 
+        }} 
+    />
+</div>
+    </div>
+</div>
                 <div className="col-lg-4">
                     <div className="card radius-12 border-0 shadow-sm p-24  h-100">
                         <h6 className="fw-bold mb-20 text-primary-light">Top 7 Selling Items</h6>

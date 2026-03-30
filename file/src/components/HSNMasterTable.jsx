@@ -114,7 +114,13 @@ const handleAddHsn = async (e) => {
       toast.error("Delete failed");
     }
   };
-  // 🌟 Advanced Pagination Logic
+
+
+  const filteredData = hsnData.filter(item => 
+    item.hsnCode?.toString().includes(searchTerm) || 
+    item.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+    // 🌟 Advanced Pagination Logic
 const indexOfLastItem = currentPage * rowsPerPage;
 const indexOfFirstItem = indexOfLastItem - rowsPerPage;
 const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
@@ -125,80 +131,50 @@ useEffect(() => {
     setCurrentPage(1);
 }, [searchTerm]);
 
-  const filteredData = hsnData.filter(item => 
-    item.hsnCode?.toString().includes(searchTerm) || 
-    item.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  return (
+return (
     <div className='card h-100 p-0 radius-12 border-0 shadow-sm'>
       <ToastContainer position="top-right" autoClose={2000} theme="colored" />
-      
+
       <div className='card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between flex-wrap gap-3'>
         <h6 className='text-lg fw-semibold mb-0'>HSN Master</h6>
         <div className="d-flex align-items-center gap-3">
-          <input type="text" className="form-control radius-8 ps-12" style={{ width: '250px' }} placeholder="Search HSN..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-          <button className="btn btn-primary-600 radius-8 py-8 px-16 d-flex align-items-center gap-2" onClick={() => { setIsUpdate(false); setNewHsn({hsnCode:"", description:"", gstRate:""}); setShowModal(true); }}>
+          <input type="text" className="form-control radius-8" style={{ width: '250px' }} placeholder="Search HSN..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <button className="btn btn-primary-600 radius-8 d-flex align-items-center gap-2" onClick={() => { setIsUpdate(false); setNewHsn({ hsnCode: "", description: "", gstRate: "" }); setShowModal(true); }}>
             <Icon icon="lucide:plus" /> Add HSN
           </button>
         </div>
       </div>
 
-      <div className='card-body p-24'>
+      <div className='card-body p-0'>
         {isLoading ? (
-          <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>
+          <div className="text-center py-50"><div className="spinner-border text-primary"></div></div>
         ) : (
-          <div className='table-responsive'>
-<table className='table basic-border-table mb-0 align-middle'>
-              <thead>
-                <tr><th>S.no</th><th>HSN Code</th><th>Description</th><th>GST Rate</th><th>Action</th></tr>
-              </thead>
-              <tbody>
-  {currentItems.map((item, index) => (
-    <tr key={item._id}>
-      {/* 🌟 Serial Number sync with pagination logic */}
-      <td>{indexOfFirstItem + index + 1}</td>
-                    <td><span className="text-primary-600 fw-bold">{item.hsnCode}</span></td>
-                   {/* 🌟 41. Fixed HSN Description Wrap Logic */}
-{/* 🌟 41. Fixed HSN Description: Full Wrap without Ellipsis */}
-<td className="text-wrap" style={{ minWidth: '350px', maxWidth: '500px' }}>
-    <div style={{ 
-        whiteSpace: 'normal', // 🌟 Strictly allows text to flow to next line
-        wordBreak: 'break-word',
-        lineHeight: '1.6',
-        fontSize: '13px',
-        color: '#475467',
-        padding: '8px 0'
-    }}>
-        {item.description}
-    </div>
-</td>
-                    <td><span className="badge bg-info-focus text-info-main px-12 py-4 radius-4">{item.gstRate}%</span></td>
-                    <td>
-                      <div className="d-flex align-items-center gap-3">
-                        {/* 🌟 38. Edit Icon */}
-                        <button onClick={() => handleEditClick(item)} className="text-primary-600 border-0 bg-transparent cursor-pointer text-2xl p-0">
-                          <Icon icon="solar:pen-new-square-bold" />
-                        </button>
-
-                        <div onClick={() => toggleHsnStatus(item._id, item.status)} style={{ position: 'relative', width: '44px', height: '22px', backgroundColor: item.status !== false ? '#4489fe' : '#cbd5e0', borderRadius: '20px', cursor: 'pointer' }}>
-                          <div style={{ position: 'absolute', top: '3px', left: '3px', width: '16px', height: '16px', backgroundColor: 'white', borderRadius: '50%', transition: 'transform 0.3s ease', transform: item.status !== false ? 'translateX(22px)' : 'translateX(0px)' }} />
+          <>
+            <div className='table-responsive'>
+              <table className='table basic-border-table mb-0 align-middle'>
+                <thead className="bg-light">
+                  <tr><th>S.no</th><th>HSN Code</th><th>Description</th><th>GST Rate</th><th className="text-center">Action</th></tr>
+                </thead>
+                <tbody>
+                  {currentItems.map((item, index) => (
+                    <tr key={item._id}>
+                      <td className="ps-24">{indexOfFirstItem + index + 1}</td>
+                      <td><span className="text-primary-600 fw-bold">{item.hsnCode}</span></td>
+                      <td className="text-wrap" style={{ maxWidth: '400px' }}>{item.description}</td>
+                      <td><span className="badge bg-info-focus text-info-main">{item.gstRate}%</span></td>
+                      <td>
+                        <div className="d-flex justify-content-center gap-3">
+                          <button onClick={() => handleEditClick(item)} className="text-primary-600 border-0 bg-transparent p-0"><Icon icon="solar:pen-new-square-bold" className="fs-4"/></button>
+                          <button onClick={() => setDeleteModal({ show: true, id: item._id })} className="text-danger-600 border-0 bg-transparent p-0"><Icon icon="solar:trash-bin-minimalistic-bold" className="fs-4"/></button>
                         </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-                        {/* 🌟 37 & 39. Bigger Delete Icon with UI Popup */}
-                        <button onClick={() => setDeleteModal({ show: true, id: item._id })} className="text-danger-600 border-0 bg-transparent cursor-pointer text-2xl p-0">
-                          <Icon icon="solar:trash-bin-minimalistic-bold" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-        )}
-      </div>
+            
 
       {/* 🌟 38. ADD / EDIT MODAL */}
       {showModal && (
@@ -277,7 +253,30 @@ useEffect(() => {
         </div>
     </div>
 )}
+{/* 🌟 41. ADVANCED DYNAMIC PAGINATION FOOTER - Corrected Placement */}
+            <div className="card-footer bg-white border-top py-16 px-24 d-flex align-items-center justify-content-end gap-3 flex-wrap">
+              <div className="d-flex align-items-center gap-2 border-end pe-3">
+                <span className="text-xs text-secondary fw-bold">Rows:</span>
+                <select className="form-select form-select-sm w-auto radius-8 border-0 fw-bold bg-light shadow-none" value={rowsPerPage} onChange={e => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
 
+              <div className="d-flex align-items-center gap-2">
+                <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm"><Icon icon="solar:alt-arrow-left-linear" /></button>
+                <div className="d-flex gap-1">
+                  {[...Array(totalPages)].map((_, i) => (
+                    <button key={i} onClick={() => setCurrentPage(i + 1)} className={`btn btn-sm radius-8 w-32-px h-32-px p-0 fw-bold ${currentPage === i + 1 ? 'btn-primary' : 'btn-light'}`}>{i + 1}</button>
+                  ))}
+                </div>
+                <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(prev => prev + 1)} className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm"><Icon icon="solar:alt-arrow-right-linear" /></button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };

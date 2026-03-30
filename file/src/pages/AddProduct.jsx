@@ -35,15 +35,31 @@ const [showDeleteModal, setShowDeleteModal] = useState(false);
     const IMAGE_BASE = "https://api.zhopingo.in/uploads/products/";
 
     const initialForm = {
-        masterProductId: "", // 🌟 Linked to Master Catalog
-        name: "", category: "", subCategory: "", price: "", mrp: "", offerTag: "", stock: "",
-        description: "", brand: "", weight: "", shelfLife: "", fssaiLicense: "",
-        hsnCode: "", gstPercentage: "", // 🌟 Auto-filled from Master
-        isVeg: true, isFreeDelivery: false, isReturnable: false, returnWindow: 0,
-        highlights: { productType: "", cocoaContent: "", fabricType: "" },
-        manufacturerDetails: { manufacturerNameAddress: "", marketerNameAddress: "", countryOfOrigin: "India", customerCareDetails: "" },
-        returnPolicy: "", storageTips: ""
-    };
+    masterProductId: "",
+    name: "", category: "", subCategory: "", 
+    price: "", mrp: "", purchasePrice: "", // 🌟 Backend-ku ithu romba mukkiyam
+    stock: "", description: "", brand: "", 
+    weight: "", shelfLife: "", fssaiLicense: "",
+    hsnCode: "", gstPercentage: "", 
+    isVeg: true, isFreeDelivery: false, 
+    isReturnable: false, returnWindow: 0,
+    offerTag: "",
+    // 🚀 Backend Nested Objects
+    highlights: { 
+        productType: "", 
+        cocoaContent: "", 
+        fabricType: "",
+        speciality: "" 
+    },
+    manufacturerDetails: { 
+        manufacturerNameAddress: "", 
+        marketerNameAddress: "", 
+        countryOfOrigin: "India", 
+        customerCareDetails: "" 
+    },
+    returnPolicy: "", 
+    storageTips: ""
+};
 
     const [formData, setFormData] = useState(initialForm);
     const [requestData, setRequestData] = useState({ name: "", category: "", subCategory: "" });
@@ -88,15 +104,36 @@ const [showDeleteModal, setShowDeleteModal] = useState(false);
 
 
     // 🚀 1. BIG MODAL TRIGGER (Pre-fill & Open)
-    const handleEditClick = (item) => {
-        setEditId(item._id);
-        
-        // 🌟 Strictly mapping ALL backend attributes to form state
+    const handleEditClick = async (item) => {
+    setEditId(item._id);
+    setIsLoading(true); // Loading indicator start
+
+    try {
+        const catId = item.category?._id || item.category;
+        const subCatId = item.subCategory?._id || item.subCategory;
+
+        // 🚀 1. SYNC SUB-CATEGORIES: Filter logic strictly for the selected category
+        if (catId) {
+            const filtered = allSubCategories.filter(sub => 
+                (sub.category === catId || sub.category?._id === catId)
+            );
+            setFilteredSubCategories(filtered);
+        }
+
+        // 🚀 2. SYNC MASTER LIST: Backend-la irundhu andha sub-category items-ai instantaneous-ah fetch panroam
+        if (subCatId) {
+            const res = await axios.get(`${API_BASE}/products/master-list/${subCatId}`);
+            if (res.data.success) {
+                setMasterProductList(res.data.data);
+            }
+        }
+
+        // 🚀 3. SET FORM DATA: Ellam fetch aana apram data-vai map panroam
         setFormData({
             masterProductId: item.masterProductId?._id || item.masterProductId,
             name: item.name,
-            category: item.category?._id || item.category,
-            subCategory: item.subCategory?._id || item.subCategory,
+            category: catId,
+            subCategory: subCatId,
             price: item.price,
             mrp: item.mrp || "",
             purchasePrice: item.purchasePrice || "", 
@@ -109,14 +146,26 @@ const [showDeleteModal, setShowDeleteModal] = useState(false);
             isVeg: item.isVeg,
             isFreeDelivery: item.isFreeDelivery,
             isReturnable: item.isReturnable,
+            returnWindow: item.returnWindow || 0,
             highlights: item.highlights || { productType: "", cocoaContent: "", fabricType: "" },
             manufacturerDetails: item.manufacturerDetails || { manufacturerNameAddress: "", countryOfOrigin: "India" }
         });
 
+        // Other lists sync
         setVariants(item.variants || []);
-        setShowUpdateModal(true); // 🌟 Modal Trigger
-    };
+        setKeyFeatures(item.keyFeatures || [""]);
+        setIngredientsList(item.ingredients ? item.ingredients.split(", ") : [""]);
+        
+        // 🚀 4. OPEN MODAL: Everything is synced now
+        setShowUpdateModal(true);
 
+    } catch (err) {
+        console.error("Edit Sync Error:", err);
+        toast.error("Failed to sync catalog data for editing");
+    } finally {
+        setIsLoading(false);
+    }
+};
     // 🚀 2. SUBMIT UPDATE (FormData Logic)
     const handleUpdateSubmit = async (e) => {
         e.preventDefault();
@@ -268,7 +317,7 @@ const handlePublish = async (e) => {
     e.preventDefault();
     const currentSellerId = sellerData.id || sellerData._id;
 
-    // 🌟 Validation: Price, Stock, Master Product and Return Window (if returnable)
+    // 1. Basic Validation
     if (!formData.masterProductId || !formData.price || !formData.stock) {
         return toast.error("Select a product from Catalog and fill price/stock!");
     }
@@ -279,35 +328,45 @@ const handlePublish = async (e) => {
 
     setIsSubmitting(true);
     const data = new FormData();
-    
-    // 🚀 THE CORE FIX: Append all formData keys
+
+    // 🚀 2. DYNAMIC FORM SYNC (Handles Strings, Booleans & Nested Objects)
     Object.keys(formData).forEach(key => {
         if (typeof formData[key] === 'object' && formData[key] !== null) {
-            // Nested objects handling (Highlights, ManufacturerDetails)
+            // Mapping Highlights & Manufacturer Details strictly for backend
             Object.keys(formData[key]).forEach(subKey => {
                 data.append(`${key}[${subKey}]`, formData[key][subKey]);
             });
         } else {
-            // 🌟 SYNC: This will strictly append isReturnable (boolean) and returnWindow (number)
+            // Strictly append basic fields like name, price, isReturnable, returnWindow etc.
             data.append(key, formData[key]);
         }
     });
 
-    // Lists & Relations mapping
-    data.append("seller", currentSellerId);
-    data.append("variants", JSON.stringify(variants)); 
+    // 🚀 3. MISSING ARRAY SYNC (Ingredients, Features & Nutrition)
+    
+    // Ingredients mapping
     data.append("ingredients", ingredientsList.filter(i => i.trim()).join(", "));
 
-    keyFeatures.filter(f => f.trim()).forEach((f, i) => data.append(`keyFeatures[${i}]`, f));
+    // Key Features mapping (Array of strings -> Backend expects keyFeatures[0], keyFeatures[1])
+    keyFeatures.filter(f => f.trim()).forEach((f, i) => {
+        data.append(`keyFeatures[${i}]`, f);
+    });
+
+    // Nutrition Info mapping (Array of Objects -> Backend expects nutritionInfo[0][label])
     nutritionInfo.filter(n => n.label.trim()).forEach((n, i) => {
         data.append(`nutritionInfo[${i}][label]`, n.label);
         data.append(`nutritionInfo[${i}][value]`, n.value);
     });
 
-    // Files handling
+    // 🚀 4. RELATIONS & VARIANTS
+    data.append("seller", currentSellerId);
+    data.append("variants", JSON.stringify(variants)); 
+
+    // 🚀 5. FILES SYNC
     files.images.forEach(img => { if (img) data.append("images", img); });
     if (files.video) data.append("video", files.video);
 
+    // 🚀 6. API CALL
     try {
         const config = { 
             headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` } 
@@ -315,14 +374,15 @@ const handlePublish = async (e) => {
         const res = await axios.post(`${API_BASE}/products/add`, data, config);
 
         if (res.data.success) {
-            toast.success("Listed successfully with Return Policy!");
+            toast.success("Product Live on Zhopingo! 🚀 Listing Successful.");
             setShowAddModal(false);
-            fetchData(); // Refresh Inventory
-            setFormData(initialForm); // Reset form strictly
+            fetchData(); // Table refresh
+            setFormData(initialForm); // Reset
             setFiles({ images: [null, null, null, null, null], video: null });
         }
     } catch (err) { 
-        toast.error(err.response?.data?.message || "Listing failed."); 
+        console.error("Listing Error:", err.response?.data);
+        toast.error(err.response?.data?.message || "Listing failed. Please check inputs."); 
     } finally { 
         setIsSubmitting(false); 
     }
@@ -362,6 +422,24 @@ const handlePublish = async (e) => {
         setIsSubmitting(false);
     }
 };
+// New Listing click pannumpodhu form-ai clean panroam
+const openAddModal = () => {
+    setFormData(initialForm); // 🌟 THE FIX: Reset to blank
+    setVariants([]);
+    setKeyFeatures([""]);
+    setIngredientsList([""]);
+    setNutritionInfo([{ label: "", value: "" }]);
+    setFiles({ images: [null, null, null, null, null], video: null });
+    setEditId(null);
+    setShowAddModal(true);
+};
+
+// Update close pannumpodhum form-ai clean panna idhai use pannunga
+const closeUpdateModal = () => {
+    setShowUpdateModal(false);
+    setFormData(initialForm);
+    setEditId(null);
+};
 const indexOfLastProduct = currentPage * rowsPerPage;
 const indexOfFirstProduct = indexOfLastProduct - rowsPerPage;
 const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
@@ -399,11 +477,13 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
             <Icon icon="solar:chat-round-call-bold" /> REQUEST
         </button>
         
-        <button onClick={() => setShowAddModal(true)} 
-                className="btn btn-primary-600 btn-sm rounded-8 fw-bold shadow-sm d-flex align-items-center gap-1 text-white text-nowrap flex-shrink-0 px-20 py-10"
-                style={{ fontSize: '11px' }}>
-            <Icon icon="solar:add-circle-bold" className="fs-5" /> NEW LISTING
-        </button>
+        <button 
+    onClick={openAddModal} // 🌟 THE FIX: Call the reset function
+    className="btn btn-primary-600 btn-sm rounded-8 fw-bold shadow-sm d-flex align-items-center gap-1 text-white text-nowrap flex-shrink-0 px-20 py-10"
+    style={{ fontSize: '11px' }}
+>
+    <Icon icon="solar:add-circle-bold" className="fs-5" /> NEW LISTING
+</button>
     </div>
 </div>
 
@@ -426,11 +506,13 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
             
             
 <tbody>
-    {currentProducts.length > 0 ? currentProducts.map((item, index) => (
-        <tr key={item._id} className="...">
-            {/* S.No logic strictly sync with global index */}
+   {currentProducts.length > 0 ? currentProducts.map((item, index) => (
+        <tr key={item._id}>
+            {/* 🌟 THE FIX: Sequential Ascending S.No logic */}
+            {/* Old logic: products.length - (indexOfFirstProduct + index) -> Reverse order */}
+            {/* New logic: Start from 1 and sync with Pagination */}
             <td className="ps-24 fw-bold text-secondary">
-                {products.length - (indexOfFirstProduct + index)}
+                {indexOfFirstProduct + index + 1}
             </td>
                         <td style={{ width: '80px' }}>
                             <div className="w-50-px h-50-px radius-8 border bg-light d-flex align-items-center justify-content-center overflow-hidden shadow-sm">
@@ -613,9 +695,63 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                                     
 
                                     {/* COLUMN 2: SPECS & VARIANTS */}
+                                    {/* --- ADD THIS INSIDE COLUMN 2: SPECS --- */}
+
                                     <div className="col-lg-4 border-end px-lg-4">
                                         <h6 className="fw-bold text-dark mb-20 d-flex align-items-center gap-2"><Icon icon="solar:bill-list-bold" className="text-primary-600"/> Technical Specs</h6>
-                                       
+                                       <div className="mt-24 p-16 radius-12 bg-light border border-dashed">
+    <h6 className="text-xs fw-black text-dark uppercase mb-12">Manufacturing & Logistics</h6>
+    
+    <div className="mb-12">
+        <label className="form-label text-xxs fw-bold text-secondary uppercase">Manufacturer Details *</label>
+        <textarea 
+            className="form-control form-control-sm radius-8" 
+            placeholder="Name, Full Address & Batch Info"
+            value={formData.manufacturerDetails.manufacturerNameAddress}
+            onChange={e => setFormData({
+                ...formData, 
+                manufacturerDetails: { ...formData.manufacturerDetails, manufacturerNameAddress: e.target.value }
+            })}
+            required
+        />
+    </div>
+
+    <div className="row g-2">
+        <div className="col-6">
+            <label className="text-xxs fw-bold text-secondary uppercase">Customer Care</label>
+            <input 
+                type="text" className="form-control form-control-sm radius-8" placeholder="Email or Phone"
+                value={formData.manufacturerDetails.customerCareDetails}
+                onChange={e => setFormData({
+                    ...formData, 
+                    manufacturerDetails: { ...formData.manufacturerDetails, customerCareDetails: e.target.value }
+                })}
+            />
+        </div>
+        <div className="col-6">
+            <label className="text-xxs fw-bold text-secondary uppercase">Origin</label>
+            <input 
+                type="text" className="form-control form-control-sm radius-8"
+                value={formData.manufacturerDetails.countryOfOrigin}
+                onChange={e => setFormData({
+                    ...formData, 
+                    manufacturerDetails: { ...formData.manufacturerDetails, countryOfOrigin: e.target.value }
+                })}
+            />
+        </div>
+    </div>
+</div>
+
+{/* --- ADD THIS INSIDE COLUMN 3: MEDIA (Below Description) --- */}
+<div className="mt-20">
+    <label className="form-label text-xs fw-bold text-secondary uppercase">Storage & Usage Tips</label>
+    <textarea 
+        className="form-control radius-12" rows="2" 
+        placeholder="e.g. Keep in cool & dry place..."
+        value={formData.storageTips}
+        onChange={e => setFormData({...formData, storageTips: e.target.value})}
+    />
+</div>
                                         <div className="row g-2 mb-20">
                                             <div className="col-6"><label className="form-label text-xs fw-bold text-secondary">Weight/Vol</label><input type="text" className="form-control radius-10" placeholder="500g" onChange={e => setFormData({...formData, weight: e.target.value})} /></div>
                                             <div className="col-6"><label className="form-label text-xs fw-bold text-secondary">Shelf Life</label><input type="text" className="form-control radius-10" placeholder="6 Months" onChange={e => setFormData({...formData, shelfLife: e.target.value})} /></div>
@@ -665,25 +801,30 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
     <option value="false">No</option>
     <option value="true">Yes</option>
 </select></div>
-                                                <div className="col-12 animate__animated animate__fadeIn">
-                <label className="text-xxs fw-bold text-primary-600 uppercase mb-4">Return Window (Days) *</label>
-                <div className="input-group input-group-sm">
-                    <input 
-                        type="number" 
-                        className="form-control radius-8" 
-                        placeholder="e.g. 7" 
-                        value={formData.returnWindow} 
-                        onChange={e => setFormData({...formData, returnWindow: Number(e.target.value)})}
-                        min="1"
-                        max="30"
-                        required
-                    />
-                    <span className="input-group-text bg-white text-xxs fw-bold">Days</span>
-                </div>
-                <small className="text-muted" style={{fontSize: '9px'}}>Maximum 30 days allowed strictly.</small>
-            </div>
-                                            </div>
-                                        </div>
+{formData.isReturnable && (
+    <div className="col-12 animate__animated animate__fadeIn">
+        <label className="text-xxs fw-bold text-primary-600 uppercase mb-4">
+            Return Window (Days) *
+        </label>
+        <div className="input-group input-group-sm">
+            <input 
+                type="number" 
+                className="form-control radius-8" 
+                placeholder="e.g. 7" 
+                value={formData.returnWindow} 
+                onChange={e => setFormData({...formData, returnWindow: Number(e.target.value)})}
+                min="1"
+                max="30"
+                required={formData.isReturnable} // Required only if visible
+            />
+            <span className="input-group-text bg-white text-xxs fw-bold">Days</span>
+        </div>
+        
+    </div>
+)}
+                                         
+                                         </div>
+                                         </div>
 
                                         <label className="form-label text-xs fw-bold text-secondary uppercase mb-12">Product Images (5 Slots Required)</label>
                                         <div className="row g-2 mb-24">
@@ -875,6 +1016,45 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                                     <input type="number" className="form-control radius-10" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
                                 </div>
                             </div>
+                            {/* COLUMN 1: PRICING & INVENTORY (Inside showUpdateModal) */}
+<div className="mb-16">
+    <label className="form-label text-xs fw-bold text-secondary uppercase">Change Category</label>
+    <select 
+        className="form-select radius-10" 
+        value={formData.category} 
+        onChange={e => handleCategoryChange(e.target.value)}
+    >
+        <option value="">Select Category</option>
+        {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+    </select>
+</div>
+
+<div className="mb-16">
+    <label className="form-label text-xs fw-bold text-secondary uppercase">Change Sub-Category</label>
+    <select 
+        className="form-select radius-10" 
+        value={formData.subCategory} 
+        onChange={e => handleSubCategoryChange(e.target.value)}
+        disabled={!formData.category}
+    >
+        <option value="">Select Sub-Category</option>
+        {filteredSubCategories.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+    </select>
+</div>
+
+<div className="mb-16 p-12 bg-light radius-12 border">
+    <label className="form-label text-xs fw-black text-primary-600 uppercase">Map Master Product</label>
+    <select 
+        className="form-select radius-10 border-primary" 
+        value={formData.masterProductId} 
+        onChange={e => handleMasterProductSelect(e.target.value)}
+        disabled={!formData.subCategory}
+    >
+        <option value="">-- Choose From Catalog --</option>
+        {masterProductList.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+    </select>
+    <small className="text-primary-600 fw-bold d-block mt-1" style={{fontSize: '9px'}}>Current HSN: {formData.hsnCode} | GST: {formData.gstPercentage}%</small>
+</div>
 
                             <div className="mb-16">
                                 <label className="text-xxs fw-bold text-secondary uppercase">Offer Tag</label>
@@ -891,10 +1071,7 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                                 <textarea className="form-control radius-12" rows="4" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
                             </div>
 
-                            <div className="mb-16">
-                                <label className="text-xxs fw-bold text-secondary uppercase">Brand Name</label>
-                                <input type="text" className="form-control radius-10" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
-                            </div>
+                            
 
                             <div className="p-16 radius-16 bg-light border border-dashed">
                                 <label className="text-xxs fw-black text-dark uppercase mb-12 d-block">Highlights</label>
@@ -913,20 +1090,68 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                         <div className="col-lg-4 ps-lg-4">
                             <h6 className="fw-bold text-dark mb-20 uppercase ls-1" style={{fontSize:'12px'}}>3. Logistics & Source</h6>
                             
-                            <div className="row g-2 mb-20">
-                                <div className="col-6">
-                                    <label className="text-xxs fw-bold uppercase">Returnable?</label>
-                                    <select className="form-select form-select-sm radius-8" value={formData.isReturnable} onChange={e => setFormData({...formData, isReturnable: e.target.value === 'true'})}>
-                                        <option value="false">No</option><option value="true">Yes</option>
-                                    </select>
-                                </div>
-                                <div className="col-6">
-                                    <label className="text-xxs fw-bold uppercase">Free Delivery?</label>
-                                    <select className="form-select form-select-sm radius-8" value={formData.isFreeDelivery} onChange={e => setFormData({...formData, isFreeDelivery: e.target.value === 'true'})}>
-                                        <option value="false">No</option><option value="true">Yes</option>
-                                    </select>
-                                </div>
-                            </div>
+                           <div className="row g-2 mb-20">
+    <div className="col-6">
+        <label className="text-xxs fw-bold uppercase">Returnable?</label>
+        <select 
+            className="form-select form-select-sm radius-8" 
+            value={formData.isReturnable} 
+            onChange={e => {
+                const val = e.target.value === 'true';
+                setFormData({
+                    ...formData, 
+                    isReturnable: val, 
+                    // 🌟 SYNC: If 'No', reset to 0 to prevent old data persistence
+                    returnWindow: val ? formData.returnWindow : 0 
+                });
+            }}
+        >
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+        </select>
+    </div>
+
+    {/* 🌟 41. DYNAMIC RETURN WINDOW: Only visible in Update Modal when 'Yes' is active */}
+    {formData.isReturnable && (
+        <div className="col-6 animate__animated animate__fadeIn">
+            <label className="text-xxs fw-bold text-info-600 uppercase">Return Days *</label>
+            <div className="input-group input-group-sm">
+                <input 
+                    type="number" 
+                    className="form-control radius-8 border-info" 
+                    value={formData.returnWindow} 
+                    onChange={e => setFormData({...formData, returnWindow: Number(e.target.value)})}
+                    min="1"
+                    max="30"
+                    required
+                />
+                <span className="input-group-text bg-light text-xxs fw-bold">Days</span>
+            </div>
+        </div>
+    )}
+
+    {/* Free Delivery Dropdown - Conditional Layout Sync */}
+    {!formData.isReturnable && (
+        <div className="col-6">
+            <label className="text-xxs fw-bold uppercase">Free Delivery?</label>
+            <select className="form-select form-select-sm radius-8" value={formData.isFreeDelivery} onChange={e => setFormData({...formData, isFreeDelivery: e.target.value === 'true'})}>
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+            </select>
+        </div>
+    )}
+</div>
+
+{/* 🌟 Extra safety: If return is active, Free Delivery move to a new line for better UI spacing */}
+{formData.isReturnable && (
+    <div className="mb-20">
+        <label className="text-xxs fw-bold uppercase">Free Delivery?</label>
+        <select className="form-select form-select-sm radius-8" value={formData.isFreeDelivery} onChange={e => setFormData({...formData, isFreeDelivery: e.target.value === 'true'})}>
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+        </select>
+    </div>
+)}
 
                             <div className="mb-16">
                                 <label className="text-xxs fw-bold text-secondary uppercase">Manufacturer Details</label>

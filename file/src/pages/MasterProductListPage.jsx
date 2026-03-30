@@ -306,17 +306,18 @@ const handleSubmit = async (e) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {currentItems.map((item, index) => (
-                                    <tr key={item._id}>
-                                        {/* 🌟 42. S.No Descending with Hashtag */}
-                                      {/* 🌟 41. Syncing S.No with Sorted Latest Data */}
-<td className="ps-24 fw-bold text-secondary">
-    {filteredData.length - ((currentPage - 1) * rowsPerPage + index)}
-</td>
+    {currentItems.map((item, index) => (
+        <tr key={item._id}>
+            {/* 🌟 THE FIX: Sequential Ascending S.No logic */}
+            {/* Old logic: filteredData.length - (...) -> Reverse order */}
+            {/* New logic: Sync with Pagination to start from 1, 2, 3... */}
+            <td className="ps-24 fw-bold text-secondary">
+                {(currentPage - 1) * rowsPerPage + index + 1}
+            </td>
 
-{/* 🌟 Fixed Container to prevent Layout Shift */}
-<td style={{ width: '80px' }}>
-    <div className="w-50-px h-50-px radius-8 border bg-light d-flex align-items-center justify-content-center overflow-hidden shadow-sm">
+            {/* Thumbnail and other columns continue same... */}
+            <td style={{ width: '80px' }}>
+                <div className="w-50-px h-50-px radius-8 border bg-light d-flex align-items-center justify-content-center overflow-hidden shadow-sm">
         <img 
             src={item.image ? (item.image.startsWith('http') ? item.image : `https://d1utzn73483swp.cloudfront.net/${item.image}`) : "assets/images/default.png"} 
             alt="" 

@@ -16,34 +16,56 @@ const UsersOverviewOne = () => {
 
   const API_BASE_URL = "https://api.zhopingo.in/api/v1/admin";
 
-  useEffect(() => {
+  const [timeFilter, setTimeFilter] = useState("All Time"); // 🌟 Default
+
+useEffect(() => {
     fetchSellersForChart();
-  }, []);
+}, [timeFilter]); // 🚀 Re-run when filter changes
 
-  const fetchSellersForChart = async () => {
+const fetchSellersForChart = async () => {
+    setIsLoaded(false);
     try {
-      const response = await axios.get(`${API_BASE_URL}/sellers`);
-      if (response.data.success) {
-        const allSellers = response.data.data;
-        
-        const newCount = allSellers.filter(s => s.kycStatus === "pending").length;
-        const approvedCount = allSellers.filter(s => s.kycStatus === "approved").length;
+        const response = await axios.get(`${API_BASE_URL}/sellers`);
+        if (response.data.success) {
+            let allSellers = response.data.data;
+            const now = new Date();
 
-        setChartData({
-          series: [approvedCount, newCount],
-          labels: ['Approved', 'New Requests'],
-          totalSellers: allSellers.length,
-          newSellers: newCount,
-          approvedSellers: approvedCount
-        });
-        
-        // 🌟 Data fetch aagi mudindhadhum TRUE aakkiduvom
-        setIsLoaded(true);
-      }
+            // 🚀 TIME FILTER LOGIC
+            if (timeFilter !== "All Time") {
+                allSellers = allSellers.filter(s => {
+                    const joinDate = new Date(s.createdAt);
+                    if (timeFilter === "Daily") return joinDate.toDateString() === now.toDateString();
+                    
+                    if (timeFilter === "Weekly") {
+                        const weekAgo = new Date();
+                        weekAgo.setDate(now.getDate() - 7);
+                        return joinDate >= weekAgo;
+                    }
+                    
+                    if (timeFilter === "Monthly") {
+                        return joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear();
+                    }
+                    return true;
+                });
+            }
+
+            const newCount = allSellers.filter(s => s.kycStatus === "pending").length;
+            const approvedCount = allSellers.filter(s => s.kycStatus === "approved").length;
+
+            setChartData({
+                series: [approvedCount, newCount],
+                labels: ['Approved', 'New Requests'],
+                totalSellers: allSellers.length,
+                newSellers: newCount,
+                approvedSellers: approvedCount
+            });
+            
+            setIsLoaded(true);
+        }
     } catch (error) {
-      console.error("Error fetching chart data:", error);
+        console.error("Error fetching chart data:", error);
     }
-  };
+};
 
   const donutChartOptions = {
     colors: ['#FF9F43', '#485EC4'], 
@@ -74,10 +96,24 @@ const UsersOverviewOne = () => {
   return (
     <div className='col-xxl-3 col-xl-6'>
       <div className='card h-100 radius-8 border-0 overflow-hidden shadow-sm'>
-        <div className='card-body p-24'>
-          <div className='d-flex align-items-center flex-wrap gap-2 justify-content-between mb-20'>
-            <h6 className='mb-0 fw-bold text-lg text-primary-light'>Seller Overview</h6>
-          </div>
+<div className='card-body p-24'>
+    <div className='d-flex align-items-center flex-wrap gap-2 justify-content-between mb-20'>
+        <h6 className='mb-0 fw-bold text-lg text-primary-light'>Seller Overview</h6>
+        
+        {/* 🌟 Professional Compact Dropdown Filter */}
+        <select 
+            className="form-select form-select-sm w-auto border-0 bg-light fw-bold text-xxs radius-8 shadow-none cursor-pointer"
+            value={timeFilter}
+            onChange={(e) => setTimeFilter(e.target.value)}
+            style={{ fontSize: '10px', padding: '4px 24px 4px 8px' }}
+        >
+            <option value="All Time">All Time</option>
+            <option value="Daily">Today</option>
+            <option value="Weekly">This Week</option>
+            <option value="Monthly">This Month</option>
+        </select>
+    </div>
+    
 
           <div id="sellerOverviewChart" style={{ minHeight: '264px' }}>
              {/* 🌟 logic: isLoaded true-aana mattum chart-ah kaattu. 

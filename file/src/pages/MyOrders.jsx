@@ -14,6 +14,7 @@ const [rowsPerPage, setRowsPerPage] = useState(10); // Detail view modal
 const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
 const sellerId = sellerData.id || sellerData._id;
 const token = localStorage.getItem("userToken");
+const [statusFilter, setStatusFilter] = useState("All"); // 🌟 New: Status Filter State
 const API_BASE = "https://api.zhopingo.in/api/v1";
 
 
@@ -100,10 +101,25 @@ const handleReturnAction = async (orderId, approvalStatus) => {
         setIsLoading(false);
     }
 };
-    // 🌟 Intha logic strictly 'return' statement-ku mela irukanum
+// 🌟 1. First: Filter based on Selected Status
+const filteredOrders = orders.filter(order => {
+    // Current seller data mapping
+    const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+    const currentStatus = myPackage?.packageStatus || order.status;
+
+    if (statusFilter === "All") return true;
+    return currentStatus === statusFilter;
+});
+
+// 🌟 2. Second: Apply Pagination on Filtered Results
 const indexOfLastOrder = currentPage * rowsPerPage;
 const indexOfFirstOrder = indexOfLastOrder - rowsPerPage;
-const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
+const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+
+// Reset to page 1 if filter changes
+useEffect(() => {
+    setCurrentPage(1);
+}, [statusFilter]);
 // 🌟 41. Professional Confirmation Modal State
 const [confirmModal, setConfirmModal] = useState({ 
     show: false, 
@@ -112,30 +128,56 @@ const [confirmModal, setConfirmModal] = useState({
     title: '',
     message: ''
 });
-    return (
-        <div className='card h-100 p-0 radius-12 border-0 shadow-sm animate__animated animate__fadeIn'>
-            <ToastContainer position="top-right" autoClose={2000} theme="colored" />
-            
-            <div className='card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between'>
-                <div>
-                    <h6 className='text-lg fw-semibold mb-0 text-primary-600'>Shop Order Bookings</h6>
-                    <small className="text-secondary-light">Manage your products shipping and delivery</small>
-                </div>
-                <span className="badge bg-primary-600 text-white px-16 py-8 radius-pill fw-bold">Total Orders: {orders.length}</span>
+return (
+    <div className='card h-100 p-0 radius-12 border-0 shadow-sm animate__animated animate__fadeIn'>
+        <ToastContainer position="top-right" autoClose={2000} theme="colored" />
+        
+        {/* 🌟 HEADER: Flexbox structure update pannittaen */}
+        <div className='card-header border-bottom bg-base py-16 px-24 d-flex align-items-center justify-content-between flex-wrap gap-3'>
+            <div>
+                <h6 className='text-lg fw-semibold mb-0 text-primary-600'>Shop Order Bookings</h6>
+                <small className="text-secondary-light">Manage your products shipping and delivery</small>
             </div>
 
-            <div className='card-body p-24'>
-                <div className='table-responsive'>
-                    <table className='table basic-border-table mb-0 text-nowrap align-middle'>
-                        <thead className="bg-light">
-                            <tr>
-                               <th className="ps-24">S.No</th> <th>Order ID</th><th>Customer (Receiver)</th> {/* 🌟 Title changed */}
-        <th>Address</th><th>Products</th>
-                                <th>Total Share</th><th>Tracking</th><th>Status</th>
-                                <th className="text-center">Action</th>
-                            </tr>
-                        </thead>
-                       <tbody>
+            {/* 🚀 THE SYNC: Filter ippo Total Orders-ku Left-la katchithama vandhirum */}
+            <div className="d-flex align-items-center gap-3">
+                <select 
+                    className="form-select form-select-sm radius-8 border-primary-100 fw-bold bg-light" 
+                    style={{ width: '160px', height: '38px' }}
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                    <option value="All">All Statuses</option>
+                    <option value="Placed">Placed</option>
+                    <option value="Shipped">Shipped</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Returned">Returned</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+
+                <span className="badge bg-primary-600 text-white px-16 py-10 radius-pill fw-bold shadow-sm">
+                    Total Orders: {filteredOrders.length}
+                </span>
+            </div>
+        </div>
+
+        <div className='card-body p-24'>
+            <div className='table-responsive'>
+                <table className='table basic-border-table mb-0 text-nowrap align-middle'>
+                    <thead className="bg-light">
+                        <tr>
+                            <th className="ps-24">S.No</th> 
+                            <th>Order ID</th>
+                            <th>Customer (Receiver)</th>
+                            <th>Address</th>
+                            <th>Products</th>
+                            <th>Total Share</th>
+                            <th>Tracking</th>
+                            <th>Status</th>
+                            <th className="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                         
 {isLoading ? (
         <tr><td colSpan="9" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
@@ -146,20 +188,48 @@ const [confirmModal, setConfirmModal] = useState({
             <tr key={`${order._id}-${index}`}>
                 <td className="ps-24 fw-bold text-secondary">{orders.length - (indexOfFirstOrder + index)}</td>
                 <td className="fw-bold text-primary-600">#{order._id.slice(-8).toUpperCase()}</td>
-                {/* 🌟 Ensure no gaps between <td> tags in your code */}
-                <td><span className="text-sm fw-bold text-dark uppercase">{order.shippingAddress?.receiverName || order.customerId?.name}</span></td>
-                <td><small className="text-secondary fw-medium" style={{ fontSize: '10px' }}>{order.shippingAddress?.flatNo}, {order.shippingAddress?.pincode}</small></td>
+{/* Customer Column */}
+<td>
+    <div className="d-flex flex-column">
+        <span className="text-md fw-black text-dark uppercase" style={{ fontSize: '14px' }}>
+            {order.shippingAddress?.receiverName || "User"}
+        </span>
+        
+    </div>
+</td>
+
+{/* Address Column */}
+<td style={{ minWidth: '180px' }}>
+    <div className="text-dark fw-medium" style={{ fontSize: '13px', lineHeight: '1.4' }}>
+        {order.shippingAddress?.flatNo}, {order.shippingAddress?.area} <br/>
+        <span className="fw-black text-primary-600">{order.shippingAddress?.pincode}</span>
+    </div>
+</td>
 
 {/* 🌟 2. New Address & Contact Column */}
 
+                                        {/* Products Column */}
+<td>
+    <div className="d-flex flex-column gap-2 py-8">
+        {order.items.filter(i => (i.sellerId?._id || i.sellerId) === sellerId).map((item, idx) => (
+            <div key={idx} className="d-flex align-items-center gap-2">
+                <Icon icon="solar:round-alt-arrow-right-bold" className="text-primary-600" />
+                <span className="text-sm fw-bold text-dark" style={{ fontSize: '13px' }}>
+                    {item.name} 
+                    <span className="text-primary-600 ms-2">x {item.quantity}</span>
+                </span>
+            </div>
+        ))}
+    </div>
+</td>
                                         <td>
-                                            <div className="d-flex flex-column gap-1">
-                                                {order.items.filter(i => (i.sellerId?._id || i.sellerId) === sellerId).map((item, idx) => (
-                                                    <span key={idx} className="text-xxs fw-bold text-dark-light">• {item.name} (x{item.quantity})</span>
-                                                ))}
-                                            </div>
-                                        </td>
-                                        <td><span className="fw-900 text-dark">₹{sellerShare?.sellerSubtotal || 0}</span></td>
+    <div className="d-flex flex-column">
+        <span className="fw-900 text-dark" style={{ fontSize: '15px' }}>
+            ₹{sellerShare?.sellerSubtotal || 0}
+        </span>
+        <small className="text-muted fw-bold" style={{ fontSize: '10px' }}>Earnings</small>
+    </div>
+</td>
                                         
                                         {/* 🚚 Tracking Info */}
                                         <td>
@@ -194,9 +264,12 @@ const [confirmModal, setConfirmModal] = useState({
         }
 
         return (
-            <span className={`badge px-12 py-6 radius-pill text-xxs fw-black uppercase ls-1 ${badgeClass}`} style={customStyle}>
-                {currentStatus}
-            </span>
+            <td className="text-center">
+    <span className={`badge px-16 py-8 radius-pill text-xs fw-black uppercase ls-1 ${badgeClass}`} 
+          style={{ ...customStyle, fontSize: '11px', minWidth: '100px' }}>
+        {currentStatus}
+    </span>
+</td>
         );
     })()}
 </td>
@@ -317,7 +390,7 @@ const [confirmModal, setConfirmModal] = useState({
 
         <div className="d-flex gap-1 align-items-center">
             {(() => {
-                const totalPages = Math.ceil(orders.length / rowsPerPage);
+                const totalPages = Math.ceil(filteredOrders.length / rowsPerPage);
                 const pages = [];
                 if (totalPages <= 5) {
                     for (let i = 1; i <= totalPages; i++) pages.push(i);
@@ -342,7 +415,7 @@ const [confirmModal, setConfirmModal] = useState({
             })()}
         </div>
 
-        <button disabled={indexOfLastOrder >= orders.length} onClick={() => setCurrentPage(prev => prev + 1)} 
+        <button disabled={indexOfLastOrder >= filteredOrders.length} onClick={() => setCurrentPage(prev => prev + 1)} 
                 className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm">
             <Icon icon="solar:alt-arrow-right-linear" />
         </button>

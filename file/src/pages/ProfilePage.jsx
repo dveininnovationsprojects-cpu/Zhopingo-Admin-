@@ -20,36 +20,60 @@ const ProfilePage = () => {
   const API_BASE = "https://api.zhopingo.in/api/v1";
   const IMAGE_BASE = "https://api.zhopingo.in/uploads/";
 
-  useEffect(() => {
+useEffect(() => {
     if (sellerId) {
-        fetchProfileData();
-        fetchSellerRevenue();
+        fetchProfileData(); // Idhuvey Revenue-aiyum fetch pannidum
     }
-  }, [sellerId]);
+}, [sellerId]);
 
-  const fetchProfileData = async () => {
+const fetchProfileData = async () => {
     setIsLoading(true);
     try {
-      const res = await axios.get(`${API_BASE}/seller/dashboard/${sellerId}`);
-      if (res.data.success) setSellerDetails(res.data.data);
-    } catch (err) { console.error("Profile Load Error:", err); } 
-    finally { setIsLoading(false); }
-  };
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const res = await axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config);
+        
+        if (res.data.success) {
+            const data = res.data.data;
+            const profile = data.seller;
+            
+            setSellerDetails({
+                ...profile,
+                // 🚀 THE FIX: Key naming mismatch sync
+                profileImage: profile.profileImage || profile.shopLogo, 
+                shopAddress: profile.address || profile.shopAddress || {} 
+            });
 
-  const fetchSellerRevenue = async () => {
+            setTotalRevenue(data.revenue || 0);
+        }
+    } catch (err) { 
+        console.error("Profile Load Error:", err);
+    } finally { 
+        setIsLoading(false); 
+    }
+};
+
+// 2. Updated Display References (Around Line 100)
+// short-circuiting use panni undefined values-ai thadukka
+const displayData = sellerDetails || userData || {};
+const shopAddress = {
+    receiverName: displayData.shopAddress?.receiverName || displayData.name || "",
+    flatNo: displayData.shopAddress?.flatNo || "",
+    area: displayData.shopAddress?.area || "",
+    pincode: displayData.shopAddress?.pincode || ""
+};
+// ProfilePage.jsx - fetchSellerRevenue update
+const fetchSellerRevenue = async () => {
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const res = await axios.get(`${API_BASE}/orders/all`, config);
+        // Direct dashboard sync
+        const res = await axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config);
         if (res.data.success) {
-            const myOrders = res.data.data.filter(order => order.sellerSplitData?.some(split => split.sellerId === sellerId));
-            const revenue = myOrders.filter(o => o.status === "Delivered").reduce((acc, curr) => {
-                const split = curr.sellerSplitData.find(s => s.sellerId === sellerId);
-                return acc + (split?.sellerSubtotal || 0);
-            }, 0);
-            setTotalRevenue(revenue);
+            setTotalRevenue(res.data.data.revenue || 0);
         }
-    } catch (err) { console.error("Revenue Fetch Error", err); }
-  };
+    } catch (err) { 
+        console.error("Revenue Fetch Error", err); 
+    }
+};
 
 const handleUpdateField = async (e) => {
     e.preventDefault();
@@ -108,12 +132,14 @@ const handleUpdateField = async (e) => {
     finally { setIsUpdating(false); }
   };
 
-  const displayData = sellerDetails || userData;
+
 
   const openEditor = (field, label, value) => {
     setEditData({ field, label, value });
     setShowEditModal(true);
   };
+
+
 
   return (
     <div className="animate__animated animate__fadeIn pb-50">
@@ -125,14 +151,28 @@ const handleUpdateField = async (e) => {
           <div className="card radius-16 border-0 shadow-sm p-40 text-center">
             <div className="position-relative d-inline-block mb-12">
               <div className="position-relative">
-                <img 
-                  src={displayData.profileImage && displayData.profileImage !== "sellers/default-avatar.png" 
-                        ? `${IMAGE_BASE}${displayData.profileImage}` 
-                        : "https://api.dicebear.com/7.x/initials/svg?seed=" + (displayData.shopName || "S")} 
-                  className="rounded-circle border border-4 border-white shadow-lg" 
-                  style={{ width: "120px", height: "120px", objectFit: 'cover' }}
-                  alt="shop-logo" 
-                />
+
+
+<img 
+    src={
+        displayData.profileImage 
+            ? (displayData.profileImage.startsWith('http') 
+                ? displayData.profileImage // S3 Direct URL
+                : `${IMAGE_BASE}${displayData.profileImage}`) // Local /uploads/ path
+            : (displayData.shopLogo 
+                ? (displayData.shopLogo.startsWith('http') 
+                    ? displayData.shopLogo 
+                    : `${IMAGE_BASE}${displayData.shopLogo}`)
+                : `https://api.dicebear.com/7.x/initials/svg?seed=${displayData.shopName || 'S'}`)
+    } 
+    className="rounded-circle border border-4 border-white shadow-lg" 
+    style={{ width: "120px", height: "120px", objectFit: 'cover' }}
+    alt="shop-logo"
+    onError={(e) => {
+        e.target.onerror = null; 
+        e.target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${displayData.shopName || 'S'}`;
+    }} 
+/>
                 <label className="position-absolute bottom-0 end-0 btn btn-primary rounded-circle p-8 d-flex border-2 border-white shadow-sm cursor-pointer">
                    <Icon icon="solar:camera-add-bold" className="text-lg text-white" />
                    <input type="file" hidden accept="image/*" onChange={handleImageUpload} />
@@ -182,32 +222,33 @@ const handleUpdateField = async (e) => {
         <span className="badge bg-info-focus text-info-main text-xxs">REQUIRED FOR DELIVERY</span>
     </div>
     
-    <div className="row g-4">
-      <DetailBox 
-        label="Receiver Name" 
-        value={displayData.shopAddress?.receiverName} 
-        icon="solar:user-speak-bold" 
-        onEdit={() => openEditor("receiverName", "Receiver Name", displayData.shopAddress?.receiverName)} 
-      />
-      <DetailBox 
-        label="Flat / Building No" 
-        value={displayData.shopAddress?.flatNo} 
-        icon="solar:home-bold" 
-        onEdit={() => openEditor("flatNo", "Flat No", displayData.shopAddress?.flatNo)} 
-      />
-      <DetailBox 
-        label="Area / Street" 
-        value={displayData.shopAddress?.area} 
-        icon="solar:map-point-bold" 
-        onEdit={() => openEditor("area", "Area", displayData.shopAddress?.area)} 
-      />
-      <DetailBox 
-        label="Pincode" 
-        value={displayData.shopAddress?.pincode} 
-        icon="solar:streets-navigation-bold" 
-        onEdit={() => openEditor("pincode", "Pincode", displayData.shopAddress?.pincode)} 
-      />
-    </div>
+{/* --- PICKUP ADDRESS SECTION --- */}
+<div className="row g-4">
+  <DetailBox 
+    label="Receiver Name" 
+    value={shopAddress.receiverName} 
+    icon="solar:user-speak-bold" 
+    onEdit={() => openEditor("receiverName", "Receiver Name", shopAddress.receiverName)} 
+  />
+  <DetailBox 
+    label="Flat / Building No" 
+    value={shopAddress.flatNo} 
+    icon="solar:home-bold" 
+    onEdit={() => openEditor("flatNo", "Flat No", shopAddress.flatNo)} 
+  />
+  <DetailBox 
+    label="Area / Street" 
+    value={shopAddress.area} 
+    icon="solar:map-point-bold" 
+    onEdit={() => openEditor("area", "Area", shopAddress.area)} 
+  />
+  <DetailBox 
+    label="Pincode" 
+    value={shopAddress.pincode} 
+    icon="solar:streets-navigation-bold" 
+    onEdit={() => openEditor("pincode", "Pincode", shopAddress.pincode)} 
+  />
+</div>
   </div>
 </div>
 

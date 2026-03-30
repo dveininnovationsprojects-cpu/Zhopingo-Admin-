@@ -20,6 +20,9 @@ const [showProductInfo, setShowProductInfo] = useState(null);
 const [listTitle, setListTitle] = useState("Viewers List");
 // 🌟 1. Pudhu States for Reports
 const [reports, setReports] = useState([]);
+// 🌟 41. Pagination States for Reels
+const [currentPage, setCurrentPage] = useState(1);
+const [rowsPerPage, setRowsPerPage] = useState(12); // Grid aal 12 (3 column layout-ku safe)
 
 // 🌟 41. combined logic for Viewers & Likers
 // 🌟 43. combined logic for Viewers & Likers with Latest First Sort
@@ -106,7 +109,16 @@ const openProductInfo = (e, product, seller) => {
     e.stopPropagation(); // Reel zoom modal open aaguratha thadukka
     setShowProductInfo({ ...product, seller });
 };
+// 🌟 Advanced Pagination Logic for Grid
+const indexOfLastItem = currentPage * rowsPerPage;
+const indexOfFirstItem = indexOfLastItem - rowsPerPage;
+const currentReels = reels.slice(indexOfFirstItem, indexOfLastItem);
+const totalPages = Math.ceil(reels.length / rowsPerPage);
 
+// Reset to page 1 if total reels change
+useEffect(() => {
+    setCurrentPage(1);
+}, [reels.length]);
     return (
         
         <MasterLayout>
@@ -129,9 +141,10 @@ const openProductInfo = (e, product, seller) => {
                         <div className="text-center py-50"><div className="spinner-border text-primary"></div></div>
                     ) : (
                         <div className='row gy-4'>
-{reels.length > 0 ? reels.map((reel) => {
-    // 🌟 Structure mapping fix - Postman data-voda match panrom
+
+{currentReels.length > 0 ? currentReels.map((reel) => {
     const reelReports = reports.filter(r => (r.reelId?._id || r.reelId) === reel._id);
+    // ... rest of the grid code same ...
     const hasReports = reelReports.length > 0;
 
     return (
@@ -254,6 +267,47 @@ const openProductInfo = (e, product, seller) => {
                     )}
                 </div>
             </div>
+
+{/* 🌟 41. Professional Dynamic Pagination Footer for Reels */}
+<div className="card-footer bg-white border-top py-16 px-24 d-flex align-items-center justify-content-end gap-3 flex-wrap" style={{ position: 'relative', zIndex: 10 }}>
+    
+    {/* Rows Selection Dropdown */}
+    <div className="d-flex align-items-center gap-2 border-end pe-3">
+        <span className="text-xs text-secondary fw-bold">Rows per page:</span>
+        <select 
+            className="form-select form-select-sm w-auto radius-8 border-0 fw-bold bg-light shadow-none" 
+            value={rowsPerPage} 
+            onChange={e => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+        >
+            <option value={12}>12</option>
+            <option value={24}>24</option>
+            <option value={48}>48</option>
+        </select>
+    </div>
+
+    {/* Page Navigation */}
+    <div className="d-flex align-items-center gap-2">
+        <button 
+            disabled={currentPage === 1} 
+            onClick={() => { setCurrentPage(prev => prev - 1); window.scrollTo(0,0); }} 
+            className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm"
+        >
+            <Icon icon="solar:alt-arrow-left-linear" />
+        </button>
+
+        <div className="d-flex gap-1 align-items-center px-2">
+            <span className="text-xs fw-bold text-dark">Page {currentPage} of {totalPages || 1}</span>
+        </div>
+
+        <button 
+            disabled={currentPage >= totalPages} 
+            onClick={() => { setCurrentPage(prev => prev + 1); window.scrollTo(0,0); }} 
+            className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm"
+        >
+            <Icon icon="solar:alt-arrow-right-linear" />
+        </button>
+    </div>
+</div>
 
 {/* 🌟 DELETE MODAL-ku keela idhai podunga */}
 {viewReel && (
@@ -395,6 +449,7 @@ const openProductInfo = (e, product, seller) => {
         </div>
     </div>
 )}
+
         </MasterLayout>
     );
 };

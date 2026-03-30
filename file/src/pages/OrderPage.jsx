@@ -237,18 +237,21 @@ const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
                                     <th>Status</th><th>View Invoice</th><th>View Details</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {isLoading ? (
-                                    <tr><td colSpan="13" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
-                                ) : currentOrders.length > 0 ? currentOrders.map((order, index) => (
-                                   <tr key={`${order._id}-${index}`}>
-                                       {/* 🌟 42. Order Serial Number Descending with Hashtag */}
-<td>
-    <span className="fw-bold text-secondary-light">
-        {filteredOrders.length - (indexOfFirstOrder + index)}
-    </span>
-</td>
-                                        <td className="fw-bold text-primary-600">#{order._id.slice(-8).toUpperCase()}</td>
+<tbody>
+    {isLoading ? (
+        <tr><td colSpan="13" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
+    ) : currentOrders.length > 0 ? currentOrders.map((order, index) => (
+        <tr key={`${order._id}-${index}`}>
+            {/* 🌟 42. Order Serial Number Ascending Fix */}
+            {/* Start from 1 and sync with pagination (Ex: Page 2 starts from 11) */}
+            <td>
+                <span className="fw-bold text-secondary-light">
+                    {indexOfFirstOrder + index + 1}
+                </span>
+            </td>
+            
+            {/* Rest of the columns remain the same */}
+            <td className="fw-bold text-primary-600">#{order._id.slice(-8).toUpperCase()}</td>
                                         <td className="text-xs">{new Date(order.createdAt).toLocaleDateString('en-GB')}</td>
                                         <td>
                                             <button onClick={() => setViewOrder({ ...order, showDownload: false })} className="btn btn-sm radius-8 px-12 py-6 border-0 d-flex align-items-center gap-1" style={{ backgroundColor: '#F2F4F7', color: '#344054', fontSize: '11px', fontWeight: '700' }}>

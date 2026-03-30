@@ -31,11 +31,12 @@ const CustomerPage = () => {
         ]);
 
         if (custRes.data.success) {
-            // 🚀 THE FIX: Sort data by oldest first (Ascending)
-            const sortedData = custRes.data.data.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-            setCustomers(sortedData);
-            setFilteredCustomers(sortedData);
-        }
+    // 🚀 THE FIX: Sort data by Latest First (Descending)
+    // (b - a) use pannunaal pudhu data top-la varum
+    const sortedData = custRes.data.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    setCustomers(sortedData);
+    setFilteredCustomers(sortedData);
+}
         if (orderRes.data.success) setAllOrders(orderRes.data.data);
 
     } catch (error) {
@@ -94,13 +95,17 @@ const CustomerPage = () => {
     ) : currentCustomersList.length > 0 ? (
         currentCustomersList.map((item, index) => (
             <tr key={item._id}>
-                {/* 🌟 THE FIX: Ascending S.No Sync with Pagination */}
-                <td>
-                    <span className="fw-bold text-secondary-light">
-                        {indexOfFirstItem + index + 1}
-                    </span>
-                </td>
-                {/* ... Name and other columns same ... */}
+                {/* 🌟 THE FIX: Start from 1 and increment based on Pagination */}
+                {/* Page 1: (0 + 0 + 1) = 1, (0 + 1 + 1) = 2... */}
+                {/* Page 2: (10 + 0 + 1) = 11... */}
+                {/* 🌟 Sequential S.No: List latest first-ah irundhaalum, numbers 1, 2, 3... nu dhaan pogum */}
+<td>
+    <span className="fw-bold text-secondary-light">
+        {indexOfFirstItem + index + 1}
+    </span>
+</td>
+
+                {/* Name & Contact Info Column */}
                 <td>
                     <div className="d-flex flex-column gap-1">
                         <span className="fw-bold text-dark text-sm">
@@ -110,6 +115,8 @@ const CustomerPage = () => {
                         <span className="text-muted text-xxs italic fw-medium">{item.email || "No Email"}</span>
                     </div>
                 </td>
+                
+                {/* Other columns continue... */}
                 <td className="text-xs text-secondary fw-bold">{new Date(item.createdAt).toLocaleDateString('en-GB')}</td>
                 <td className="fw-900 text-success-main text-sm">₹{item.walletBalance || 0}</td>
                 <td className="text-center">
