@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"; // ✅ useEffect-ai inga add pannunga
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -8,23 +8,19 @@ import "react-toastify/dist/ReactToastify.css";
 const SignUpLayer = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1); 
-  
-  // ===========================================================
-  // SAFETY CHECK: Admin domain-la register-ah block panna
-  // ===========================================================
+
   useEffect(() => {
     if (window.location.hostname === 'admin.zhopingo.in') {
       toast.error("Registration is not allowed on Admin domain");
       navigate("/"); // Login page-ku thiruppi anupirum
     }
   }, [navigate]);
-  // ===========================================================
 
-  const API_BASE = "https://api.zhopingo.in/api/v1"; // ✅ HTTPS URL-ah mathiteengala-nu check pannunga
+
+  const API_BASE = "https://api.zhopingo.in/api/v1"; 
+
+
   
-  // ... matha states ellam inge irukkum
-
-  // Form States
   const [formData, setFormData] = useState({
     name: "", phone: "", email: "", password: "", confirmPassword: "", 
     shopName: "", panNumber: "", gstNumber: "", fssaiNumber: "", msmeNumber: ""
@@ -37,15 +33,7 @@ const SignUpLayer = () => {
 
   const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  /* ===========================================================
-  WHATSAPP OTP LOGIC (COMMENTED AS PER REQUEST)
-  ===========================================================
-  const handleSendOTP = async () => { ... }
-  const handleVerifyOTP = async () => { ... }
-  ===========================================================
-  */
 
-  // STEP 1: REGISTER DETAILS (Backend: /register)
   const handleRegisterDetails = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.password || !formData.shopName) {
@@ -59,7 +47,7 @@ const SignUpLayer = () => {
     try {
       const res = await axios.post(`${API_BASE}/seller/register`, {
         name: formData.name,
-        email: formData.email, // Primary ID as per your new backend
+        email: formData.email,
         phone: formData.phone,
         password: formData.password,
         shopName: formData.shopName
@@ -67,7 +55,7 @@ const SignUpLayer = () => {
 
       if (res.data.success) {
         toast.success("Details registered! Now upload KYC.");
-        setStep(2); // Moving to KYC step
+        setStep(2); 
       }
     } catch (err) {
       toast.error(err.response?.data?.message || "Already Registered");

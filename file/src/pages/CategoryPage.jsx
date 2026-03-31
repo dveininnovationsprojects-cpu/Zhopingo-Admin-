@@ -21,7 +21,7 @@ const CategoryPage = () => {
   const [categories, setCategories] = useState([]);
   const [hsnList, setHsnList] = useState([]);
 
-  // Pagination States
+
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -44,7 +44,7 @@ const fetchCategories = async () => {
             });
         }
 
-        // 🚀 THE FIX: Sort Categories by creation date (Oldest First)
+       
         const sortedCats = allCats.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         
         setCategories(sortedCats);
@@ -70,12 +70,12 @@ const fetchCategories = async () => {
     fetchHsnData();
   }, []);
 
-  // Filter Logic
+  
   const filteredData = categories.filter((item) =>
     searchTerm === "" || item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // 🌟 Advanced Pagination Logic
+ 
   const indexOfLastItem = currentPage * rowsPerPage;
   const indexOfFirstItem = indexOfLastItem - rowsPerPage;
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
@@ -196,12 +196,12 @@ const fetchCategories = async () => {
 <td className="text-secondary-light text-sm">
     <div 
         style={{ 
-            minWidth: '200px',         // Minimum width fix panrom
-            maxWidth: '350px',         // Romba perusa pogaama thadukka
-            whiteSpace: 'pre-wrap',    // 🌟 Idhu dhaan mukkiyam! Backend-la Enter click pannirundhaalum, illana line perusa ponaalum "one by one" kaatum.
-            wordBreak: 'break-word',   // Word perusa irundha break panni next line anuppum
-            lineHeight: '1.5',         // Padding spacing nalla irukka
-            textAlign: 'justify'       // Text neat-ah align aaga
+            minWidth: '200px',         
+            maxWidth: '350px',         
+            whiteSpace: 'pre-wrap',    
+            wordBreak: 'break-word',   
+            lineHeight: '1.5',         
+            textAlign: 'justify'       
         }}
     >
         {item.description || "---"}

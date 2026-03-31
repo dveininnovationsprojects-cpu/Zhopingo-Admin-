@@ -28,6 +28,9 @@ const ReelsPage = () => {
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     const token = localStorage.getItem("userToken");
     const sellerId = userData.id || userData._id; 
+    // 🌟 41. Pagination States for Reels (Admin Sync)
+const [currentPage, setCurrentPage] = useState(1);
+const [rowsPerPage, setRowsPerPage] = useState(12); // Grid layout-ku 12 standard
 
     const fetchReels = async () => {
         try {
@@ -138,6 +141,16 @@ const ReelsPage = () => {
         setDescription("");
         setSelectedProductId("");
     };
+    // 🌟 41. Advanced Pagination Calculation Logic
+const indexOfLastItem = currentPage * rowsPerPage;
+const indexOfFirstItem = indexOfLastItem - rowsPerPage;
+const currentReels = reels.slice(indexOfFirstItem, indexOfLastItem);
+const totalPages = Math.ceil(reels.length / rowsPerPage);
+
+// Reset to page 1 if total reels count changes (Filter sync)
+useEffect(() => {
+    setCurrentPage(1);
+}, [reels.length]);
 
     return (
         <div className="animate__animated animate__fadeIn">
@@ -153,8 +166,8 @@ const ReelsPage = () => {
                 </button>
             </div>
 
-            <div className="row gy-4">
-                {reels.length > 0 ? reels.map((reel) => (
+           <div className="row gy-4">
+    {currentReels.length > 0 ? currentReels.map((reel) => (
                     <div className="col-sm-6 col-md-4 col-xl-3" key={reel._id}>
                         <div className="card radius-16 border-0 overflow-hidden shadow-sm bg-black position-relative cursor-pointer transition-all hover-scale" 
                              style={{ height: '420px', zIndex: 0 }} onClick={() => setViewReel(reel)}>
@@ -212,6 +225,45 @@ const ReelsPage = () => {
                         <p className="text-secondary fw-bold">No promotion reels created yet.</p>
                     </div>
                 )}
+            </div>
+            <div className="card-footer bg-white border radius-12 mt-24 py-16 px-24 d-flex align-items-center justify-content-end gap-3 flex-wrap shadow-sm" style={{ position: 'relative', zIndex: 10 }}>
+                
+                {/* Rows Selection */}
+                <div className="d-flex align-items-center gap-2 border-end pe-3">
+                    <span className="text-xs text-secondary fw-bold">Rows per page:</span>
+                    <select 
+                        className="form-select form-select-sm w-auto radius-8 border-0 fw-bold bg-light shadow-none" 
+                        value={rowsPerPage} 
+                        onChange={e => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                    >
+                        <option value={12}>12</option>
+                        <option value={24}>24</option>
+                        <option value={48}>48</option>
+                    </select>
+                </div>
+
+                {/* Page Navigation */}
+                <div className="d-flex align-items-center gap-2">
+                    <button 
+                        disabled={currentPage === 1} 
+                        onClick={() => { setCurrentPage(prev => prev - 1); window.scrollTo({top: 0, behavior: 'smooth'}); }} 
+                        className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm"
+                    >
+                        <Icon icon="solar:alt-arrow-left-linear" />
+                    </button>
+
+                    <div className="d-flex gap-1 align-items-center px-2">
+                        <span className="text-xs fw-bold text-dark">Page {currentPage} of {totalPages || 1}</span>
+                    </div>
+
+                    <button 
+                        disabled={currentPage >= totalPages} 
+                        onClick={() => { setCurrentPage(prev => prev + 1); window.scrollTo({top: 0, behavior: 'smooth'}); }} 
+                        className="btn btn-icon btn-sm btn-light radius-8 border-0 shadow-sm"
+                    >
+                        <Icon icon="solar:alt-arrow-right-linear" />
+                    </button>
+                </div>
             </div>
 
             {/* 🌟 USER INTERACTION MODAL (Likers/Viewers with Scroll) */}

@@ -14,6 +14,7 @@ import AddProduct from "./AddProduct";
 import ReelsPage from "./ReelsPage";
 import ProfilePage from "./ProfilePage";
 import ThemeToggleButton from "../helper/ThemeToggleButton";
+import BusinessAnalytics from "./BusinessAnalytics";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -41,7 +42,7 @@ const [displayRevenue, setDisplayRevenue] = useState(0); // Filter-ku yetha dyna
 
     const API_BASE = "https://api.zhopingo.in/api/v1";
     // 🌟 Image Base path for sellers
-    const IMAGE_BASE = "https://api.zhopingo.in/uploads/";
+    const IMAGE_BASE = "https://d1utzn73483swp.cloudfront.net/";
 
     useEffect(() => {
         if (sellerId) {
@@ -162,12 +163,17 @@ const fetchSellerLiveStats = async () => {
     const handleLogout = () => { localStorage.clear(); navigate("/sign-in"); };
 
 const getProfileImg = () => {
-    
-    const imgPath = sellerProfile?.profileImage || sellerProfile?.shopLogo;
+    // 🌟 Profile fetch panna data-la 'seller' object kulla dhaan image irukkum
+    const profile = sellerProfile?.seller || sellerProfile; 
+    const imgPath = profile?.profileImage || profile?.shopLogo;
+
     if (imgPath) {
+        // Direct S3/CloudFront sync
         return imgPath.startsWith('http') ? imgPath : `${IMAGE_BASE}${imgPath}`;
     }
-    return `https://api.dicebear.com/7.x/initials/svg?seed=${sellerProfile?.shopName || 'Seller'}`;
+    
+    // Fallback initials if no image
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${profile?.shopName || 'Seller'}`;
 };
 
     const lineData = { 
@@ -298,6 +304,12 @@ const renderDashboard = () => (
                         <li onClick={() => {setActiveTab("reels"); setMobileMenu(false)}} className={activeTab === 'reels' ? 'active-page' : ''}>
                             <Link to='#'><Icon icon='ri:play-circle-line' className='menu-icon' /> <span>My Reels</span></Link>
                         </li>
+                        <li onClick={() => {setActiveTab("analytics"); setMobileMenu(false)}} className={activeTab === 'analytics' ? 'active-page' : ''}>
+    <Link to='#'>
+        <Icon icon='solar:chart-2-bold-duotone' className='menu-icon' /> 
+        <span>Business Analytics</span>
+    </Link>
+</li>
                     </ul>
                 </div>
             </aside>
@@ -346,8 +358,10 @@ const renderDashboard = () => (
                     {activeTab === "orders" && <MyOrders />} 
                     {activeTab === "add" && <AddProduct />}
                     {activeTab === "reels" && <ReelsPage />} 
+                    
                     {activeTab === "profile" && <ProfilePage />}
-                </div>
+{activeTab === "analytics" && <BusinessAnalytics setActiveTab={setActiveTab} />} 
+               </div>
 
                 <footer className='d-footer p-24 border-top  mt-auto'>
                     <p className='mb-0 text-secondary text-sm'>© 2026 Zhopingo Seller Hub. All Rights Reserved.</p>

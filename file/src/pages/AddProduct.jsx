@@ -34,31 +34,30 @@ const [showDeleteModal, setShowDeleteModal] = useState(false);
     const API_BASE = "https://api.zhopingo.in/api/v1";
     const IMAGE_BASE = "https://api.zhopingo.in/uploads/products/";
 
-    const initialForm = {
+const initialForm = {
     masterProductId: "",
     name: "", category: "", subCategory: "", 
-    price: "", mrp: "", purchasePrice: "", // 🌟 Backend-ku ithu romba mukkiyam
+    price: "", mrp: "", purchasePrice: "", // Schema sync
     stock: "", description: "", brand: "", 
     weight: "", shelfLife: "", fssaiLicense: "",
     hsnCode: "", gstPercentage: "", 
     isVeg: true, isFreeDelivery: false, 
     isReturnable: false, returnWindow: 0,
     offerTag: "",
-    // 🚀 Backend Nested Objects
+    ingredients: "", // 🌟 New: From Schema
+    storageTips: "",  // 🌟 New: From Schema
+    returnPolicy: "", // 🌟 New: From Schema
     highlights: { 
         productType: "", 
         cocoaContent: "", 
-        fabricType: "",
-        speciality: "" 
+        fabricType: "" 
     },
     manufacturerDetails: { 
         manufacturerNameAddress: "", 
         marketerNameAddress: "", 
         countryOfOrigin: "India", 
         customerCareDetails: "" 
-    },
-    returnPolicy: "", 
-    storageTips: ""
+    }
 };
 
     const [formData, setFormData] = useState(initialForm);
@@ -103,32 +102,27 @@ const [showDeleteModal, setShowDeleteModal] = useState(false);
 };
 
 
-    // 🚀 1. BIG MODAL TRIGGER (Pre-fill & Open)
-    const handleEditClick = async (item) => {
+const handleEditClick = async (item) => {
     setEditId(item._id);
-    setIsLoading(true); // Loading indicator start
+    setIsLoading(true);
 
     try {
         const catId = item.category?._id || item.category;
         const subCatId = item.subCategory?._id || item.subCategory;
 
-        // 🚀 1. SYNC SUB-CATEGORIES: Filter logic strictly for the selected category
+        // 1. Sync Categories & Master List for Dropdowns
         if (catId) {
             const filtered = allSubCategories.filter(sub => 
                 (sub.category === catId || sub.category?._id === catId)
             );
             setFilteredSubCategories(filtered);
         }
-
-        // 🚀 2. SYNC MASTER LIST: Backend-la irundhu andha sub-category items-ai instantaneous-ah fetch panroam
         if (subCatId) {
             const res = await axios.get(`${API_BASE}/products/master-list/${subCatId}`);
-            if (res.data.success) {
-                setMasterProductList(res.data.data);
-            }
+            if (res.data.success) setMasterProductList(res.data.data);
         }
 
-        // 🚀 3. SET FORM DATA: Ellam fetch aana apram data-vai map panroam
+        // 2. Map ALL Backend Schema fields to Form State
         setFormData({
             masterProductId: item.masterProductId?._id || item.masterProductId,
             name: item.name,
@@ -136,32 +130,41 @@ const [showDeleteModal, setShowDeleteModal] = useState(false);
             subCategory: subCatId,
             price: item.price,
             mrp: item.mrp || "",
-            purchasePrice: item.purchasePrice || "", 
+            purchasePrice: item.purchasePrice || "",
             stock: item.stock,
             brand: item.brand || "",
             description: item.description || "",
             hsnCode: item.hsnCode || "",
             gstPercentage: item.gstPercentage || "",
-            offerTag: item.offerTag || "",
+            weight: item.weight || "",
+            shelfLife: item.shelfLife || "",
+            fssaiLicense: item.fssaiLicense || "",
             isVeg: item.isVeg,
             isFreeDelivery: item.isFreeDelivery,
             isReturnable: item.isReturnable,
             returnWindow: item.returnWindow || 0,
+            offerTag: item.offerTag || "",
+            ingredients: item.ingredients || "",
+            storageTips: item.storageTips || "",
+            returnPolicy: item.returnPolicy || "",
             highlights: item.highlights || { productType: "", cocoaContent: "", fabricType: "" },
-            manufacturerDetails: item.manufacturerDetails || { manufacturerNameAddress: "", countryOfOrigin: "India" }
+            manufacturerDetails: item.manufacturerDetails || { manufacturerNameAddress: "", marketerNameAddress: "", countryOfOrigin: "India" },
+            images: item.images || [], // 🌟 This ensures old images are in state
+    video: item.video || ""
         });
-
-        // Other lists sync
+setFiles({ images: [null, null, null, null, null], video: null });
+        // 3. Map Arrays & Lists
         setVariants(item.variants || []);
         setKeyFeatures(item.keyFeatures || [""]);
-        setIngredientsList(item.ingredients ? item.ingredients.split(", ") : [""]);
-        
-        // 🚀 4. OPEN MODAL: Everything is synced now
+        // If ingredients is a string in backend, we show it in textarea via formData
+        setNutritionInfo(item.nutritionInfo?.length > 0 ? item.nutritionInfo : [{ label: "", value: "" }]);
+
+        // 4. Open Modal
         setShowUpdateModal(true);
 
     } catch (err) {
         console.error("Edit Sync Error:", err);
-        toast.error("Failed to sync catalog data for editing");
+        toast.error("Failed to fetch product details!");
     } finally {
         setIsLoading(false);
     }
@@ -172,16 +175,22 @@ const [showDeleteModal, setShowDeleteModal] = useState(false);
         setIsSubmitting(true);
         const data = new FormData();
 
-        // Strictly loop through all formData keys and Stringify Objects
-        Object.keys(formData).forEach(key => {
+        
+Object.keys(formData).forEach(key => {
+        if (key !== 'images' && key !== 'video') { // skip media here
             if (typeof formData[key] === 'object' && formData[key] !== null) {
-                data.append(key, JSON.stringify(formData[key]));
+                Object.keys(formData[key]).forEach(subKey => data.append(`${key}[${subKey}]`, formData[key][subKey]));
             } else {
                 data.append(key, formData[key]);
             }
-        });
+        }
+    });
 
         data.append("variants", JSON.stringify(variants));
+        files.images.forEach(img => { if (img) data.append("images", img); });
+    if (files.video) data.append("video", files.video);
+
+    data.append("existingImages", JSON.stringify(formData.images));
 
         try {
             const res = await axios.put(`${API_BASE}/products/update/${editId}`, data, {
@@ -249,6 +258,24 @@ const fetchData = async () => {
         toast.error("Catalog load error"); 
     } finally { 
         setIsLoading(false); 
+    }
+};
+const handleToggleStatus = async (productId) => {
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        
+        // 🌟 method change: .patch to .put
+        const res = await axios.put(`${API_BASE}/products/toggle-status/${productId}`, {}, config);
+        
+        if (res.data.success) {
+            setProducts(prev => prev.map(p => 
+                p._id === productId ? { ...p, status: res.data.status } : p
+            ));
+            toast.success(res.data.message);
+        }
+    } catch (err) {
+        console.error("Seller Status Error:", err);
+        toast.error("Failed to change product visibility!");
     }
 };
 const fetchMyRequestStatus = async () => {
@@ -322,51 +349,64 @@ const handlePublish = async (e) => {
         return toast.error("Select a product from Catalog and fill price/stock!");
     }
 
-    if (formData.isReturnable && (!formData.returnWindow || formData.returnWindow < 1)) {
-        return toast.error("Please specify a valid Return Window (1-30 days)!");
-    }
-
     setIsSubmitting(true);
     const data = new FormData();
 
-    // 🚀 2. DYNAMIC FORM SYNC (Handles Strings, Booleans & Nested Objects)
-    Object.keys(formData).forEach(key => {
-        if (typeof formData[key] === 'object' && formData[key] !== null) {
-            // Mapping Highlights & Manufacturer Details strictly for backend
-            Object.keys(formData[key]).forEach(subKey => {
-                data.append(`${key}[${subKey}]`, formData[key][subKey]);
-            });
-        } else {
-            // Strictly append basic fields like name, price, isReturnable, returnWindow etc.
-            data.append(key, formData[key]);
-        }
-    });
+    // 🚀 2. MANUAL SYNC (Avoiding Array-Casting issue)
+    // Basic Strings & Numbers
+    data.append("masterProductId", formData.masterProductId);
+    data.append("name", formData.name);
+    data.append("category", formData.category);
+    data.append("subCategory", formData.subCategory);
+    data.append("price", Number(formData.price));
+    data.append("mrp", Number(formData.mrp || 0));
+    data.append("purchasePrice", Number(formData.purchasePrice || 0));
+    data.append("stock", Number(formData.stock));
+    data.append("brand", formData.brand || "");
+    data.append("description", formData.description || "");
+    data.append("weight", formData.weight || "");
+    data.append("shelfLife", formData.shelfLife || "");
+    data.append("fssaiLicense", formData.fssaiLicense || "");
+    data.append("hsnCode", formData.hsnCode || "");
+    data.append("gstPercentage", formData.gstPercentage || 0);
+    data.append("offerTag", formData.offerTag || "");
+    data.append("storageTips", formData.storageTips || "");
+    data.append("returnPolicy", formData.returnPolicy || "");
 
-    // 🚀 3. MISSING ARRAY SYNC (Ingredients, Features & Nutrition)
+    // 🚀 3. BOOLEAN FIX (Strictly stringify true/false)
+    data.append("isVeg", String(formData.isVeg));
+    data.append("isFreeDelivery", String(formData.isFreeDelivery));
+    data.append("isReturnable", String(formData.isReturnable));
+    data.append("returnWindow", Number(formData.returnWindow || 0));
+
+    // 🚀 4. NESTED OBJECTS FIX (Flattening Highlights & Manufacturer)
+    data.append("highlights[productType]", formData.highlights?.productType || "");
+    data.append("highlights[cocoaContent]", formData.highlights?.cocoaContent || "");
+    data.append("highlights[fabricType]", formData.highlights?.fabricType || "");
+
+    data.append("manufacturerDetails[manufacturerNameAddress]", formData.manufacturerDetails?.manufacturerNameAddress || "");
+    data.append("manufacturerDetails[marketerNameAddress]", formData.manufacturerDetails?.marketerNameAddress || "");
+    data.append("manufacturerDetails[countryOfOrigin]", formData.manufacturerDetails?.countryOfOrigin || "India");
+    data.append("manufacturerDetails[customerCareDetails]", formData.manufacturerDetails?.customerCareDetails || "");
+
+    // 🚀 5. ARRAYS SYNC (Ingredients, Features & Nutrition)
+    const ingString = Array.isArray(ingredientsList) ? ingredientsList.filter(i => i.trim()).join(", ") : ingredientsList;
+    data.append("ingredients", ingString);
+
+    keyFeatures.filter(f => f.trim()).forEach((f, i) => data.append(`keyFeatures[${i}]`, f));
     
-    // Ingredients mapping
-    data.append("ingredients", ingredientsList.filter(i => i.trim()).join(", "));
-
-    // Key Features mapping (Array of strings -> Backend expects keyFeatures[0], keyFeatures[1])
-    keyFeatures.filter(f => f.trim()).forEach((f, i) => {
-        data.append(`keyFeatures[${i}]`, f);
-    });
-
-    // Nutrition Info mapping (Array of Objects -> Backend expects nutritionInfo[0][label])
     nutritionInfo.filter(n => n.label.trim()).forEach((n, i) => {
         data.append(`nutritionInfo[${i}][label]`, n.label);
         data.append(`nutritionInfo[${i}][value]`, n.value);
     });
 
-    // 🚀 4. RELATIONS & VARIANTS
+    // 🚀 6. RELATIONS, VARIANTS & FILES
     data.append("seller", currentSellerId);
     data.append("variants", JSON.stringify(variants)); 
 
-    // 🚀 5. FILES SYNC
     files.images.forEach(img => { if (img) data.append("images", img); });
     if (files.video) data.append("video", files.video);
 
-    // 🚀 6. API CALL
     try {
         const config = { 
             headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` } 
@@ -374,15 +414,15 @@ const handlePublish = async (e) => {
         const res = await axios.post(`${API_BASE}/products/add`, data, config);
 
         if (res.data.success) {
-            toast.success("Product Live on Zhopingo! 🚀 Listing Successful.");
+            toast.success("Listed Successfully! Everything Synced.");
             setShowAddModal(false);
-            fetchData(); // Table refresh
-            setFormData(initialForm); // Reset
-            setFiles({ images: [null, null, null, null, null], video: null });
+            fetchData();
+            setFormData(initialForm);
         }
     } catch (err) { 
-        console.error("Listing Error:", err.response?.data);
-        toast.error(err.response?.data?.message || "Listing failed. Please check inputs."); 
+        console.error("Listing Sync Error:", err.response?.data);
+        const backendError = err.response?.data?.error || err.response?.data?.message || "Check your inputs";
+        toast.error(`Listing failed: ${backendError}`); 
     } finally { 
         setIsSubmitting(false); 
     }
@@ -500,6 +540,7 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                     <th>Category / Sub</th>
                     <th>Price Details</th>
                     <th>Stock</th>
+                    <th className="text-center">Stock Status</th>
                     <th className="text-center">Action</th>
                 </tr>
             </thead>
@@ -544,7 +585,44 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                             <span className={`badge ${item.stock > 10 ? 'bg-success-focus text-success-main' : 'bg-danger-focus text-danger-main'} radius-pill px-12 py-4 text-xxs fw-bold`}>
                                 {item.stock} units
                             </span>
-                        </td>    
+                        </td>  
+                       <td className="text-center">
+    {(() => {
+        // 🛡️ Safety: If stock is 0, visual must stay inactive (Auto-Disabled logic)
+        const isOutOfStock = (item.stock || 0) === 0;
+        const currentStatus = isOutOfStock ? "inactive" : (item.status || "active");
+
+        return (
+            <div className="d-flex align-items-center justify-content-center gap-2">
+                <div className="d-flex flex-column align-items-center">
+                    <span className={`badge radius-pill px-12 py-6 uppercase ls-1 ${
+                        currentStatus === 'active' ? 'bg-success-focus text-success-main' : 'bg-danger-focus text-danger-main'
+                    }`} style={{ fontSize: '10px', minWidth: '85px' }}>
+                        {currentStatus}
+                    </span>
+                    {isOutOfStock && <small className="text-danger fw-bold mt-1" style={{ fontSize: '8px' }}>AUTO-DISABLED</small>}
+                </div>
+
+                {/* 🌟 THE ACTION ICON: Click to toggle visibility */}
+                <button 
+                    type="button"
+                    onClick={() => !isOutOfStock && handleToggleStatus(item._id)}
+                    className={`btn btn-sm p-4 radius-circle border-0 shadow-none transition-all ${
+                        isOutOfStock ? 'opacity-25 cursor-not-allowed' : 'hover-scale'
+                    }`}
+                    disabled={isOutOfStock}
+                    title={isOutOfStock ? "Stock is 0 - Update stock to enable" : "Change Visibility"}
+                >
+                    <Icon 
+                        icon={currentStatus === 'active' ? "solar:power-bold" : "solar:restart-bold"} 
+                        className={currentStatus === 'active' ? "text-success-main" : "text-danger-main"} 
+                        style={{ fontSize: '18px' }}
+                    />
+                </button>
+            </div>
+        );
+    })()}
+</td>  
 <td className="text-center">
     <div className="d-flex align-items-center justify-content-center gap-2">
 
@@ -691,6 +769,22 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                                             <div className="col-6"><label className="form-label text-xs fw-bold text-secondary">MRP</label><input type="number" className="form-control radius-10" placeholder="₹" onChange={e => setFormData({...formData, mrp: e.target.value})} /></div>
                                         </div>
                                         <div className="mb-16"><label className="form-label text-xs fw-bold text-secondary">Available Stock *</label><input type="number" className="form-control radius-10" placeholder="Units" onChange={e => setFormData({...formData, stock: e.target.value})} required /></div>
+                                        {/* Offer Tag Section - Add below Available Stock */}
+<div className="mb-16">
+    <label className="form-label text-xs fw-bold text-secondary uppercase">
+        Offer Tag 
+    </label>
+    <input 
+        type="text" 
+        className="form-control radius-10 border-warning-200" 
+        placeholder="e.g. 20% OFF or Limited Deal" 
+        value={formData.offerTag} 
+        onChange={e => setFormData({...formData, offerTag: e.target.value})} 
+    />
+    
+</div>
+
+
                                     </div>
                                     
 
@@ -706,7 +800,7 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
         <label className="form-label text-xxs fw-bold text-secondary uppercase">Manufacturer Details *</label>
         <textarea 
             className="form-control form-control-sm radius-8" 
-            placeholder="Name, Full Address & Batch Info"
+            placeholder="Full Address & Batch Info"
             value={formData.manufacturerDetails.manufacturerNameAddress}
             onChange={e => setFormData({
                 ...formData, 
@@ -718,17 +812,6 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
 
     <div className="row g-2">
         <div className="col-6">
-            <label className="text-xxs fw-bold text-secondary uppercase">Customer Care</label>
-            <input 
-                type="text" className="form-control form-control-sm radius-8" placeholder="Email or Phone"
-                value={formData.manufacturerDetails.customerCareDetails}
-                onChange={e => setFormData({
-                    ...formData, 
-                    manufacturerDetails: { ...formData.manufacturerDetails, customerCareDetails: e.target.value }
-                })}
-            />
-        </div>
-        <div className="col-6">
             <label className="text-xxs fw-bold text-secondary uppercase">Origin</label>
             <input 
                 type="text" className="form-control form-control-sm radius-8"
@@ -739,10 +822,20 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                 })}
             />
         </div>
+        
     </div>
 </div>
 
 {/* --- ADD THIS INSIDE COLUMN 3: MEDIA (Below Description) --- */}
+<div className="mb-16">
+    <label className="form-label text-xs fw-bold text-secondary uppercase">Full Ingredients List</label>
+    <textarea 
+        className="form-control radius-10" rows="3" 
+        placeholder="e.g. Organic Brown Rice, Natural Fibre..."
+        value={formData.ingredients}
+        onChange={e => setFormData({...formData, ingredients: e.target.value})}
+    />
+</div>
 <div className="mt-20">
     <label className="form-label text-xs fw-bold text-secondary uppercase">Storage & Usage Tips</label>
     <textarea 
@@ -778,7 +871,9 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                                             ))}
                                             <button type="button" className="btn btn-sm text-primary-600 fw-bold p-0 mt-2" onClick={() => setNutritionInfo([...nutritionInfo, {label:"", value:""}])}>+ Add Facts Row</button>
                                         </div>
+                                        
                                     </div>
+                                    
 
                                     {/* COLUMN 3: LOGISTICS & MEDIA (5 Slots) */}
                                     <div className="col-lg-4 ps-lg-4">
@@ -819,34 +914,223 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
             />
             <span className="input-group-text bg-white text-xxs fw-bold">Days</span>
         </div>
+        <div className="mb-0">
+        <label className="form-label text-xxs fw-bold text-secondary uppercase">Standard Return Policy Message</label>
+        <textarea 
+            className="form-control form-control-sm radius-8" 
+            placeholder="Specify return conditions if any..."
+            value={formData.returnPolicy}
+            onChange={e => setFormData({...formData, returnPolicy: e.target.value})}
+        />
+    </div>
         
     </div>
+    
 )}
                                          
                                          </div>
                                          </div>
 
-                                        <label className="form-label text-xs fw-bold text-secondary uppercase mb-12">Product Images (5 Slots Required)</label>
-                                        <div className="row g-2 mb-24">
-                                            {files.images.map((img, i) => (
-                                                <div className="col-4" key={i}>
-                                                    <div className="w-100 h-80-px border border-dashed radius-12 d-flex flex-column align-items-center justify-content-center cursor-pointer overflow-hidden bg-white" onClick={() => document.getElementById(`imgSlot-${i}`).click()}>
-                                                        {img ? <img src={URL.createObjectURL(img)} className="w-100 h-100 object-fit-cover" /> : <div className="text-center"><Icon icon="solar:gallery-add-linear" className="fs-4 text-muted"/><p className="mb-0" style={{fontSize:'8px'}}>Slot {i+1}</p></div>}
-                                                        <input type="file" id={`imgSlot-${i}`} hidden accept="image/*" onChange={(e) => handleImageChange(i, e.target.files[0])} />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            <div className="col-4">
-                                                <div className="w-100 h-80-px border border-dashed border-warning-200 radius-12 d-flex flex-column align-items-center justify-content-center cursor-pointer bg-warning-50" onClick={() => document.getElementById('videoSlot').click()}>
-                                                    {files.video ? <div className="text-success text-xxs fw-bold">Video OK</div> : <div className="text-center"><Icon icon="solar:videocamera-add-linear" className="fs-4 text-warning"/><p className="mb-0" style={{fontSize:'8px'}}>Add Video</p></div>}
-                                                    <input type="file" id="videoSlot" hidden accept="video/*" onChange={(e) => setFiles({...files, video: e.target.files[0]})} />
-                                                </div>
-                                            </div>
-                                        </div>
+                                       {/* 🌟 Professional Media Management with Red X Delete */}
+<label className="form-label text-xs fw-bold text-secondary uppercase mb-12">Product Images (5 Slots Required)</label>
+<div className="row g-2 mb-24">
+    {files.images.map((img, i) => (
+        <div className="col-4" key={i}>
+            <div className="position-relative" style={{ height: '80px' }}>
+                <div 
+                    className={`w-100 h-100 border border-dashed radius-12 d-flex flex-column align-items-center justify-content-center cursor-pointer overflow-hidden ${img ? 'border-primary' : 'bg-white shadow-xs'}`} 
+                    onClick={() => !img && document.getElementById(`imgSlot-${i}`).click()}
+                >
+                    {img ? (
+                        <img src={URL.createObjectURL(img)} className="w-100 h-100 object-fit-cover" alt="preview" />
+                    ) : (
+                        <div className="text-center">
+                            <Icon icon="solar:gallery-add-linear" className="fs-4 text-muted"/>
+                            <p className="mb-0" style={{fontSize:'8px'}}>Slot {i+1}</p>
+                        </div>
+                    )}
+                    <input type="file" id={`imgSlot-${i}`} hidden accept="image/*" onChange={(e) => handleImageChange(i, e.target.files[0])} />
+                </div>
 
-                                        <label className="form-label text-xs fw-bold text-secondary uppercase">Product Description *</label>
-                                        <textarea className="form-control radius-12" rows="5" placeholder="Highlight benefits, quality, and usage..." onChange={e => setFormData({...formData, description: e.target.value})} required></textarea>
+                {/* 🔴 RED X MARK DELETE BUTTON */}
+                {img && (
+                    <button 
+                        type="button" 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            handleImageChange(i, null); // Slot-ai instantaneous-ah empty aakum
+                        }} 
+                        className="position-absolute d-flex align-items-center justify-content-center p-0 shadow-lg border-0 animate__animated animate__zoomIn" 
+                        style={{ 
+                            top: "-8px", 
+                            right: "-8px", 
+                            width: "22px", 
+                            height: "22px", 
+                            backgroundColor: "#EA5455", // 🌟 Standard Red
+                            borderRadius: "50%",
+                            zIndex: 10 
+                        }}
+                    >
+                        <Icon icon="material-symbols:close-rounded" className="text-white" style={{ fontSize: "14px" }} />
+                    </button>
+                )}
+            </div>
+        </div>
+    ))}
+
+    {/* Video Slot Sync */}
+    <div className="col-4">
+        <div className="position-relative" style={{ height: '80px' }}>
+            <div 
+                className="w-100 h-100 border border-dashed border-warning-200 radius-12 d-flex flex-column align-items-center justify-content-center cursor-pointer bg-warning-50 shadow-xs" 
+                onClick={() => !files.video && document.getElementById('videoSlot').click()}
+            >
+                {files.video ? (
+                    <div className="text-center">
+                        <Icon icon="solar:videocamera-record-bold" className="text-success fs-4 animate__animated animate__pulse animate__infinite" />
+                        <p className="mb-0 text-success fw-bold uppercase" style={{fontSize:'8px'}}>Video OK</p>
+                    </div>
+                ) : (
+                    <div className="text-center">
+                        <Icon icon="solar:videocamera-add-linear" className="fs-4 text-warning"/>
+                        <p className="mb-0" style={{fontSize:'8px'}}>Add Video</p>
+                    </div>
+                )}
+                <input type="file" id="videoSlot" hidden accept="video/*" onChange={(e) => setFiles({...files, video: e.target.files[0]})} />
+            </div>
+            
+            {/* Video Delete Button */}
+            {files.video && (
+                <button 
+                    type="button" 
+                    onClick={() => setFiles({...files, video: null})} 
+                    className="position-absolute border-0 shadow-lg"
+                    style={{ top: "-8px", right: "-8px", width: "22px", height: "22px", backgroundColor: "#EA5455", borderRadius: "50%", zIndex: 10 }}
+                >
+                    <Icon icon="material-symbols:close-rounded" className="text-white" style={{ fontSize: "14px" }} />
+                </button>
+            )}
+        </div>
+    </div>
+    {/* --- ADD THIS INSIDE COLUMN 3: MEDIA (Below Video Slot) --- */}
+<div className="mt-24 pt-20 border-top">
+    <label className="form-label text-xs fw-black text-dark uppercase ls-1 mb-8">
+        Product Story / Description *
+    </label>
+    <textarea 
+        className="form-control radius-12 text-sm fw-medium shadow-none border-primary-100" 
+        rows="6" 
+        placeholder="Describe your product quality, benefits and why customers should buy it..." 
+        value={formData.description} 
+        onChange={e => setFormData({...formData, description: e.target.value})} 
+        required
+        style={{ backgroundColor: '#fcfdff' }}
+    ></textarea>
+
+</div>
+</div>
                                     </div>
+                                    {/* 🌟 Professional Product Variants Section */}
+<div className="mb-32 p-24 radius-16 bg-white border border-neutral-200 shadow-xs">
+    <div className="d-flex align-items-center justify-content-between mb-20">
+        <div>
+            <h6 className="text-sm fw-black text-dark uppercase mb-0 ls-1">Product Variants (Optional)</h6>
+            <small className="text-secondary-light fw-medium">Add different weights or sizes for this product</small>
+        </div>
+        <button 
+            type="button" 
+            onClick={() => setVariants([...variants, { attributeName: "Weight", attributeValue: "", price: "", stock: "" }])} 
+            className="btn btn-primary-600 btn-sm radius-8 px-16 py-8 fw-bold shadow-sm d-flex align-items-center gap-2"
+        >
+            <Icon icon="solar:add-circle-bold" className="fs-5" /> ADD VARIANT
+        </button>
+    </div>
+
+    {variants.length > 0 ? (
+        <div className="row g-3">
+            {variants.map((v, i) => (
+                <div key={i} className="col-12 animate__animated animate__fadeInUp mb-2">
+                    <div className="p-16 radius-12 border border-neutral-100 bg-neutral-50 d-flex align-items-end gap-3 transition-all hover-border-primary">
+                        
+                        {/* Value Input */}
+                        <div className="flex-grow-1">
+                            <label className="text-xxs fw-bold text-secondary uppercase mb-6">Variant Value (e.g. 1kg)</label>
+                            <input 
+                                type="text"
+                                className="form-control form-control-sm radius-8 border-neutral-200" 
+                                placeholder="Size/Weight"
+                                value={v.attributeValue || ""} // 🚀 THE FIX: Safety fallback
+                                onChange={e => { 
+                                    const updated = [...variants];
+                                    updated[i] = { ...updated[i], attributeValue: e.target.value };
+                                    setVariants(updated); 
+                                }} 
+                            />
+                        </div>
+
+                        {/* Price Input - Fixed Typing Issue */}
+                        <div style={{ width: '120px' }}>
+                            <label className="text-xxs fw-bold text-secondary uppercase mb-6">Price (₹)</label>
+                            <input 
+                                type="number" 
+                                className="form-control form-control-sm radius-8 border-neutral-200 no-spin" 
+                                placeholder="0"
+                                value={v.price} // 🚀 THE FIX: Direct State Link
+                                onChange={e => { 
+                                    const updated = [...variants];
+                                    updated[i] = { ...updated[i], price: e.target.value };
+                                    setVariants(updated); 
+                                }}
+                                style={{ MozAppearance: 'textfield' }}
+                            />
+                        </div>
+
+                        {/* Stock Input - Fixed Typing Issue */}
+                        <div style={{ width: '100px' }}>
+                            <label className="text-xxs fw-bold text-secondary uppercase mb-6">Stock</label>
+                            <input 
+                                type="number" 
+                                className="form-control form-control-sm radius-8 border-neutral-200 no-spin" 
+                                placeholder="0"
+                                value={v.stock} // 🚀 THE FIX: Direct State Link
+                                onChange={e => { 
+                                    const updated = [...variants];
+                                    updated[i] = { ...updated[i], stock: e.target.value };
+                                    setVariants(updated); 
+                                }}
+                                style={{ MozAppearance: 'textfield' }}
+                            />
+                        </div>
+
+                        {/* Remove Action */}
+                        <button 
+                            type="button" 
+                            onClick={() => setVariants(variants.filter((_, idx) => idx !== i))} 
+                            className="btn btn-sm btn-danger-focus text-danger-main radius-8 p-10 border-0"
+                        >
+                            <Icon icon="solar:trash-bin-minimalistic-bold" className="fs-5" />
+                        </button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    ) : (
+        <div className="text-center py-32 bg-neutral-50 radius-16 border border-dashed">
+            <Icon icon="solar:box-minimalistic-linear" className="fs-1 text-neutral-300 mb-2" />
+            <p className="text-xxs text-secondary fw-bold uppercase mb-0">No variants added. Default listing data will be used.</p>
+        </div>
+    )}
+
+    {/* 🚀 CSS for Number Arrow Removal */}
+    <style>{`
+        .no-spin::-webkit-inner-spin-button, 
+        .no-spin::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+    `}</style>
+</div>
+
                                 </div>
 
                                 <div className="mt-40">
@@ -1000,10 +1284,7 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                                     <label className="text-xxs fw-bold text-primary-600 uppercase">Selling Price (₹)</label>
                                     <input type="number" className="form-control radius-10" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
                                 </div>
-                                <div className="col-6">
-                                    <label className="text-xxs fw-bold text-success-600 uppercase">Purchase Price (₹)</label>
-                                    <input type="number" className="form-control radius-10 border-success" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} />
-                                </div>
+                                
                             </div>
 
                             <div className="row g-2 mb-16">
@@ -1073,17 +1354,63 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
 
                             
 
-                            <div className="p-16 radius-16 bg-light border border-dashed">
-                                <label className="text-xxs fw-black text-dark uppercase mb-12 d-block">Highlights</label>
-                                <div className="mb-8">
-                                    <label className="text-xxs text-muted uppercase">Product Type</label>
-                                    <input type="text" className="form-control form-control-sm" value={formData.highlights?.productType} onChange={e => setFormData({...formData, highlights: {...formData.highlights, productType: e.target.value}})} />
-                                </div>
-                                <div>
-                                    <label className="text-xxs text-muted uppercase">Cocoa / Fabric Content</label>
-                                    <input type="text" className="form-control form-control-sm" value={formData.highlights?.cocoaContent || formData.highlights?.fabricType} onChange={e => setFormData({...formData, highlights: {...formData.highlights, cocoaContent: e.target.value}})} />
-                                </div>
-                            </div>
+                            {/* Specifications Column (Column 2) - Add these below Key Highlight Features */}
+<div className="mb-16">
+    <label className="form-label text-xs fw-bold text-secondary uppercase">Full Ingredients</label>
+    <textarea 
+        className="form-control radius-10 text-sm" rows="3" 
+        value={formData.ingredients}
+        onChange={e => setFormData({...formData, ingredients: e.target.value})}
+    />
+</div>
+
+<div className="mb-16">
+    <label className="form-label text-xs fw-bold text-secondary uppercase">Storage Tips</label>
+    <textarea 
+        className="form-control radius-10 text-sm" rows="2" 
+        value={formData.storageTips}
+        onChange={e => setFormData({...formData, storageTips: e.target.value})}
+    />
+</div>
+    {/* 🌟 New: Weight & Shelf Life Sync */}
+    <div className="row g-2 mb-16">
+        <div className="col-6">
+            <label className="text-xxs fw-bold text-secondary uppercase">Weight/Vol</label>
+            <input type="text" className="form-control radius-10" value={formData.weight} onChange={e => setFormData({...formData, weight: e.target.value})} placeholder="e.g. 500g" />
+        </div>
+        <div className="col-6">
+            <label className="text-xxs fw-bold text-secondary uppercase">Shelf Life</label>
+            <input type="text" className="form-control radius-10" value={formData.shelfLife} onChange={e => setFormData({...formData, shelfLife: e.target.value})} placeholder="e.g. 6 Months" />
+        </div>
+    </div>
+
+    {/* 🌟 New: Key Highlights Features List */}
+    <label className="text-xxs fw-bold text-secondary uppercase mb-8">Key Highlight Features</label>
+    <div className="mb-24">
+        {keyFeatures.map((f, i) => (
+            <div className="d-flex gap-2 mb-2" key={i}>
+                <input className="form-control form-control-sm radius-8" value={f} onChange={e => { const n = [...keyFeatures]; n[i] = e.target.value; setKeyFeatures(n); }} placeholder="e.g. 100% Organic" />
+                <button type="button" className="btn btn-sm btn-light radius-8" onClick={() => setKeyFeatures(keyFeatures.filter((_, idx) => idx !== i))}><Icon icon="solar:trash-bin-minimalistic-bold" className="text-danger"/></button>
+            </div>
+        ))}
+        <button type="button" className="btn btn-sm text-primary-600 fw-bold p-0" onClick={() => setKeyFeatures([...keyFeatures, ""])}>+ Add Feature</button>
+    </div>
+
+    {/* 🌟 New: Nutrition Facts Summary */}
+    <label className="text-xxs fw-bold text-secondary uppercase mb-8">Nutrition Facts</label>
+    <div className="p-12 radius-12 bg-neutral-50 mb-24 border">
+        {nutritionInfo.map((n, i) => (
+            <div className="d-flex gap-1 mb-2" key={i}>
+                <input className="form-control form-control-sm radius-8 w-50" placeholder="Label" value={n.label} onChange={e => { const nArr = [...nutritionInfo]; nArr[i].label = e.target.value; setNutritionInfo(nArr); }} />
+                <input className="form-control form-control-sm radius-8 w-50" placeholder="Value" value={n.value} onChange={e => { const nArr = [...nutritionInfo]; nArr[i].value = e.target.value; setNutritionInfo(nArr); }} />
+                <button type="button" onClick={() => setNutritionInfo(nutritionInfo.filter((_, idx) => idx !== i))} className="btn btn-sm p-1"><Icon icon="solar:trash-bin-minimalistic-bold" className="text-danger"/></button>
+            </div>
+        ))}
+        <button type="button" className="btn btn-sm text-primary-600 fw-bold p-0 mt-2" onClick={() => setNutritionInfo([...nutritionInfo, {label:"", value:""}])}>+ Add Facts Row</button>
+    </div>
+
+    
+          
                         </div>
 
                         {/* COLUMN 3: LOGISTICS & MANUFACTURER */}
@@ -1162,8 +1489,186 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                                 <label className="text-xxs fw-bold text-secondary uppercase">Country of Origin</label>
                                 <input type="text" className="form-control radius-10" value={formData.manufacturerDetails?.countryOfOrigin} onChange={e => setFormData({...formData, manufacturerDetails: {...formData.manufacturerDetails, countryOfOrigin: e.target.value}})} />
                             </div>
+                            {/* COLUMN 3: MEDIA (Inside showUpdateModal) */}
+                            
+{/* 🌟 Professional Media Management (Update Sync) */}
+<label className="form-label text-xs fw-bold text-secondary uppercase mb-12">Manage Product Media (5 Slots)</label>
+<div className="row g-2 mb-24">
+    {[0, 1, 2, 3, 4].map((i) => {
+        // Slot-la entha image theryanum nu logic: 
+        // 1. Pudhusa select panna file
+        // 2. Illana backend-la irukura existing image
+        const previewUrl = files.images[i] ? URL.createObjectURL(files.images[i]) : formData.images?.[i];
+
+        return (
+            <div className="col-4" key={i}>
+                <div className="w-100 h-80-px border border-dashed radius-12 d-flex flex-column align-items-center justify-content-center cursor-pointer overflow-hidden bg-white position-relative shadow-xs">
+                    {previewUrl ? (
+                        <>
+                            <img src={previewUrl} className="w-100 h-100 object-fit-cover" alt="product" />
+                            {/* 🔴 Delete/Clear Button */}
+                            <div 
+                                className="position-absolute top-0 end-0 bg-danger text-white p-2 m-1 radius-4 cursor-pointer shadow-sm"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    // State-la irundhu current index image-ai remove panroam
+                                    const newFiles = [...files.images];
+                                    newFiles[i] = null;
+                                    setFiles({ ...files, images: newFiles });
+
+                                    const newFormDataImgs = [...(formData.images || [])];
+                                    newFormDataImgs[i] = ""; // Backend ref clear
+                                    setFormData({...formData, images: newFormDataImgs});
+                                }}
+                            >
+                                <Icon icon="solar:trash-bin-minimalistic-bold" style={{fontSize: '12px'}} />
+                            </div>
+                        </>
+                    ) : (
+                        <div className="text-center" onClick={() => document.getElementById(`updateImg-${i}`).click()}>
+                            <Icon icon="solar:gallery-add-linear" className="fs-4 text-muted"/>
+                            <p className="mb-0" style={{fontSize:'8px'}}>Slot {i+1}</p>
                         </div>
+                    )}
+                    <input type="file" id={`updateImg-${i}`} hidden accept="image/*" onChange={(e) => handleImageChange(i, e.target.files[0])} />
+                </div>
+            </div>
+        );
+    })}
+
+
+
+    {/* Video Slot */}
+    <div className="col-4">
+        <div className="w-100 h-80-px border border-dashed border-warning-200 radius-12 d-flex flex-column align-items-center justify-content-center cursor-pointer bg-warning-50 position-relative">
+            {files.video || formData.video ? (
+                <div className="text-center">
+                    <Icon icon="solar:videocamera-record-bold" className="text-success fs-4" />
+                    <p className="mb-0 text-success fw-bold" style={{fontSize:'8px'}}>VIDEO ATTACHED</p>
+                    <Icon icon="solar:close-circle-bold" className="position-absolute top-0 end-0 text-danger m-1" onClick={() => { setFiles({...files, video: null}); setFormData({...formData, video: ""}); }} />
+                </div>
+            ) : (
+                <div className="text-center" onClick={() => document.getElementById('updateVideo').click()}>
+                    <Icon icon="solar:videocamera-add-linear" className="fs-4 text-warning"/><p className="mb-0" style={{fontSize:'8px'}}>Add Video</p>
+                </div>
+            )}
+            <input type="file" id="updateVideo" hidden accept="video/*" onChange={(e) => setFiles({...files, video: e.target.files[0]})} />
+        </div>
+    </div>
+</div>
+{/* Product Description Section - Synced with State */}
+<div className="mb-24">
+    <label className="form-label text-xs fw-bold text-secondary uppercase">
+        Product Description *
+    </label>
+    <textarea 
+        className="form-control radius-12 text-sm fw-medium shadow-none border-neutral-200" 
+        rows="5" 
+        placeholder="Highlight benefits, quality, and usage..." 
+        value={formData.description || ""} // 🌟 Direct State mapping
+        onChange={e => setFormData({...formData, description: e.target.value})} 
+        required
+    ></textarea>
+
+</div>
+
+                        </div>
+                        
                     </div>
+                    {/* 🌟 Professional Variants Section - Full Length & Stock Sync */}
+<div className="mb-32 p-24 radius-16 bg-white border border-neutral-200 shadow-xs">
+    <div className="d-flex align-items-center justify-content-between mb-20">
+        <div>
+            <h6 className="text-sm fw-black text-dark uppercase mb-0 ls-1">Product Variants (Optional)</h6>
+            <small className="text-secondary-light fw-medium">Manage weights, sizes and stock for each variant</small>
+        </div>
+        <button 
+            type="button" 
+            onClick={() => setVariants([...variants, { attributeName: "Weight", attributeValue: "", price: "", stock: "" }])} 
+            className="btn btn-primary-600 btn-sm radius-8 px-16 py-8 fw-bold shadow-sm d-flex align-items-center gap-2"
+        >
+            <Icon icon="solar:add-circle-bold" className="fs-5" /> ADD VARIANT
+        </button>
+    </div>
+
+    {variants.length > 0 ? (
+        <div className="row g-3">
+            {variants.map((v, i) => (
+                <div key={i} className="col-12 animate__animated animate__fadeInUp mb-2">
+                    {/* 🚀 THE UI FIX: Full width container with synced input sizes */}
+                    <div className="p-20 radius-12 border border-neutral-100 bg-neutral-50 d-flex align-items-center gap-3 transition-all hover-border-primary shadow-xs">
+                        
+                        {/* 1. Variant Value Input (e.g., 1kg) */}
+                        <div className="flex-grow-1">
+                            <label className="text-xxs fw-bold text-secondary uppercase mb-6 d-block">Value</label>
+                            <input 
+                                type="text"
+                                className="form-control h-44-px radius-8 border-neutral-200 text-sm fw-bold text-dark" 
+                                placeholder="1kg / 500g"
+                                value={v.attributeValue || ""} 
+                                onChange={e => { 
+                                    const updated = [...variants];
+                                    updated[i] = { ...updated[i], attributeValue: e.target.value };
+                                    setVariants(updated); 
+                                }} 
+                            />
+                        </div>
+
+                        {/* 2. Price Input (₹) */}
+                        <div style={{ width: '130px' }}>
+                            <label className="text-xxs fw-bold text-secondary uppercase mb-6 d-block">Price (₹)</label>
+                            <input 
+                                type="text"
+                                className="form-control h-44-px radius-8 border-neutral-200 text-sm fw-bold text-dark" 
+                                placeholder="0"
+                                value={v.price || ""} 
+                                onChange={e => { 
+                                    const val = e.target.value.replace(/[^0-9]/g, ''); // 🌟 Numbers only
+                                    const updated = [...variants];
+                                    updated[i] = { ...updated[i], price: val };
+                                    setVariants(updated); 
+                                }}
+                            />
+                        </div>
+
+                        {/* 3. Stock Input (🌟 NEW: Integrated Stock) */}
+                        <div style={{ width: '110px' }}>
+                            <label className="text-xxs fw-bold text-secondary uppercase mb-6 d-block">Stock</label>
+                            <input 
+                                type="text"
+                                className="form-control h-44-px radius-8 border-neutral-200 text-sm fw-bold text-dark" 
+                                placeholder="Qty"
+                                value={v.stock || ""} 
+                                onChange={e => { 
+                                    const val = e.target.value.replace(/[^0-9]/g, ''); // 🌟 Numbers only
+                                    const updated = [...variants];
+                                    updated[i] = { ...updated[i], stock: val };
+                                    setVariants(updated); 
+                                }}
+                            />
+                        </div>
+
+                        {/* 4. Remove Button */}
+                        <button 
+                            type="button" 
+                            onClick={() => setVariants(variants.filter((_, idx) => idx !== i))} 
+                            className="btn btn-sm btn-danger-focus text-danger-main radius-8 p-12 border-0 mt-20"
+                        >
+                            <Icon icon="solar:trash-bin-minimalistic-bold" className="fs-5" />
+                        </button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    ) : (
+        <div className="text-center py-40 bg-neutral-50 radius-16 border border-dashed">
+            <Icon icon="solar:box-minimalistic-linear" className="fs-1 text-neutral-300 mb-2" />
+            <p className="text-xxs text-secondary fw-bold uppercase mb-0">No variants added. Default listing data will be used.</p>
+        </div>
+    )}
+
+
+    </div>
 
                     {/* Submit Button Area */}
                     <div className="mt-40 border-top pt-24">
@@ -1171,8 +1676,10 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                             {isSubmitting ? <span className="spinner-border spinner-border-sm me-2"></span> : "CONFIRM & SYNC CHANGES TO DATABASE"}
                         </button>
                     </div>
+                    
                 </form>
             </div>
+            
         </div>
     </div>
 )}

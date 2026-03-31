@@ -102,6 +102,7 @@ const getCleanImageUrl = (path) => {
                                     <th>Seller Details</th>
                                     <th>Price</th>
                                     <th>Stock</th>
+                                    <th className="text-center">Stock Status</th>
                                     <th className="text-center">View Details</th>
                                 </tr>
                             </thead>
@@ -159,11 +160,34 @@ const getCleanImageUrl = (path) => {
         )}
     </div>
 </td>
+
                                         <td>
                                             <span className={`badge ${p.stock > 10 ? 'bg-success-focus text-success-main' : 'bg-danger-focus text-danger-main'} radius-pill px-12 py-4 text-xxs fw-bold`}>
                                                 {p.stock} units
                                             </span>
                                         </td>
+                                        <td className="text-center">
+    {(() => {
+        // 🌟 THE LOGIC: If stock is 0, strictly force "INACTIVE" status visual
+        // Inga 'p' dhaan unga map loop variable (currentItems.map((p, index) => ...))
+        const isOutOfStock = (p.stock || 0) === 0;
+        const currentStatus = isOutOfStock ? "inactive" : (p.status || "active");
+
+        return (
+            <div className="d-flex flex-column align-items-center">
+                <span className={`badge radius-pill px-12 py-6 uppercase ls-1 ${
+                    currentStatus === 'active' ? 'bg-success-focus text-success-main' : 'bg-danger-focus text-danger-main'
+                }`} style={{ fontSize: '10px', minWidth: '85px' }}>
+                    {currentStatus}
+                </span>
+                {isOutOfStock && (
+                    <small className="text-danger fw-bold mt-1" style={{ fontSize: '8px' }}>AUTO-DISABLED</small>
+                )}
+            </div>
+        );
+    })()}
+</td>
+                                        
                                         <td className="text-center">
                                             <button onClick={() => setSelectedProduct(p)} className="btn btn-info-focus text-info-main p-6 radius-8 shadow-sm border-0">
                                                 <Icon icon="solar:eye-bold" className="fs-5" />

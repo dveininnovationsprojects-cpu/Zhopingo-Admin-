@@ -258,6 +258,7 @@ const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
                                                 <Icon icon="solar:box-minimalistic-bold" className="text-secondary" /> {order.items?.length || 0} Items
                                             </button>
                                         </td>
+                                        
                                         <td><div className="fw-bold text-dark text-sm">{order.customerId?.name || "User"}</div></td>
                                         
                                        {/* 🌟 15. Advanced Seller Details Sync */}

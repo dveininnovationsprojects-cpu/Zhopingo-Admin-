@@ -15,6 +15,7 @@ const PayoutsPage = () => {
     const [orders, setOrders] = useState([]);
     const [weeksList, setWeeksList] = useState([]);
     const [selectedWeek, setSelectedWeek] = useState("");
+    const [settlementData, setSettlementData] = useState(null); // 🌟 THE MISSING LINE
 
     const [financeSettings, setFinanceSettings] = useState({ 
         commissionPercent: 10, 
@@ -81,67 +82,52 @@ const PayoutsPage = () => {
 
 const fetchFilteredOrders = async (sId, week) => {
     setIsLoading(true);
+    setOrders([]); // Reset table immediately
+    setSettlementData(null); // Reset settlement data
+
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const res = await axios.get(`${API_BASE}/orders/all`, config);
         
+        const payload = {
+            sellerId: sId,
+            startDate: week.start.split('T')[0],
+            endDate: week.end.split('T')[0]
+        };
+
+        console.log("🚀 TRIGGERING SETTLEMENT FOR WEEK:", week.label, payload);
+
+        const res = await axios.post(`${API_BASE}/admin/generate-settlement`, payload, config);
+
         if (res.data.success) {
-            const filtered = res.data.data.filter(order => {
-                const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sId);
-                if (!myPackage) return false;
-
-                // 🌟 Filter strictly by 'updatedAt' for current week window
-                const lastActionDate = new Date(order.updatedAt || order.createdAt);
-                const isInWeek = lastActionDate >= new Date(week.start) && lastActionDate <= new Date(week.end);
-
-                // Check status and also ensure it's NOT already settled
-                const currentStatus = myPackage.packageStatus || order.status;
-                const isRelevantStatus = ['Delivered', 'Returned', 'Return Requested'].includes(currentStatus);
-                
-                // 🛡️ SYNC: Settled orders-ai list-la kaatta koodadhu (Clean Slate logic)
-                return isRelevantStatus && isInWeek && order.isSettled !== true;
-            });
-            setOrders(filtered);
-        }
-    } catch (err) { toast.error("Fetch Sync Failed"); }
-    finally { setIsLoading(false); }
-};
-const handleMarkAsPaid = async () => {
-    if (!selectedSeller || !selectedWeek || orders.length === 0) return;
-
-    setIsLoading(true);
-    const weekObj = JSON.parse(selectedWeek);
-
-    try {
-        const config = { headers: { Authorization: `Bearer ${token}` } };
-        
-        // 🚀 STEP 1: Generate Settlement in Backend 
-        // (Idhu automatic-ah orders-ah settle panni, Ledger-la entry podum)
-        const genRes = await axios.post(`${API_BASE}/admin/generate-settlement`, {
-            sellerId: selectedSeller._id,
-            startDate: weekObj.start.split('T')[0],
-            endDate: weekObj.end.split('T')[0]
-        }, config);
-
-        if (genRes.data.success) {
-            const settlementId = genRes.data.data._id;
-
-            // 🚀 STEP 2: Immediately mark as PAID
-            const payRes = await axios.put(`${API_BASE}/admin/mark-settlement-paid/${settlementId}`, {}, config);
-
-            if (payRes.data.success) {
-                toast.success(`Week ${weekObj.weekNo} Payout Processed Successfully! ✅`);
-                // Clear table after payment success
-                setOrders([]); 
-                fetchFilteredOrders(selectedSeller._id, weekObj); 
-            }
+            console.log("✅ SETTLEMENT DATA SYNCED:", res.data.data);
+            // 🌟 THE SYNC: Backend breakdown list-ai dhaan table-ku anuppuvom
+            setOrders(res.data.data.payoutBreakdown || []);
+            setSettlementData(res.data.data);
         }
     } catch (err) {
-        console.error("Payout Error:", err);
-        toast.error(err.response?.data?.message || "Settlement sync failed!");
+        console.error("❌ SYNC ERROR:", err.response?.status);
+        // 🛡️ Handle empty weeks strictly
+        if (err.response?.status === 404) {
+            toast.info("No Delivered or Returned orders found for this cycle.");
+        } else {
+            toast.error("Finance API sync failed!");
+        }
     } finally {
         setIsLoading(false);
     }
+};
+const handleMarkAsPaid = async () => {
+    if (!settlementData) return;
+    setIsLoading(true);
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const payRes = await axios.put(`${API_BASE}/admin/mark-settlement-paid/${settlementData._id}`, {}, config);
+        if (payRes.data.success) {
+            toast.success(`Payout of ₹${settlementData.finalSettlementAmount} processed successfully! `);
+            setSettlementData({ ...settlementData, status: 'Paid' }); // Local update
+        }
+    } catch (err) { toast.error("Payment Sync Failed"); }
+    finally { setIsLoading(false); }
 };
 
 const calculateOrderPayout = (order) => {
@@ -155,7 +141,7 @@ const calculateOrderPayout = (order) => {
     const isReturned = order.status === 'Returned' || order.status === 'Return Requested';
 
     if (isReturned) {
-        // Return aana platform commission zero
+        
         return { 
             totalPaid: totalPaidByCustomer, 
             commGst: 0, 
@@ -165,18 +151,18 @@ const calculateOrderPayout = (order) => {
             isReturned: true 
         };
     } else {
-        // 🚀 FRONTEND DYNAMIC CALCULATION (Ignoring Backend Values)
         
-        // 1. Platform Commission: Product Amount-la irundhu strictly
+        
+        
         const platformComm = (productAmount * (Number(financeSettings.commissionPercent) / 100));
 
-        // 2. GST: Intha Platform Commission-la irundhu (Ex: 18% of platformComm)
+        
         const gstAmount = (platformComm * (Number(financeSettings.gstOnCommissionPercent) / 100));
 
-        // 3. TDS: Intha Platform Commission-la irundhu strictly (Ex: 2% of platformComm)
+       
         const tdsAmount = (platformComm * (Number(financeSettings.tdsPercent) / 100));
 
-        // 🏷️ Total Deduction for Seller
+        
         const totalDeductions = platformComm + gstAmount + tdsAmount;
 
         return { 
@@ -205,54 +191,80 @@ const canDownloadReport = () => {
 };
 
 const downloadInvoice = () => {
-    const weekObj = JSON.parse(selectedWeek);
-    const doc = new jsPDF();
+    if (!selectedSeller || !selectedWeek || orders.length === 0) return;
     
-    // Header section B&W
-    doc.setFontSize(18);
-    doc.setTextColor(0, 0, 0); // Pure Black
-    doc.text("ZHOPINGO WEEKLY SETTLEMENT REPORT", 105, 15, { align: "center" });
+    const weekObj = JSON.parse(selectedWeek);
+    const doc = new jsPDF('l', 'mm', 'a4'); // strictly Landscape for space
+    
+    // 1. Header Branding (Pure Black)
+    doc.setFontSize(20);
+    doc.setTextColor(0, 0, 0); 
+    doc.text("ZHOPINGO FINANCIAL SETTLEMENT REPORT", 148, 20, { align: "center" });
     
     doc.setFontSize(10);
-    doc.text(`Shop Name: ${selectedSeller.shopName.toUpperCase()}`, 14, 25);
-    doc.text(`Settlement Cycle: ${weekObj.label}`, 14, 30);
-    doc.text(`Report Generated: ${new Date().toLocaleString()}`, 14, 35);
-    doc.line(14, 38, 196, 38); // Horizontal Line
+    doc.text(`Merchant: ${selectedSeller.shopName.toUpperCase()}`, 14, 35);
+    doc.text(`Settlement Cycle: ${weekObj.label}`, 14, 40);
+    doc.text(`Total Settlement: Rs. ${settlementData?.finalSettlementAmount || 0}`, 14, 45);
+    doc.text(`Generated On: ${new Date().toLocaleString()}`, 282, 45, { align: "right" });
+    
+    doc.setDrawColor(0); 
+    doc.line(14, 50, 282, 50);
 
-const tableBody = orders.map((o, i) => {
-    const p = calculateOrderPayout(o);
-    // Find individual status for PDF
-    const myPkg = o.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === selectedSeller?._id);
-    const currentStatus = myPkg?.packageStatus || o.status;
-
-    return [
-        i+1, 
-        new Date(o.createdAt).toLocaleDateString(), 
-        o.updatedAt ? new Date(o.updatedAt).toLocaleDateString() : "-", 
-        o._id.slice(-6).toUpperCase(), 
-        `Rs. ${p.totalPaid}`, 
-        currentStatus.toUpperCase(), // 🌟 Updated individual status
-        `Rs. ${Math.ceil(p.commGst + p.tds)}`, 
-        `Rs. ${p.delivery}`, 
-        `Rs. ${p.finalShare.toFixed(2)}`
-    ];
-});
-
-    autoTable(doc, {
-        head: [['#', 'Order Date','Status Date','Order ID', 'Total Paid', 'Status', 'Comm+GST', 'Delivery', 'Net Share']],
-        body: tableBody,
-        startY: 42,
-        theme: 'grid',
-        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] }, // Black header, White text
-        styles: { textColor: [0, 0, 0], lineColor: [0, 0, 0] }, // Black text & borders
+    // 2. Data Mapping (Strictly using Rs. to avoid encoding issues)
+    const tableBody = orders.map((row, i) => {
+        const totalFees = (row.platformCommission + row.gstOnCommission + row.tdsDeduction).toFixed(2);
+        // Syncing delivery display with your requirement
+        const deliveryTxt = row.type === 'RETURNED' ? `+ Rs. ${row.sellerShippingDeduction || 0}` : `- Rs. ${row.sellerShippingDeduction || 0}`;
+        
+        return [
+            i + 1,
+            new Date(row.statusDate).toLocaleDateString(),
+            row.orderId.toString().slice(-6).toUpperCase(),
+            row.productName || "Product", // Product Name added
+            `Rs. ${row.customerPaidTotal}`,
+            row.type,
+            `Rs. ${totalFees}`,
+            deliveryTxt,
+            `Rs. ${row.netPayableToSeller}`
+        ];
     });
 
-    // Final Total at the end of PDF
-    const finalY = doc.lastAutoTable.finalY + 10;
+    // 3. AutoTable Configuration (World Class B&W Alignment)
+    autoTable(doc, {
+        head: [['#', 'Date', 'Order ID', 'Product', 'Cust. Paid', 'Type', 'Platform Fees', 'Delivery', 'Net Share']],
+        body: tableBody,
+        startY: 55,
+        theme: 'grid',
+        headStyles: { 
+            fillColor: [0, 0, 0], 
+            textColor: [255, 255, 255], 
+            fontStyle: 'bold',
+            halign: 'center'
+        },
+        styles: { 
+            fontSize: 8, 
+            cellPadding: 4, 
+            textColor: [0, 0, 0], 
+            lineColor: [0, 0, 0],
+            valign: 'middle'
+        },
+        columnStyles: {
+            0: { halign: 'center', cellWidth: 10 },
+            4: { halign: 'right' },
+            6: { halign: 'right' },
+            7: { halign: 'right' },
+            8: { halign: 'right', fontStyle: 'bold' } // Net Share bold & right aligned
+        }
+    });
+
+    // 4. Final Total Footer
+    const finalY = doc.lastAutoTable.finalY + 15;
+    doc.setFontSize(13);
     doc.setFont(undefined, 'bold');
-    doc.text(`WEEKLY SETTLEMENT TOTAL: Rs. ${weeklyGrandTotal.toLocaleString()}`, 196, finalY, { align: "right" });
+    doc.text(`GRAND TOTAL SETTLEMENT: Rs. ${settlementData?.finalSettlementAmount || 0}`, 282, finalY, { align: "right" });
     
-    doc.save(`Settlement_${selectedSeller.shopName}_W${weekObj.weekNo}.pdf`);
+    // File saving logic
+    doc.save(`Settlement_${selectedSeller.shopName.replace(/\s+/g, '_')}_W${weekObj.weekNo}.pdf`);
 };
 
     return (
@@ -301,6 +313,7 @@ const tableBody = orders.map((o, i) => {
                                             <th className="ps-24">Order Date</th>
                                             <th className="text-primary-600">Status Date</th>
                                             <th>Order ID</th>
+                                            <th>Product</th>
                                             <th>Total Paid</th>
                                             <th>Status</th>
                                             <th>Commission + GST</th>
@@ -309,55 +322,37 @@ const tableBody = orders.map((o, i) => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {isLoading ? (
-                                            <tr><td colSpan="7" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
-                                        ) : orders.length > 0 ? orders.map((order) => {
-    const p = calculateOrderPayout(order);
-    
-    // 🌟 THE MISSING LINE (Grey Screen Fix)
-    const statusDateDisplay = order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : new Date(order.createdAt).toLocaleDateString();
-
-    return (
-       <tr key={order._id} style={p.isReturned ? { backgroundColor: '#fff5f5' } : {}}>
-    <td className="ps-24 text-xs fw-bold">{new Date(order.createdAt).toLocaleDateString()}</td>
-    <td className="text-xs fw-bold text-primary-600">{order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : "-"}</td>
-    <td className="fw-bold text-secondary">#{order._id.slice(-6).toUpperCase()}</td>
-    <td className="fw-black">₹{p.totalPaid}</td> 
-<td>
-        {(() => {
-            // Find this seller's specific package status
-            const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === selectedSeller?._id);
-            const currentStatus = myPackage?.packageStatus || order.status;
-            const isRtn = currentStatus === 'Returned' || currentStatus === 'Return Requested';
-
-            return (
-                <span className={`badge radius-pill px-12 py-6 text-xxs fw-black uppercase ${isRtn ? 'bg-danger-focus text-danger-main' : 'bg-success-focus text-success-main'}`}>
-                    {currentStatus}
-                </span>
-            );
-        })()}
-    </td>
-    
-    {/* 🌟 COMMISSION: Return-na Blur panni 0 kaatuvom */}
-    <td className={`fw-bold ${p.isReturned ? 'text-muted opacity-25' : 'text-danger-main'}`}>
-        {p.isReturned ? '₹ 0' : `- ₹${Math.ceil(p.commGst + p.tds)}`}
-    </td>
-    
-    {/* 🌟 DELIVERY: Delivered-ku Minus, Returned-ku Plus */}
-    <td className={`fw-bold ${p.isReturned ? 'text-danger-main' : 'text-danger-main'}`}>
-        {p.isReturned ? `+ ₹${p.delivery}` : `- ₹${p.delivery}`}
-    </td>
-
-    {/* 💸 FINAL SHARE */}
-    <td className={`pe-24 text-end fw-900 ${p.finalShare < 0 ? 'text-danger' : 'text-dark'}`}>
-        {p.finalShare < 0 ? `- ₹${Math.abs(p.finalShare).toLocaleString()}` : `₹${p.finalShare.toLocaleString()}`}
-    </td>
-</tr>
-    );
-                                        }) : (
-                                            <tr><td colSpan="7" className="text-center py-80 text-muted italic">No Settlements found for this cycle.</td></tr>
-                                        )}
-                                    </tbody>
+    {isLoading ? (
+        <tr><td colSpan="8" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
+    ) : orders.length > 0 ? orders.map((row, index) => (
+    <tr key={index} className={row.type === 'RETURNED' ? 'bg-danger-focus' : ''}>
+        <td className="ps-24 text-xs fw-bold">{new Date(row.statusDate).toLocaleDateString()}</td>
+        <td className="text-xs fw-bold text-primary-600">
+            {row.deliveryDate ? new Date(row.deliveryDate).toLocaleDateString() : 
+             row.returnDate ? new Date(row.returnDate).toLocaleDateString() : "-"}
+        </td>
+        <td className="fw-bold text-secondary">#{row.orderId.toString().slice(-6).toUpperCase()}</td>
+        <td className="fw-bold text-dark text-xs">{row.productName || "Product"}</td> {/* 🌟 Mapping Product Name */}
+        <td className="fw-black">₹{row.customerPaidTotal}</td>
+        <td>
+            <span className={`badge radius-pill px-12 py-6 text-xxs fw-black uppercase ${
+                row.type === 'RETURNED' ? 'bg-danger text-white' : 'bg-success-focus text-success-main'
+            }`}>
+                {row.type}
+            </span>
+        </td>
+        <td className="text-danger-main fw-bold">- ₹{(row.platformCommission + row.gstOnCommission + row.tdsDeduction).toFixed(2)}</td>
+        <td className={`fw-bold ${row.type === 'RETURNED' ? 'text-danger-main' : 'text-danger-main'}`}>
+            {row.type === 'RETURNED' ? `+ ₹${row.sellerShippingDeduction || 0}` : `- ₹${row.sellerShippingDeduction || 0}`}
+        </td>
+        <td className={`pe-24 text-end fw-900 ${row.netPayableToSeller < 0 ? 'text-danger' : 'text-dark'}`}>
+            ₹{row.netPayableToSeller.toLocaleString()}
+        </td>
+    </tr>
+    )) : (
+        <tr><td colSpan="8" className="text-center py-80 text-muted italic">No financial movements in this cycle.</td></tr>
+    )}
+</tbody>
                                 </table>
                             </div>
 <div className="card-footer bg-white border-top py-20 px-24 d-flex justify-content-between align-items-center">
@@ -367,40 +362,38 @@ const tableBody = orders.map((o, i) => {
             <span className="badge bg-dark text-white text-xxs">WEEK NO: {(selectedWeek && JSON.parse(selectedWeek).weekNo) || 0}</span>
         </div>
         <div className="border-start ps-4">
-            <span className="text-xxs fw-bold text-secondary uppercase d-block">Net Weekly Share</span>
-            <h6 className={`mb-0 fw-black ${weeklyGrandTotal < 0 ? 'text-danger' : 'text-success-main'}`}>
-                ₹{weeklyGrandTotal.toLocaleString()}
+            <span className="text-xxs fw-bold text-secondary uppercase d-block">Total Payable</span>
+            {/* 🚀 THE SYNC: Direct-ah settlementData-la irunthu backend total edukkuroam */}
+            <h6 className={`mb-0 fw-900 ${ (settlementData?.finalSettlementAmount || 0) < 0 ? 'text-danger' : 'text-success-main'}`}>
+                ₹{settlementData?.finalSettlementAmount?.toLocaleString() || "0"}
             </h6>
         </div>
     </div>
 
     <div className="d-flex gap-2">
-    {orders.length > 0 && canDownloadReport() ? (
-        <>
-            {/* Find if orders in this list are already settled */}
-            {orders.some(o => o.isSettled === true) ? (
-                <div className="badge bg-success-focus text-success-main px-16 py-10 radius-8 fw-black border border-success-200">
-                    <Icon icon="solar:check-circle-bold" className="me-1" /> SETTLED & SYNCED
-                </div>
-            ) : (
-                <button 
-                    onClick={handleMarkAsPaid} 
-                    disabled={isLoading}
-                    className="btn btn-primary-600 radius-8 fw-bold d-flex align-items-center gap-2 shadow-lg animate__animated animate__pulse animate__infinite"
-                >
-                    {isLoading ? <span className="spinner-border spinner-border-sm"></span> : <Icon icon="solar:wad-of-money-bold" />}
-                    MARK AS PAID
+        {orders.length > 0 && (
+            <>
+                {/* 🌟 Mark as Paid Button: Always visible if orders exist */}
+                {settlementData?.status === "Paid" ? (
+                    <div className="badge bg-success-focus text-success-main px-16 py-10 radius-8 fw-black border border-success-200">
+                        <Icon icon="solar:check-circle-bold" className="me-1" /> SETTLED & PAID
+                    </div>
+                ) : (
+                    <button 
+                        onClick={handleMarkAsPaid} 
+                        disabled={isLoading}
+                        className="btn btn-primary-600 radius-8 fw-bold d-flex align-items-center gap-2 shadow-lg"
+                    >
+                        {isLoading ? <span className="spinner-border spinner-border-sm"></span> : <Icon icon="solar:wad-of-money-bold" />}
+                        MARK AS PAID
+                    </button>
+                )}
+                
+                {/* 🌟 Report Button: Restriction removed, any time download pannalam */}
+                <button onClick={downloadInvoice} className="btn btn-outline-dark radius-8 fw-bold d-flex align-items-center gap-1">
+                    <Icon icon="solar:file-download-bold" /> REPORT
                 </button>
-            )}
-            
-            <button onClick={downloadInvoice} className="btn btn-outline-dark radius-8 fw-bold">
-                <Icon icon="solar:file-download-bold" /> REPORT
-            </button>
-        </>
-        ) : (
-            <div className="text-muted text-xxs fw-bold italic border p-2 radius-8 bg-light">
-                Settlement window opens after cycle ends.
-            </div>
+            </>
         )}
     </div>
 </div>

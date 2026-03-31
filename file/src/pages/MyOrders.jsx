@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Icon } from "@iconify/react";
 import { toast, ToastContainer } from "react-toastify";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable"; // 🌟 Change this line
 
 const MyOrders = () => {
     const [orders, setOrders] = useState([]);
@@ -9,7 +11,8 @@ const MyOrders = () => {
     const [viewOrder, setViewOrder] = useState(null);
     // 🌟 41. Pagination States for Seller Orders
 const [currentPage, setCurrentPage] = useState(1);
-const [rowsPerPage, setRowsPerPage] = useState(10); // Detail view modal
+const [rowsPerPage, setRowsPerPage] = useState(10);
+const [selectedOrders, setSelectedOrders] = useState([]); // 🌟 Bulk selection check // Detail view modal
     
 const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
 const sellerId = sellerData.id || sellerData._id;
@@ -36,6 +39,135 @@ const API_BASE = "https://api.zhopingo.in/api/v1";
     
 
     useEffect(() => { fetchOrders(); }, [sellerId]);
+    const handleBulkInvoice = () => {
+    if (selectedOrders.length === 0) return toast.warn("Select at least one order!");
+
+    const doc = new jsPDF();
+    const ordersToProcess = orders.filter(o => selectedOrders.includes(o._id));
+
+    ordersToProcess.forEach((order, index) => {
+        const sellerItems = order.items.filter(i => (i.sellerId?._id || i.sellerId) === sellerId);
+        const sellerShare = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+
+        // 1. Header
+        doc.setFontSize(22);
+        doc.text("INVOICE", 105, 20, { align: "center" });
+        doc.setFontSize(10);
+        doc.text(`Order ID: #${order._id.toUpperCase()}`, 14, 30);
+        doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`, 14, 35);
+        doc.line(14, 40, 196, 40);
+
+        // 2. Shipping
+        doc.setFont("helvetica", "bold");
+        doc.text("SHIP TO:", 14, 50);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${order.shippingAddress?.receiverName}`, 14, 55);
+        doc.text(`${order.shippingAddress?.flatNo}, ${order.shippingAddress?.area}`, 14, 60);
+        doc.text(`${order.shippingAddress?.city}, ${order.shippingAddress?.pincode}`, 14, 65);
+
+        // 3. Table
+        const tableRows = sellerItems.map((item, idx) => [
+            idx + 1, item.name, `X ${item.quantity}`, `Rs. ${item.price}`, `Rs. ${item.price * item.quantity}`
+        ]);
+
+        autoTable(doc, {
+            startY: 75,
+            head: [['S.No', 'Product Name', 'Qty', 'Unit Price', 'Subtotal']],
+            body: tableRows,
+            theme: 'striped',
+            headStyles: { fillColor: [0, 0, 0] },
+        });
+
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.text(`Seller Total: Rs. ${sellerShare?.sellerSubtotal || 0}`, 196, finalY, { align: "right" });
+
+        // 🚀 THE MAGIC: If not the last order, add a new page
+        if (index < ordersToProcess.length - 1) {
+            doc.addPage();
+        }
+    });
+
+    doc.save(`Bulk_Invoices_${new Date().getTime()}.pdf`);
+    toast.success(`${selectedOrders.length} Invoices Downloaded in 1 PDF!`);
+};
+
+// Bulk Ship Logic
+const handleBulkShip = async () => {
+    if (selectedOrders.length === 0) return toast.warn("Select orders to ship!");
+    setIsLoading(true);
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        // Backend loops panni update panna manual-ah multiple calls or single bulk route use pannalam
+        await Promise.all(selectedOrders.map(id => 
+            axios.put(`${API_BASE}/orders/update-status/${id}`, { status: 'Shipped', sellerId }, config)
+        ));
+        toast.success("All selected orders marked as Shipped!");
+        setSelectedOrders([]);
+        fetchOrders();
+    } catch (err) { toast.error("Bulk shipping failed!"); }
+    finally { setIsLoading(false); }
+};
+    const generateInvoice = (order) => {
+    try {
+        const doc = new jsPDF();
+        const sellerItems = order.items.filter(i => (i.sellerId?._id || i.sellerId) === sellerId);
+        const sellerShare = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+
+        // 1. Header (Black & White)
+        doc.setFontSize(22);
+        doc.text("INVOICE", 105, 20, { align: "center" });
+        
+        doc.setFontSize(10);
+        doc.text("Platform: Zhopingo ", 14, 30);
+        doc.text(`Order ID: #${order._id.toUpperCase()}`, 14, 35);
+        doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`, 14, 40);
+
+        // 2. Shipping Details
+        doc.line(14, 45, 196, 45);
+        doc.setFont("helvetica", "bold");
+        doc.text("SHIP TO:", 14, 55);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${order.shippingAddress?.receiverName}`, 14, 60);
+        doc.text(`${order.shippingAddress?.flatNo}, ${order.shippingAddress?.area}`, 14, 65);
+        doc.text(`${order.shippingAddress?.city}, ${order.shippingAddress?.pincode}`, 14, 70);
+        doc.text(`Contact: ${order.shippingAddress?.phone}`, 14, 75);
+
+        // 3. Product Table Logic - 🚀 THE FIX: Use autoTable(doc, options)
+        const tableRows = sellerItems.map((item, index) => [
+            index + 1,
+            item.name,
+            `X ${item.quantity}`,
+            `Rs. ${item.price}`,
+            `Rs. ${item.price * item.quantity}`
+        ]);
+
+        autoTable(doc, { // 🌟 Use it as a function directly
+            startY: 85,
+            head: [['S.No', 'Product Name', 'Qty', 'Unit Price', 'Subtotal']],
+            body: tableRows,
+            theme: 'striped',
+            headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] },
+            styles: { fontSize: 9, cellPadding: 3 },
+        });
+
+        // 4. Totals
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.setFont("helvetica", "bold");
+        doc.text(`Total Earnings: Rs. ${sellerShare?.sellerSubtotal || 0}`, 196, finalY, { align: "right" });
+        
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "italic");
+       
+
+        // 5. Save/Download
+        doc.save(`Invoice_${order._id.slice(-6).toUpperCase()}.pdf`);
+        toast.success("Invoice Downloaded! ✅");
+
+    } catch (error) {
+        console.error("PDF Generation Error:", error);
+        toast.error("Failed to generate PDF. Check console.");
+    }
+};
 // 🚚 1. Ship Now Logic (Added sellerId in payload)
 const handleShipOrder = async (orderId) => {
     try {
@@ -111,6 +243,7 @@ const filteredOrders = orders.filter(order => {
     return currentStatus === statusFilter;
 });
 
+
 // 🌟 2. Second: Apply Pagination on Filtered Results
 const indexOfLastOrder = currentPage * rowsPerPage;
 const indexOfFirstOrder = indexOfLastOrder - rowsPerPage;
@@ -141,6 +274,17 @@ return (
 
             {/* 🚀 THE SYNC: Filter ippo Total Orders-ku Left-la katchithama vandhirum */}
             <div className="d-flex align-items-center gap-3">
+    {selectedOrders.length > 0 && (
+        <div className="animate__animated animate__fadeIn d-flex gap-2 border-end pe-3">
+            <button onClick={handleBulkInvoice} className="btn btn-dark btn-sm radius-8 d-flex align-items-center gap-1 fw-bold">
+                <Icon icon="solar:file-download-bold" className="fs-5" /> BULK INVOICE ({selectedOrders.length})
+            </button>
+            <button onClick={handleBulkShip} className="btn btn-primary-600 btn-sm radius-8 d-flex align-items-center gap-1 fw-bold">
+                <Icon icon="solar:delivery-bold" className="fs-5" /> BULK SHIP
+            </button>
+        </div>
+    )}
+            <div className="d-flex align-items-center gap-3">
                 <select 
                     className="form-select form-select-sm radius-8 border-primary-100 fw-bold bg-light" 
                     style={{ width: '160px', height: '38px' }}
@@ -159,21 +303,39 @@ return (
                     Total Orders: {filteredOrders.length}
                 </span>
             </div>
+            </div>
         </div>
 
         <div className='card-body p-24'>
             <div className='table-responsive'>
                 <table className='table basic-border-table mb-0 text-nowrap align-middle'>
                     <thead className="bg-light">
-                        <tr>
-                            <th className="ps-24">S.No</th> 
+    <tr>
+        {/* 🌟 BULK CHECKBOX & S.NO BOTH INTEGRATED */}
+        <th className="ps-24" style={{ width: '80px' }}>
+            <div className="d-flex align-items-center gap-3">
+                <input 
+                    type="checkbox" 
+                    className="form-check-input shadow-none cursor-pointer"
+                    onChange={(e) => {
+                        if (e.target.checked) setSelectedOrders(currentOrders.map(o => o._id));
+                        else setSelectedOrders([]);
+                    }}
+                    checked={selectedOrders.length === currentOrders.length && currentOrders.length > 0}
+                />
+                <span className="text-xxs fw-bold uppercase text-secondary">S.No</span>
+            </div>
+        </th>
+                             
                             <th>Order ID</th>
+                            <th>Order Date</th>
                             <th>Customer (Receiver)</th>
                             <th>Address</th>
                             <th>Products</th>
                             <th>Total Share</th>
                             <th>Tracking</th>
                             <th>Status</th>
+                            <th className="text-center">Invoice</th>
                             <th className="text-center">Action</th>
                         </tr>
                     </thead>
@@ -185,9 +347,41 @@ return (
         const sellerShare = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
         
         return (
-            <tr key={`${order._id}-${index}`}>
-                <td className="ps-24 fw-bold text-secondary">{orders.length - (indexOfFirstOrder + index)}</td>
+<tr key={`${order._id}-${index}`}>
+    {/* 🌟 INDIVIDUAL ROW: Checkbox + Ascending S.No (1, 2, 3...) */}
+    <td className="ps-24">
+        <div className="d-flex align-items-center gap-3">
+            <input 
+                type="checkbox" 
+                className="form-check-input shadow-none cursor-pointer"
+                checked={selectedOrders.includes(order._id)}
+                onChange={() => {
+                    if (selectedOrders.includes(order._id)) {
+                        setSelectedOrders(selectedOrders.filter(id => id !== order._id));
+                    } else {
+                        setSelectedOrders([...selectedOrders, order._id]);
+                    }
+                }}
+            />
+            {/* 🚀 THE FIX: (Previous Pages Count + Current Index + 1) */}
+            <span className="fw-bold text-secondary">
+                {indexOfFirstOrder + index + 1}
+            </span>
+        </div>
+    </td>
                 <td className="fw-bold text-primary-600">#{order._id.slice(-8).toUpperCase()}</td>
+                <td>
+    <div className="d-flex flex-column">
+        <span className="text-sm fw-bold text-dark" style={{ fontSize: '13px' }}>
+            {new Date(order.createdAt).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            })}
+        </span>
+        
+    </div>
+</td>
 {/* Customer Column */}
 <td>
     <div className="d-flex flex-column">
@@ -240,6 +434,8 @@ return (
                                                 </div>
                                             ) : <span className="text-muted text-xxs italic">Not Shipped</span>}
                                         </td>
+                                        {/* Invoice Column - Add this before Action <td> */}
+
 
 <td>
     {(() => {
@@ -273,6 +469,16 @@ return (
         );
     })()}
 </td>
+<td className="text-center">
+                <button 
+                    onClick={() => generateInvoice(order)}
+                    className="btn btn-sm btn-outline-dark p-8 radius-8 shadow-none transition-all hover-bg-dark hover-text-white"
+                    title="Download Black & White Invoice"
+                >
+                    <Icon icon="solar:file-download-bold" className="fs-5" />
+                </button>
+            </td>
+
 
 {/* 🌟 Action Logic: Synced with Seller Part Only */}
 <td className="text-center">

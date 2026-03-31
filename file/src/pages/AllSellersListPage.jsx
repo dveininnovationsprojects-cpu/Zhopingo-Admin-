@@ -15,7 +15,8 @@ const AllSellersListPage = () => {
     const [selectedSeller, setSelectedSeller] = useState(null); // 🌟 Detail modal state
     const navigate = useNavigate();
     const [kycView, setKycView] = useState(null); // 🌟 KYC View state
-const IMAGE_BASE = "https://api.zhopingo.in/"; // 🌟 Documents base URL
+// 🚀 THE FIX: Cloudfront URL for fast and secure document access
+const IMAGE_BASE = "https://d1utzn73483swp.cloudfront.net/"; // 🌟 Documents base URL
 
     // Pagination States
     const [currentPage, setCurrentPage] = useState(1);
@@ -260,25 +261,35 @@ const handleToggleBrand = async (item) => {
                             { label: "PAN CARD", doc: kycView.kycDocuments?.panDoc, num: kycView.panNumber },
                             { label: "GST CERTIFICATE", doc: kycView.kycDocuments?.gstDoc, num: kycView.gstNumber },
                             { label: "FSSAI LICENSE", doc: kycView.kycDocuments?.fssaiDoc, num: kycView.fssaiNumber || "N/A" },
-                            { label: "MSME / UDYAM", doc: kycView.kycDocuments?.msmeDoc, num: kycView.msmeNumber || "N/A" }
+                            { label: "MSME", doc: kycView.kycDocuments?.msmeDoc}
                         ].map((d, i) => (
                             <div className="col-md-6" key={i}>
-                                <div className="p-16 radius-16 border bg-light h-100">
-                                    <label className="text-xxs fw-black text-secondary uppercase d-block mb-8">{d.label}</label>
-                                    <p className="fw-bold text-dark text-xs mb-12">No: {d.num}</p>
-                                    
-                                    {d.doc?.fileUrl ? (
-                                        <a 
-                                            href={`${IMAGE_BASE}${d.doc.fileUrl}`} 
-                                            target="_blank" 
-                                            rel="noreferrer"
-                                            className="btn btn-sm btn-white w-100 radius-8 border shadow-sm d-flex align-items-center justify-content-center gap-2 text-primary-600 fw-bold"
-                                        >
-                                            <Icon icon="solar:file-download-bold" /> Open Document
-                                        </a>
-                                    ) : (
-                                        <div className="text-muted text-xxs italic border-top pt-8 mt-4">Document not uploaded</div>
-                                    )}
+                               {/* 🌟 Inside mapping of kycView documents */}
+<div className="p-16 radius-16 border bg-light h-100">
+    <label className="text-xxs fw-black text-secondary uppercase d-block mb-8">{d.label}</label>
+    
+    {/* 🚀 THE FIX: Only show the "No:" line if a number actually exists */}
+    {d.num && d.num !== "N/A" ? (
+        <p className="fw-bold text-dark text-xs mb-12">No: {d.num}</p>
+    ) : (
+        <div className="mb-12" style={{ height: '18px' }}></div> // Spacer to maintain UI height consistency
+    )}
+    
+    {d.doc?.fileUrl ? (
+        <a 
+            href={`${IMAGE_BASE}${d.doc.fileUrl}`} 
+            target="_blank" 
+            rel="noreferrer"
+            className="btn btn-sm btn-white w-100 radius-8 border shadow-sm d-flex align-items-center justify-content-center gap-2 text-primary-600 fw-bold transition-all hover-scale"
+        >
+            <Icon icon="solar:eye-bold" /> Open {d.label}
+        </a>
+    ) : (
+        <div className="text-muted text-xxs italic border-top pt-8 mt-4 animate__animated animate__fadeIn">
+            Document not uploaded
+        </div>
+    )}
+
                                 </div>
                             </div>
                         ))}

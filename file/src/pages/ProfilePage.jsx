@@ -12,13 +12,24 @@ const ProfilePage = () => {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [kycDocs, setKycDocs] = useState(null); // 🌟 KYC Docs state
+const [showDocModal, setShowDocModal] = useState(false); // 🌟 Doc update modal
+const [uploadingDoc, setUploadingDoc] = useState({ field: "", label: "" });
+const [showAddressModal, setShowAddressModal] = useState(false);
+const [addressForm, setAddressForm] = useState({
+    receiverName: "",
+    flatNo: "",
+    area: "",
+    pincode: ""
+});
 
   // 🌟 Modal States
   const [showEditModal, setShowEditModal] = useState(false);
   const [editData, setEditData] = useState({ field: "", label: "", value: "" });
 
   const API_BASE = "https://api.zhopingo.in/api/v1";
-  const IMAGE_BASE = "https://api.zhopingo.in/uploads/";
+  // 🚀 THE FIX: CloudFront URL for Store Logo
+const IMAGE_BASE = "https://d1utzn73483swp.cloudfront.net/";
 
 useEffect(() => {
     if (sellerId) {
@@ -26,32 +37,85 @@ useEffect(() => {
     }
 }, [sellerId]);
 
+
 const fetchProfileData = async () => {
     setIsLoading(true);
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const res = await axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config);
-        
-        if (res.data.success) {
-            const data = res.data.data;
+
+        // 🚀 Parallel Fetching for better performance
+        const [dashRes, kycRes] = await Promise.all([
+            axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config),
+            axios.get(`${API_BASE}/seller/my-kyc?id=${sellerId}`, config)
+        ]);
+
+        // 1. Handle Dashboard & Revenue Data
+        if (dashRes.data.success) {
+            const data = dashRes.data.data;
             const profile = data.seller;
             
             setSellerDetails({
                 ...profile,
-                // 🚀 THE FIX: Key naming mismatch sync
+                // 🚀 THE FIX: Syncing image keys and address keys from backend
                 profileImage: profile.profileImage || profile.shopLogo, 
-                shopAddress: profile.address || profile.shopAddress || {} 
+                shopAddress: profile.shopAddress || profile.address || {} 
             });
 
             setTotalRevenue(data.revenue || 0);
         }
+
+        // 2. Handle KYC Documents Data 🌟
+        if (kycRes.data.success) {
+            setKycDocs(kycRes.data.data);
+        }
+
     } catch (err) { 
-        console.error("Profile Load Error:", err);
+        console.error("Profile Data Sync Error:", err);
+        toast.error("Failed to sync profile information");
     } finally { 
         setIsLoading(false); 
     }
 };
+const handleAddressUpdate = async (e) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    try {
+        const url = `${API_BASE}/seller/add-address/${sellerId}`;
+        const res = await axios.put(url, addressForm, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
 
+        if (res.data.success) {
+            toast.success("Pickup Address Updated!");
+            fetchProfileData();
+            setShowAddressModal(false);
+        }
+    } catch (err) {
+        toast.error(err.response?.data?.message || "Address update failed");
+    } finally {
+        setIsUpdating(false);
+    }
+};
+const handleDocUpdate = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append(uploadingDoc.field, file);
+    formData.append("sellerId", sellerId);
+
+    setIsUpdating(true);
+    try {
+        const res = await axios.put(`${API_BASE}/seller/update-kyc`, formData, {
+            headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` }
+        });
+        if (res.data.success) {
+            toast.success(`${uploadingDoc.label} Updated!`);
+            fetchProfileData();
+        }
+    } catch (err) { toast.error("Update failed"); }
+    finally { setIsUpdating(false); }
+};
 // 2. Updated Display References (Around Line 100)
 // short-circuiting use panni undefined values-ai thadukka
 const displayData = sellerDetails || userData || {};
@@ -157,8 +221,8 @@ const handleUpdateField = async (e) => {
     src={
         displayData.profileImage 
             ? (displayData.profileImage.startsWith('http') 
-                ? displayData.profileImage // S3 Direct URL
-                : `${IMAGE_BASE}${displayData.profileImage}`) // Local /uploads/ path
+                ? displayData.profileImage // Case 1: Direct URL (already has http)
+                : `${IMAGE_BASE}${displayData.profileImage}`) // Case 2: S3 Key (Add CloudFront Base)
             : (displayData.shopLogo 
                 ? (displayData.shopLogo.startsWith('http') 
                     ? displayData.shopLogo 
@@ -169,6 +233,7 @@ const handleUpdateField = async (e) => {
     style={{ width: "120px", height: "120px", objectFit: 'cover' }}
     alt="shop-logo"
     onError={(e) => {
+        // Fallback if image fails to load
         e.target.onerror = null; 
         e.target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${displayData.shopName || 'S'}`;
     }} 
@@ -215,40 +280,105 @@ const handleUpdateField = async (e) => {
           </div>
         </div>
         {/* --- PICKUP ADDRESS SECTION (New) --- */}
+{/* --- PICKUP ADDRESS SECTION --- */}
 <div className="col-12 mt-4">
   <div className="card radius-16 border-0 shadow-sm p-32">
     <div className="d-flex justify-content-between align-items-center mb-24">
-        <h6 className="fw-bold mb-0 uppercase text-primary-600 ls-1" style={{fontSize: '13px'}}>Pickup & Shipping Address</h6>
-        <span className="badge bg-info-focus text-info-main text-xxs">REQUIRED FOR DELIVERY</span>
+        <div>
+            <h6 className="fw-bold mb-0 uppercase text-primary-600 ls-1" style={{fontSize: '13px'}}>Pickup & Shipping Address</h6>
+            <small className="text-secondary text-xxs">All fields are mandatory for Delhivery sync</small>
+        </div>
+        <button 
+            onClick={() => {
+                setAddressForm({
+                    receiverName: shopAddress.receiverName,
+                    flatNo: shopAddress.flatNo,
+                    area: shopAddress.area,
+                    pincode: shopAddress.pincode
+                });
+                setShowAddressModal(true);
+            }} 
+            className="btn btn-primary-600 btn-sm radius-8 px-16 fw-bold d-flex align-items-center gap-2"
+        >
+            <Icon icon="solar:pen-bold" /> UPDATE ADDRESS
+        </button>
     </div>
     
-{/* --- PICKUP ADDRESS SECTION --- */}
-<div className="row g-4">
-  <DetailBox 
-    label="Receiver Name" 
-    value={shopAddress.receiverName} 
-    icon="solar:user-speak-bold" 
-    onEdit={() => openEditor("receiverName", "Receiver Name", shopAddress.receiverName)} 
-  />
-  <DetailBox 
-    label="Flat / Building No" 
-    value={shopAddress.flatNo} 
-    icon="solar:home-bold" 
-    onEdit={() => openEditor("flatNo", "Flat No", shopAddress.flatNo)} 
-  />
-  <DetailBox 
-    label="Area / Street" 
-    value={shopAddress.area} 
-    icon="solar:map-point-bold" 
-    onEdit={() => openEditor("area", "Area", shopAddress.area)} 
-  />
-  <DetailBox 
-    label="Pincode" 
-    value={shopAddress.pincode} 
-    icon="solar:streets-navigation-bold" 
-    onEdit={() => openEditor("pincode", "Pincode", shopAddress.pincode)} 
-  />
+    <div className="row g-4">
+        <DetailDisplayBox label="Receiver Name" value={shopAddress.receiverName} icon="solar:user-speak-bold" />
+        <DetailDisplayBox label="Pincode" value={shopAddress.pincode} icon="solar:streets-navigation-bold" />
+        <DetailDisplayBox label="Flat / Building No" value={shopAddress.flatNo} icon="solar:home-bold" />
+        <DetailDisplayBox label="Area / Street" value={shopAddress.area} icon="solar:map-point-bold" />
+    </div>
+  </div>
 </div>
+{/* --- KYC DOCUMENTS SECTION --- */}
+{/* --- KYC DOCUMENTS SECTION --- */}
+<div className="col-12 mt-4">
+  <div className="card radius-16 border-0 shadow-sm p-32">
+    <h6 className="fw-bold mb-24 uppercase text-primary-600 ls-1" style={{fontSize: '13px'}}>Verification Documents</h6>
+    <div className="row g-4">
+        {[
+            { label: "PAN Card", field: "pan_doc", numField: "panNumber", data: kycDocs?.kycDocuments?.panDoc, num: kycDocs?.panNumber },
+            { label: "GST Certificate", field: "gst_doc", numField: "gstNumber", data: kycDocs?.kycDocuments?.gstDoc, num: kycDocs?.gstNumber },
+            { label: "FSSAI License", field: "fssai_doc", numField: "fssaiNumber", data: kycDocs?.kycDocuments?.fssaiDoc, num: kycDocs?.fssaiNumber },
+            { label: "MSME", field: "msme_doc", numField: "msmeNumber", data: kycDocs?.kycDocuments?.msmeDoc, num: kycDocs?.msmeNumber }
+        ].map((doc, idx) => (
+            <div className="col-md-3" key={idx}>
+                <div className="p-16 radius-12 border bg-neutral-50 h-100 transition-all hover-border-primary">
+                    <div className="d-flex justify-content-between align-items-start mb-12">
+                        <div className="w-40-px h-40-px radius-10 d-flex justify-content-center align-items-center shadow-xs bg-white">
+                            <Icon icon="solar:document-bold" className="text-primary-600 text-xl" />
+                        </div>
+                        
+                        {/* 🌟 ACTION HUB: File Update + Number Update Icons */}
+                        <div className="d-flex gap-1">
+                            {/* Number Edit Icon (MSME-ku kidayathu strictly) */}
+                            {doc.numField !== "msmeNumber" && (
+                                <button onClick={() => openEditor(doc.numField, `${doc.label} Number`, doc.num)} 
+                                        className="btn p-4 text-primary-600 hover-bg-primary-50 radius-8">
+                                    <Icon icon="solar:pen-new-square-bold" className="text-lg" />
+                                </button>
+                            )}
+                            
+                            {/* File Upload Icon */}
+                            <label className="btn p-4 text-info-600 hover-bg-info-50 radius-8 cursor-pointer mb-0">
+                                <Icon icon="solar:upload-bold" className="text-lg" />
+                                <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" 
+                                       onChange={(e) => {
+                                           setUploadingDoc({ field: doc.field, label: doc.label });
+                                           handleDocUpdate(e);
+                                       }} 
+                                />
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <small className="text-xxs fw-bold text-secondary-light uppercase">{doc.label}</small>
+                        
+                        {/* 🚀 THE FIX: Hide Number strictly for MSME */}
+                        {doc.numField !== "msmeNumber" ? (
+                            <p className="mb-8 text-xs fw-bold text-dark text-truncate" title={doc.num}>
+                                {doc.num || "---"}
+                            </p>
+                        ) : (
+                            <div className="mb-8" style={{ height: '18px' }}></div> // Spacer for MSME
+                        )}
+
+                        {doc.data?.fullUrl ? (
+                            <a href={doc.data.fullUrl} target="_blank" rel="noreferrer" 
+                               className="text-primary-600 fw-bold text-xxs d-flex align-items-center gap-1 text-decoration-none transition-all hover-translate-x-2">
+                                <Icon icon="solar:eye-bold" /> VIEW DOCUMENT
+                            </a>
+                        ) : (
+                            <span className="text-danger text-xxs fw-medium italic">Not Uploaded</span>
+                        )}
+                    </div>
+                </div>
+            </div>
+        ))}
+    </div>
   </div>
 </div>
 
@@ -289,9 +419,49 @@ const handleUpdateField = async (e) => {
           </div>
         </div>
       )}
+    
+
+
+{showAddressModal && (
+    <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1060 }}>
+        <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content radius-24 border-0 shadow-lg p-12">
+                <div className="modal-header border-0">
+                    <h5 className="fw-bold">Update Pickup Address</h5>
+                    <button className="btn-close shadow-none" onClick={() => setShowAddressModal(false)}></button>
+                </div>
+                <form onSubmit={handleAddressUpdate} className="modal-body">
+                    <div className="row g-3">
+                        <div className="col-12">
+                            <label className="form-label text-xs fw-bold uppercase">Receiver/Contact Name</label>
+                            <input type="text" className="form-control radius-12" value={addressForm.receiverName} onChange={(e) => setAddressForm({...addressForm, receiverName: e.target.value})} required />
+                        </div>
+                        <div className="col-12">
+                            <label className="form-label text-xs fw-bold uppercase">Pincode</label>
+                            <input type="text" className="form-control radius-12" value={addressForm.pincode} onChange={(e) => setAddressForm({...addressForm, pincode: e.target.value})} required />
+                        </div>
+                        <div className="col-12">
+                            <label className="form-label text-xs fw-bold uppercase">Flat / Building / House No</label>
+                            <input type="text" className="form-control radius-12" value={addressForm.flatNo} onChange={(e) => setAddressForm({...addressForm, flatNo: e.target.value})} required />
+                        </div>
+                        <div className="col-12">
+                            <label className="form-label text-xs fw-bold uppercase">Area / Street / Colony</label>
+                            <input type="text" className="form-control radius-12" value={addressForm.area} onChange={(e) => setAddressForm({...addressForm, area: e.target.value})} required />
+                        </div>
+                    </div>
+                    <button type="submit" disabled={isUpdating} className="btn btn-primary-600 w-100 py-16 radius-12 fw-bold mt-24">
+                        {isUpdating ? "SAVING..." : "SAVE FULL ADDRESS"}
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
-  );
-};
+
+)}
+        </div> // 🌟 Idhu dhaan main container close panra line. Modals-ku apparam varanum.
+    );
+}; // 🌟 Function strictly closes here ippo
+
 
 // Helper Component
 const DetailBox = ({ label, value, icon, onEdit }) => (
@@ -311,6 +481,19 @@ const DetailBox = ({ label, value, icon, onEdit }) => (
       </button>
     </div>
   </div>
+);
+const DetailDisplayBox = ({ label, value, icon }) => (
+    <div className="col-md-3">
+        <div className="d-flex align-items-center gap-3 p-16 radius-12 border bg-neutral-50 h-100">
+            <div className="w-40-px h-40-px radius-10 d-flex justify-content-center align-items-center shadow-xs bg-white flex-shrink-0">
+                <Icon icon={icon} className="text-primary-600 text-xl" />
+            </div>
+            <div className="overflow-hidden">
+                <small className="text-xxs fw-bold text-secondary-light uppercase">{label}</small>
+                <p className="mb-0 text-xs fw-bold text-dark text-truncate">{value || "---"}</p>
+            </div>
+        </div>
+    </div>
 );
 
 export default ProfilePage;
