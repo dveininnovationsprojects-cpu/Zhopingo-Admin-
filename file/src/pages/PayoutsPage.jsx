@@ -210,18 +210,18 @@ const downloadInvoice = () => {
     doc.setDrawColor(0); 
     doc.line(14, 50, 282, 50);
 
-    // 2. Data Mapping (Strictly using Rs. to avoid encoding issues)
+// 2. Data Mapping (Replacing Customer Paid with Product Amount)
     const tableBody = orders.map((row, i) => {
         const totalFees = (row.platformCommission + row.gstOnCommission + row.tdsDeduction).toFixed(2);
-        // Syncing delivery display with your requirement
         const deliveryTxt = row.type === 'RETURNED' ? `+ Rs. ${row.sellerShippingDeduction || 0}` : `- Rs. ${row.sellerShippingDeduction || 0}`;
         
         return [
             i + 1,
             new Date(row.statusDate).toLocaleDateString(),
             row.orderId.toString().slice(-6).toUpperCase(),
-            row.productName || "Product", // Product Name added
-            `Rs. ${row.customerPaidTotal}`,
+            row.productName || "Product",
+            // 🚀 THE SYNC: Replacing Customer Paid with strictly Product Price
+            `Rs. ${row.productPriceOnly || 0}`, 
             row.type,
             `Rs. ${totalFees}`,
             deliveryTxt,
@@ -229,31 +229,21 @@ const downloadInvoice = () => {
         ];
     });
 
-    // 3. AutoTable Configuration (World Class B&W Alignment)
+    // 3. AutoTable Configuration (Header Update)
     autoTable(doc, {
-        head: [['#', 'Date', 'Order ID', 'Product', 'Cust. Paid', 'Type', 'Platform Fees', 'Delivery', 'Net Share']],
+        // 🌟 Updated Header: "Cust. Paid" renamed to "Product Amt"
+        head: [['S.No', 'Date', 'Order ID', 'Product', 'Product Amt', 'Type', 'Platform Fees', 'Delivery', 'Total Share']],
         body: tableBody,
         startY: 55,
         theme: 'grid',
-        headStyles: { 
-            fillColor: [0, 0, 0], 
-            textColor: [255, 255, 255], 
-            fontStyle: 'bold',
-            halign: 'center'
-        },
-        styles: { 
-            fontSize: 8, 
-            cellPadding: 4, 
-            textColor: [0, 0, 0], 
-            lineColor: [0, 0, 0],
-            valign: 'middle'
-        },
+        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+        styles: { fontSize: 8, cellPadding: 4, textColor: [0, 0, 0], lineColor: [0, 0, 0], valign: 'middle' },
         columnStyles: {
             0: { halign: 'center', cellWidth: 10 },
             4: { halign: 'right' },
             6: { halign: 'right' },
             7: { halign: 'right' },
-            8: { halign: 'right', fontStyle: 'bold' } // Net Share bold & right aligned
+            8: { halign: 'right', fontStyle: 'bold' }
         }
     });
 
@@ -310,22 +300,29 @@ const downloadInvoice = () => {
                                 <table className="table basic-border-table mb-0 align-middle">
                                     <thead className="bg-light">
                                         <tr>
+                                            <th className="ps-24">S.No</th>
                                             <th className="ps-24">Order Date</th>
                                             <th className="text-primary-600">Status Date</th>
                                             <th>Order ID</th>
                                             <th>Product</th>
                                             <th>Total Paid</th>
+                                            <th className="text-info-main">Product Amount</th>
                                             <th>Status</th>
                                             <th>Commission + GST</th>
+                                            <th className="text-warning-main">Delivery Partner Cost</th> 
+        <th className="text-success-main">Admin Ship Profit</th>
                                             <th>Delivery Deduction</th>
                                             <th className="pe-24 text-end">Final Share</th>
+                                            <th className="text-primary-600">Admin Net Profit</th>
                                         </tr>
                                     </thead>
                                     <tbody>
     {isLoading ? (
         <tr><td colSpan="8" className="text-center py-50"><div className="spinner-border text-primary"></div></td></tr>
     ) : orders.length > 0 ? orders.map((row, index) => (
+        
     <tr key={index} className={row.type === 'RETURNED' ? 'bg-danger-focus' : ''}>
+        <td className="ps-24 fw-bold text-secondary-light">{index + 1}</td>
         <td className="ps-24 text-xs fw-bold">{new Date(row.statusDate).toLocaleDateString()}</td>
         <td className="text-xs fw-bold text-primary-600">
             {row.deliveryDate ? new Date(row.deliveryDate).toLocaleDateString() : 
@@ -334,6 +331,7 @@ const downloadInvoice = () => {
         <td className="fw-bold text-secondary">#{row.orderId.toString().slice(-6).toUpperCase()}</td>
         <td className="fw-bold text-dark text-xs">{row.productName || "Product"}</td> {/* 🌟 Mapping Product Name */}
         <td className="fw-black">₹{row.customerPaidTotal}</td>
+        <td className="fw-black text-info-main">₹{row.productPriceOnly || 0}</td>
         <td>
             <span className={`badge radius-pill px-12 py-6 text-xxs fw-black uppercase ${
                 row.type === 'RETURNED' ? 'bg-danger text-white' : 'bg-success-focus text-success-main'
@@ -342,12 +340,22 @@ const downloadInvoice = () => {
             </span>
         </td>
         <td className="text-danger-main fw-bold">- ₹{(row.platformCommission + row.gstOnCommission + row.tdsDeduction).toFixed(2)}</td>
+        <td className="fw-bold text-warning-main">₹{row.logisticsPartnerCost || 0}</td>
+    <td className="fw-bold text-success-main">₹{row.adminShippingProfit || 0}</td>
         <td className={`fw-bold ${row.type === 'RETURNED' ? 'text-danger-main' : 'text-danger-main'}`}>
             {row.type === 'RETURNED' ? `+ ₹${row.sellerShippingDeduction || 0}` : `- ₹${row.sellerShippingDeduction || 0}`}
         </td>
         <td className={`pe-24 text-end fw-900 ${row.netPayableToSeller < 0 ? 'text-danger' : 'text-dark'}`}>
             ₹{row.netPayableToSeller.toLocaleString()}
         </td>
+        <td className="fw-black text-primary-600 bg-primary-50">
+    ₹{(
+        (row.platformCommission || 0) + 
+        (row.gstOnCommission || 0) + 
+        (row.tdsDeduction || 0) + 
+        (row.adminShippingProfit || 0)
+    ).toFixed(2)}
+</td>
     </tr>
     )) : (
         <tr><td colSpan="8" className="text-center py-80 text-muted italic">No financial movements in this cycle.</td></tr>
@@ -355,50 +363,78 @@ const downloadInvoice = () => {
 </tbody>
                                 </table>
                             </div>
-<div className="card-footer bg-white border-top py-20 px-24 d-flex justify-content-between align-items-center">
-    <div className="d-flex align-items-center gap-4">
-        <div>
-            <span className="text-xxs fw-bold text-secondary uppercase d-block">Cycle Info</span>
-            <span className="badge bg-dark text-white text-xxs">WEEK NO: {(selectedWeek && JSON.parse(selectedWeek).weekNo) || 0}</span>
-        </div>
+<div className="card-footer bg-white border-top py-20 px-24">
+    {/* 🌟 Top Row: Info Stats (Stacks on Mobile) */}
+    <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-4 mb-20">
+        <div className="d-flex flex-wrap align-items-center gap-4">
+            {/* Cycle Info */}
+            <div>
+                <span className="text-xxs fw-bold text-secondary uppercase d-block">Cycle Info</span>
+                <span className="badge bg-dark text-white text-xxs">WEEK NO: {(selectedWeek && JSON.parse(selectedWeek).weekNo) || 0}</span>
+            </div>
+
+            {/* Admin Net Profit */}
+            <div className="border-start ps-4">
+                <span className="text-xxs fw-bold text-secondary uppercase d-block">Admin Net Profit</span>
+                <h6 className="mb-0 fw-900 text-success-main" style={{ fontSize: '14px' }}>
+                    ₹{(
+                        (settlementData?.totalPlatformCommission || 0) + 
+                        (settlementData?.totalGstOnCommission || 0) + 
+                        (settlementData?.totalTdsDeduction || 0) + 
+                        (settlementData?.totalAdminDeliveryProfit || 0)
+                    ).toFixed(2)}
+                </h6>
+            </div>
+
+            {/* Seller Total Payable */}
+            <div className="border-start ps-4">
+                <span className="text-xxs fw-bold text-secondary uppercase d-block">Payable to Seller</span>
+                <h6 className="mb-0 fw-900 text-danger-main" style={{ fontSize: '14px' }}>
+                    ₹{settlementData?.finalSettlementAmount?.toLocaleString() || "0"}
+                </h6>
+            </div>
         <div className="border-start ps-4">
-            <span className="text-xxs fw-bold text-secondary uppercase d-block">Total Payable</span>
-            {/* 🚀 THE SYNC: Direct-ah settlementData-la irunthu backend total edukkuroam */}
-            <h6 className={`mb-0 fw-900 ${ (settlementData?.finalSettlementAmount || 0) < 0 ? 'text-danger' : 'text-success-main'}`}>
-                ₹{settlementData?.finalSettlementAmount?.toLocaleString() || "0"}
-            </h6>
+                <span className="text-xxs fw-bold text-secondary uppercase d-block">Logistics Bill</span>
+                <h6 className="mb-0 fw-900 text-warning-main" style={{ fontSize: '14px' }}>
+                    ₹{settlementData?.totalLogisticsPartnerBill?.toLocaleString() || "0"}
+                </h6>
+            </div>
         </div>
     </div>
 
-    <div className="d-flex gap-2">
+    {/* 🌟 Bottom Row: Warning & Actions (Full width on Mobile) */}
+    <div className="d-flex flex-column gap-3">
         {orders.length > 0 && (
             <>
-              <div className="mb-8 text-end">
-    <p className="text-secondary-light fw-bold mb-0 d-flex align-items-center justify-content-end gap-1" style={{ fontSize: '10px' }}>
-        <Icon icon="solar:info-circle-bold" className="text-warning-main" />
-        Disclaimer: Please click SETTLED & PAID only after the week ends. This action is final.
-    </p>
-</div>
-                
-                {settlementData?.status === "Paid" ? (
-                    <div className="badge bg-success-focus text-success-main px-16 py-10 radius-8 fw-black border border-success-200">
-                        <Icon icon="solar:check-circle-bold" className="me-1" /> SETTLED & PAID
-                    </div>
-                ) : (
-                    <button 
-                        onClick={handleMarkAsPaid} 
-                        disabled={isLoading}
-                        className="btn btn-primary-600 radius-8 fw-bold d-flex align-items-center gap-2 shadow-lg"
-                    >
-                        {isLoading ? <span className="spinner-border spinner-border-sm"></span> : <Icon icon="solar:wad-of-money-bold" />}
-                        MARK AS PAID
+                {/* Responsive Disclaimer */}
+                <div className="p-12 radius-8 bg-warning-focus border border-warning-100">
+                    <p className="text-warning-main fw-bold mb-0 d-flex align-items-center gap-2" style={{ fontSize: '11px' }}>
+                        <Icon icon="solar:info-circle-bold" className="fs-5" />
+                        Disclaimer: Payout process is irreversible. Please verify all orders before clicking "Mark as Paid" and Wait Untill the Week End.
+                    </p>
+                </div>
+
+                {/* 🚀 Action Buttons Group: Stacks on mobile via w-100 */}
+                <div className="d-flex flex-column flex-sm-row gap-2">
+                    {settlementData?.status === "Paid" ? (
+                        <div className="btn btn-success-focus text-success-main fw-black border border-success-200 w-100 radius-12 py-12 d-flex align-items-center justify-content-center gap-2">
+                            <Icon icon="solar:check-circle-bold" /> SETTLED & PAID
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={handleMarkAsPaid} 
+                            disabled={isLoading}
+                            className="btn btn-primary-600 radius-12 fw-bold w-100 py-12 d-flex align-items-center justify-content-center gap-2 shadow-lg"
+                        >
+                            {isLoading ? <span className="spinner-border spinner-border-sm"></span> : <Icon icon="solar:wad-of-money-bold" />}
+                            MARK AS PAID
+                        </button>
+                    )}
+                    
+                    <button onClick={downloadInvoice} className="btn btn-outline-dark radius-12 fw-bold w-100 py-12 d-flex align-items-center justify-content-center gap-2">
+                        <Icon icon="solar:file-download-bold" /> DOWNLOAD REPORT
                     </button>
-                )}
-                
-                {/* 🌟 Report Button: Restriction removed, any time download pannalam */}
-                <button onClick={downloadInvoice} className="btn btn-outline-dark radius-8 fw-bold d-flex align-items-center gap-1">
-                    <Icon icon="solar:file-download-bold" /> REPORT
-                </button>
+                </div>
             </>
         )}
     </div>

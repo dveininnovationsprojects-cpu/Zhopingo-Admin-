@@ -141,10 +141,10 @@ const handleToggleBrand = async (item) => {
                                 ) : currentItems.length > 0 ? (
                                     currentItems.map((item, index) => (
                                         <tr key={item._id}>
-                                           {/* 🌟 42. S.No in Descending Order with Hashtag for Sellers */}
+
 <td>
     <span className="fw-bold text-secondary-light">
-        {filteredSellers.length - (indexOfFirstItem + index)}
+        {indexOfFirstItem + index + 1}
     </span>
 </td>
                                            {/* 🌟 16. Seller name to be in full Capital Letters */}
