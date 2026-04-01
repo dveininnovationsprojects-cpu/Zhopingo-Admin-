@@ -20,7 +20,9 @@ const UnitCountOne = () => {
 
         totalIncomes: 0, // 🌟 Live Income
 
-        totalPayout: 0,  // 🌟 Live Payout
+        totalPayout: 0, 
+
+        totalLogistics: 0, // 🌟 Live Payout
 
     });
 
@@ -42,105 +44,52 @@ const UnitCountOne = () => {
 
 
 
-    const fetchDashboardData = async () => {
+const fetchDashboardData = async () => {
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const [sellerRes, customerRes, settlementRes] = await Promise.all([
+            axios.get(`${API_BASE_URL}/sellers`, config),
+            axios.get(`${API_BASE_URL}/customers`, config),
+            axios.get(`${API_BASE_URL}/settlements/all`, config) 
+        ]);
 
-        try {
+        const sellerCount = sellerRes.data.success ? sellerRes.data.data.length : 0;
+        const pendingCount = sellerRes.data.success ? sellerRes.data.data.filter(s => s.kycStatus === "pending").length : 0;
+        const customerCount = customerRes.data.success ? customerRes.data.data.length : 0;
 
-            const config = { headers: { Authorization: `Bearer ${token}` } };
+        let adminNetIncome = 0;
+        let totalSellersPayout = 0;
+        let totalLogisticsBill = 0; // 🚚 Logistics total
 
+        if (settlementRes.data.success) {
+            const allSettlements = settlementRes.data.data;
+            allSettlements.forEach(s => {
+                // 💰 Admin real income logic
+                adminNetIncome += (s.totalPlatformCommission || 0) + 
+                                  (s.totalGstOnCommission || 0) + 
+                                  (s.totalTdsDeduction || 0) + 
+                                  (s.totalAdminDeliveryProfit || 0);
 
+                // 💸 Payout only if status is Paid
+                if (s.status === "Paid") {
+                    totalSellersPayout += (s.finalSettlementAmount || 0);
+                }
 
-            // 1. Fetch Sellers & Customers
-
-            const [sellerRes, customerRes, orderRes] = await Promise.all([
-
-                axios.get(`${API_BASE_URL}/sellers`, config),
-
-                axios.get(`${API_BASE_URL}/customers`, config),
-
-                axios.get(ORDERS_API, config) // 🌟 Fetching all orders for income calculation
-
-            ]);
-
-
-
-            // Sellers Logic
-
-            const sellerCount = sellerRes.data.success ? sellerRes.data.data.length : 0;
-
-            const pendingCount = sellerRes.data.success 
-
-                ? sellerRes.data.data.filter(s => s.kycStatus === "pending").length 
-
-                : 0;
-
-            
-
-            // Customers Logic
-
-            const customerCount = customerRes.data.success ? customerRes.data.data.length : 0;
-
-
-
-            // 🌟 2. Income & Payout Calculation Logic
-
-            let totalIncome = 0;
-
-            let totalPayout = 0;
-
-
-
-            if (orderRes.data.success) {
-
-                const allOrders = orderRes.data.data;
-
-                
-
-                // Total Income = Sum of all 'Delivered' orders totalAmount
-
-                totalIncome = allOrders
-
-                    .filter(o => o.status === "Delivered")
-
-                    .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-
-
-
-                // Total Payout = Sum of all deliveryChargeApplied across orders
-
-                // (Or logic based on your settlement requirements)
-
-                totalPayout = allOrders
-
-                    .filter(o => o.status === "Delivered")
-
-                    .reduce((sum, o) => sum + (o.deliveryChargeApplied || 0), 0);
-
-            }
-
-
-
-            setCounts({
-
-                totalSellers: sellerCount,
-
-                newSellers: pendingCount,
-
-                totalCustomers: customerCount,
-
-                totalIncomes: totalIncome,
-
-                totalPayout: totalPayout
-
+                // 🚚 LOGISTICS SYNC: Strictly summing partner bills across all weeks
+                totalLogisticsBill += (s.totalLogisticsPartnerBill || 0);
             });
-
-        } catch (error) {
-
-            console.error("Dashboard Data Fetch Error:", error);
-
         }
 
-    };
+        setCounts({
+            totalSellers: sellerCount,
+            newSellers: pendingCount,
+            totalCustomers: customerCount,
+            totalIncomes: adminNetIncome,
+            totalPayout: totalSellersPayout,
+            totalLogistics: totalLogisticsBill // 🌟 Synced with Backend
+        });
+    } catch (error) { console.error("Admin Dashboard Sync Error:", error); }
+};
 
 
 
@@ -270,74 +219,64 @@ const UnitCountOne = () => {
 
 
 
-            {/* 4. Total Incomes - 🌟 NOW DYNAMIC */}
-
+            {/* 4. Total Incomes (Admin Profit) - 🌟 Added Link */}
             <div className='col'>
-
-                <div className='card shadow-none border bg-gradient-start-4 h-100 radius-12'>
-
-                    <div className='card-body p-20'>
-
-                        <div className='d-flex flex-wrap align-items-center justify-content-between gap-3'>
-
-                            <div>
-
-                                <p className='fw-medium text-primary-light mb-1'>Total Incomes</p>
-
-                                <h6 className='mb-0 text-success-main'>₹{counts.totalIncomes.toLocaleString()}</h6>
-
+                <Link to="/payouts" className="text-decoration-none h-100 d-block">
+                    <div className='card shadow-none border bg-gradient-start-4 h-100 radius-12'>
+                        <div className='card-body p-20'>
+                            <div className='d-flex flex-wrap align-items-center justify-content-between gap-3'>
+                                <div>
+                                    <p className='fw-medium text-primary-light mb-1'>Total Incomes</p>
+                                    <h6 className='mb-0 text-success-main'>₹{counts.totalIncomes.toLocaleString()}</h6>
+                                </div>
+                                <div className='w-50-px h-50-px bg-success-main rounded-circle d-flex justify-content-center align-items-center'>
+                                    <Icon icon='solar:wallet-bold' className='text-white text-2xl' />
+                                </div>
                             </div>
-
-                            <div className='w-50-px h-50-px bg-success-main rounded-circle d-flex justify-content-center align-items-center'>
-
-                                <Icon icon='solar:wallet-bold' className='text-white text-2xl' />
-
-                            </div>
-
+                            <p className='fw-medium text-sm text-primary-light mt-12 mb-0'>Platform Revenue</p>
                         </div>
-
-                        <p className='fw-medium text-sm text-primary-light mt-12 mb-0'>Platform Revenue</p>
-
                     </div>
-
-                </div>
-
+                </Link>
             </div>
 
-
-
-            {/* 5. Total Payout - 🌟 NOW DYNAMIC */}
-
+            {/* 5. Total Payout (Settled to Sellers) - 🌟 Added Link */}
             <div className='col'>
-
-                <div className='card shadow-none border bg-gradient-start-5 h-100 radius-12'>
-
-                    <div className='card-body p-24'>
-
-                        <div className='d-flex flex-wrap align-items-center justify-content-between gap-3'>
-
-                            <div>
-
-                                <p className='fw-medium text-primary-light mb-1'>Total Payout</p>
-
-                                <h6 className='mb-0 text-danger-main'>₹{counts.totalPayout.toLocaleString()}</h6>
-
+                <Link to="/payouts" className="text-decoration-none h-100 d-block">
+                    <div className='card shadow-none border bg-gradient-start-5 h-100 radius-12'>
+                        <div className='card-body p-24'>
+                            <div className='d-flex flex-wrap align-items-center justify-content-between gap-3'>
+                                <div>
+                                    <p className='fw-medium text-primary-light mb-1'>Total Payout</p>
+                                    <h6 className='mb-0 text-danger-main'>₹{counts.totalPayout.toLocaleString()}</h6>
+                                </div>
+                                <div className='w-50-px h-50-px bg-red rounded-circle d-flex justify-content-center align-items-center'>
+                                    <Icon icon='fa6-solid:file-invoice-dollar' className='text-white text-2xl' />
+                                </div>
                             </div>
-
-                            <div className='w-50-px h-50-px bg-red rounded-circle d-flex justify-content-center align-items-center'>
-
-                                <Icon icon='fa6-solid:file-invoice-dollar' className='text-white text-2xl' />
-
-                            </div>
-
+                            <p className='fw-medium text-sm text-primary-light mt-12 mb-0'>Settled to Sellers</p>
                         </div>
-
-                        <p className='fw-medium text-sm text-primary-light mt-12 mb-0'>Settled to Sellers</p>
-
                     </div>
+                </Link>
+            </div>
 
-                </div>
-
+            {/* 6. Total Logistics (Delivery Partner Bill) - 🌟 Added Link */}
+            <div className='col'>
+                <Link to="/payouts" className="text-decoration-none h-100 d-block">
+                    <div className='card shadow-none border h-100 radius-12' style={{ background: 'linear-gradient(135deg, #FFF4E5 0%, #FFF9F2 100%)' }}>
+                        <div className='card-body p-24'>
+                            <div className='d-flex flex-wrap align-items-center justify-content-between gap-3'>
+                                <div>
+                                    <p className='fw-medium text-warning-main mb-1'>Logistics Bill</p>
+                                    <h6 className='mb-0 text-warning-main'>₹{counts.totalLogistics.toLocaleString()}</h6>
+                                </div>
+                                <div className='w-50-px h-50-px bg-warning-main rounded-circle d-flex justify-content-center align-items-center shadow-sm'>
+                                    <Icon icon='mdi:truck-delivery' className='text-white text-3xl' />
+                                </div>
+                            </div>
+                            <p className='fw-medium text-sm text-warning-main mt-12 mb-0'>Payable to Partners</p>
+                        </div>
+                    </div>
+                </Link>
             </div>
 
 

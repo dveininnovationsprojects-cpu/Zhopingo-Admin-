@@ -69,69 +69,69 @@ const fetchSellerLiveStats = async () => {
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
         
-        // 1. Fetch ALL data needed for calculations and backend official revenue
-        const [ordersRes, dashboardRes] = await Promise.all([
+        // 🚀 1. Parallel Fetching: Orders (for status counts), Dashboard (profile), and Settlements (for Paid Revenue)
+        const [ordersRes, dashboardRes, settlementRes] = await Promise.all([
             axios.get(`${API_BASE}/orders/all`, config),
-            axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config)
+            axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config),
+            // 💰 Syncing with the specific seller's settlement history
+            axios.get(`${API_BASE}/admin/finance/settlements/${sellerId}`, config) 
         ]);
 
         if (ordersRes.data.success && dashboardRes.data.success) {
+            // 🎯 Filtering Orders for Status Cards
             const myOrders = ordersRes.data.data.filter(order => 
                 order.sellerSplitData?.some(split => (split.sellerId?._id || split.sellerId) === sellerId)
             );
-            const dashboardData = dashboardRes.data.data;
 
-            // 🚀 REVENUE & STATS SYNC: Using Backend Official Data + Local Status Filter
+            // 💰 2. REAL-TIME REVENUE LOGIC: Strictly filtering "Paid" status settlements
+            const paidSettlements = (settlementRes.data.data || []).filter(s => s.status === 'Paid');
+            
+            // Total Revenue strictly from Admin's Payout confirmation
+            const totalPaidRevenue = paidSettlements.reduce((sum, s) => sum + (s.finalSettlementAmount || 0), 0);
+
             setStats({
                 new: myOrders.filter(o => o.status === "Placed").length,
                 placed: myOrders.filter(o => o.status === "Placed").length,
                 shipped: myOrders.filter(o => o.status === "Shipped").length,
                 delivered: myOrders.filter(o => o.status === "Delivered").length,
                 cancelled: myOrders.filter(o => o.status === "Cancelled").length,
-                revenue: dashboardData.revenue || 0 // 💰 Backend verified revenue
+                // 🌟 Dashboard revenue card now shows 100% verified payout
+                revenue: totalPaidRevenue.toFixed(2) 
             });
 
-            // 🚀 DYNAMIC CHART LOGIC (Re-introduced & Fixed Scope)
+            // 🚀 3. DYNAMIC CHART SYNC: Chart strictly follows "Paid" settlement dates
             const now = new Date();
             let chartData = [];
 
-            // Helper function strictly defined inside this scope to avoid ReferenceError
-            const getOrderRevenue = (order) => {
-                const split = order.sellerSplitData.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
-                return split ? (split.sellerSubtotal || 0) : 0;
-            };
-
             if (timeFilter === "Daily") {
                 chartData = new Array(7).fill(0);
-                const todayOrders = myOrders.filter(o => 
-                    new Date(o.createdAt).toDateString() === now.toDateString()
-                );
-                todayOrders.forEach(o => {
-                    const hour = new Date(o.createdAt).getHours();
-                    const slot = Math.floor(hour / 3.5); 
-                    chartData[slot] += getOrderRevenue(o);
+                paidSettlements.forEach(s => {
+                    const sDate = new Date(s.updatedAt); // Admin clicked 'Mark as Paid' timestamp
+                    if (sDate.toDateString() === now.toDateString()) {
+                        const slot = Math.floor(sDate.getHours() / 3.5); 
+                        chartData[slot] += s.finalSettlementAmount;
+                    }
                 });
             } else if (timeFilter === "Weekly") {
                 chartData = [0, 0, 0, 0, 0, 0, 0];
-                myOrders.forEach(o => {
-                    const day = new Date(o.createdAt).getDay();
-                    chartData[day] += getOrderRevenue(o);
+                paidSettlements.forEach(s => {
+                    const day = new Date(s.updatedAt).getDay();
+                    chartData[day] += s.finalSettlementAmount;
                 });
             } else if (timeFilter === "Monthly") {
-                // 🚀 Professional 12 Months Yearly View
-                chartData = new Array(12).fill(0);
-                const currentYear = now.getFullYear();
-                myOrders.filter(o => o.status === "Delivered").forEach(o => {
-                    const d = new Date(o.createdAt);
-                    if (d.getFullYear() === currentYear) {
-                        chartData[d.getMonth()] += getOrderRevenue(o);
+                // 📊 If you want Monthly filter to show weeks of current month
+                chartData = new Array(4).fill(0);
+                paidSettlements.forEach(s => {
+                    const d = new Date(s.updatedAt);
+                    if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+                        const week = Math.min(Math.floor((d.getDate() - 1) / 7), 3);
+                        chartData[week] += s.finalSettlementAmount;
                     }
                 });
             }
-
             setWeeklySalesData(chartData);
 
-            // 🚀 TOP PRODUCTS SYNC
+            // 🏆 4. TOP PRODUCTS SYNC (Maintained from Order history)
             const productMap = {};
             myOrders.forEach(order => {
                 order.items.forEach(item => {
@@ -144,12 +144,12 @@ const fetchSellerLiveStats = async () => {
             });
             setTopProducts(Object.values(productMap).sort((a, b) => b.count - a.count).slice(0, 7));
 
-            // 🚀 PROFILE SYNC
-            setSellerProfile(dashboardData.seller);
+            // 👤 5. PROFILE SYNC
+            setSellerProfile(dashboardRes.data.data.seller);
         }
     } catch (err) {
-        console.error("Dashboard Sync Error:", err);
-        toast.error("Analytics sync failed!");
+        console.error("Critical Dashboard Revenue Sync Error:", err);
+        toast.error("Financial data sync failed!");
     } finally {
         setIsLoading(false);
     }

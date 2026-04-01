@@ -3,7 +3,7 @@ import axios from "axios";
 import { Icon } from "@iconify/react";
 import { toast, ToastContainer } from "react-toastify";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable"; // 🌟 Change this line
+import autoTable from "jspdf-autotable"; 
 
 const MyOrders = () => {
     const [orders, setOrders] = useState([]);

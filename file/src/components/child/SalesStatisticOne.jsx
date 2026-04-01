@@ -21,58 +21,71 @@ const SalesStatisticOne = () => {
     }, []);
 
 const fetchRealIncomeAnalytics = async () => {
-    setIsLoaded(false); // Reset loader on filter change
+    setIsLoaded(false);
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const res = await axios.get(API_BASE, config);
+        
+        // 🚀 THE SYNC: Payouts/Settlements collection-ai direct-ah fetch panroam
+        const res = await axios.get("https://api.zhopingo.in/api/v1/admin/settlements/all", config);
         
         if (res.data.success) {
-            const allOrders = res.data.data.filter(o => o.status === "Delivered");
+            const allSettlements = res.data.data;
             const now = new Date();
             let chartData = [];
 
+            // 🧮 Helper: Calculate Admin Net Profit for each record
+            const getAdminProfit = (s) => {
+                return (s.totalPlatformCommission || 0) + 
+                       (s.totalGstOnCommission || 0) + 
+                       (s.totalTdsDeduction || 0) + 
+                       (s.totalAdminDeliveryProfit || 0);
+            };
+
             if (timeFilter === "Daily") {
-                // 🕒 Daily: 3-hour slots (8 slots for 24 hours)
                 chartData = new Array(8).fill(0);
-                const todayOrders = allOrders.filter(o => 
-                    new Date(o.createdAt).toDateString() === now.toDateString()
-                );
-                todayOrders.forEach(o => {
-                    const hour = new Date(o.createdAt).getHours();
-                    const slot = Math.floor(hour / 3); 
-                    chartData[slot] += (o.totalAmount || 0);
+                allSettlements.forEach(s => {
+                    const sDate = new Date(s.updatedAt);
+                    if (sDate.toDateString() === now.toDateString()) {
+                        const hour = sDate.getHours();
+                        const slot = Math.floor(hour / 3); 
+                        chartData[slot] += getAdminProfit(s);
+                    }
                 });
             } else if (timeFilter === "Weekly") {
-                // 📅 Weekly: Sun to Sat (7 Days)
                 chartData = [0, 0, 0, 0, 0, 0, 0];
-                allOrders.forEach(o => {
-                    const day = new Date(o.createdAt).getDay();
-                    chartData[day] += (o.totalAmount || 0);
+                allSettlements.forEach(s => {
+                    const sDate = new Date(s.updatedAt);
+                    // Check if settlement falls in current week
+                    const diff = Math.floor((now - sDate) / (1000 * 60 * 60 * 24));
+                    if (diff < 7) {
+                        chartData[sDate.getDay()] += getAdminProfit(s);
+                    }
                 });
             } else if (timeFilter === "Monthly") {
-                // 🗓️ Monthly: 4 Weeks (Admin requirement)
-                chartData = [0, 0, 0, 0];
-                allOrders.forEach(o => {
-                    const orderDate = new Date(o.createdAt);
-                    if (orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear()) {
-                        const date = orderDate.getDate();
-                        const weekIdx = Math.min(Math.floor((date - 1) / 7), 3);
-                        chartData[weekIdx] += (o.totalAmount || 0);
+                chartData = [0, 0, 0, 0]; // 4 Weeks
+                allSettlements.forEach(s => {
+                    const sDate = new Date(s.updatedAt);
+                    if (sDate.getMonth() === now.getMonth() && sDate.getFullYear() === now.getFullYear()) {
+                        const weekIdx = Math.min(Math.floor((sDate.getDate() - 1) / 7), 3);
+                        chartData[weekIdx] += getAdminProfit(s);
                     }
                 });
             }
 
-            const totalRevenue = allOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+            // 💰 Header Total: Sum of ALL Admin Profits ever generated
+            const totalAdminNetIncome = allSettlements.reduce((sum, s) => sum + getAdminProfit(s), 0);
 
             setIncomeData({
-                total: totalRevenue.toLocaleString(),
-                series: [{ name: 'Income', data: chartData }]
+                total: totalAdminNetIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+                series: [{ name: 'Net Profit', data: chartData.map(v => Number(v.toFixed(2))) }]
             });
         }
-    } catch (err) { console.error("Income error:", err); } 
-    finally { setIsLoaded(true); }
+    } catch (err) { 
+        console.error("Profit Analytics Sync Error:", err); 
+    } finally { 
+        setIsLoaded(true); 
+    }
 };
-
 // 🌟 Re-fetch whenever filter changes
 useEffect(() => {
     fetchRealIncomeAnalytics();

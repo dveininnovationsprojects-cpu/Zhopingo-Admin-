@@ -1348,8 +1348,13 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                             <h6 className="fw-bold text-dark mb-20 uppercase ls-1" style={{fontSize:'12px'}}>2. Specifications</h6>
                             
                             <div className="mb-16">
-                                <label className="text-xxs fw-bold text-secondary uppercase">Description</label>
-                                <textarea className="form-control radius-12" rows="4" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
+                                <label className="text-xxs fw-bold text-secondary uppercase">Manufacturer Details</label>
+                                <textarea className="form-control radius-12 text-xs" rows="3" placeholder="Name & Address" value={formData.manufacturerDetails?.manufacturerNameAddress} onChange={e => setFormData({...formData, manufacturerDetails: {...formData.manufacturerDetails, manufacturerNameAddress: e.target.value}})}></textarea>
+                            </div>
+
+                            <div className="mb-0">
+                                <label className="text-xxs fw-bold text-secondary uppercase">Country of Origin</label>
+                                <input type="text" className="form-control radius-10" value={formData.manufacturerDetails?.countryOfOrigin} onChange={e => setFormData({...formData, manufacturerDetails: {...formData.manufacturerDetails, countryOfOrigin: e.target.value}})} />
                             </div>
 
                             
@@ -1480,15 +1485,7 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
     </div>
 )}
 
-                            <div className="mb-16">
-                                <label className="text-xxs fw-bold text-secondary uppercase">Manufacturer Details</label>
-                                <textarea className="form-control radius-12 text-xs" rows="3" placeholder="Name & Address" value={formData.manufacturerDetails?.manufacturerNameAddress} onChange={e => setFormData({...formData, manufacturerDetails: {...formData.manufacturerDetails, manufacturerNameAddress: e.target.value}})}></textarea>
-                            </div>
-
-                            <div className="mb-0">
-                                <label className="text-xxs fw-bold text-secondary uppercase">Country of Origin</label>
-                                <input type="text" className="form-control radius-10" value={formData.manufacturerDetails?.countryOfOrigin} onChange={e => setFormData({...formData, manufacturerDetails: {...formData.manufacturerDetails, countryOfOrigin: e.target.value}})} />
-                            </div>
+                            
                             {/* COLUMN 3: MEDIA (Inside showUpdateModal) */}
                             
 {/* 🌟 Professional Media Management (Update Sync) */}

@@ -373,7 +373,13 @@ const downloadInvoice = () => {
     <div className="d-flex gap-2">
         {orders.length > 0 && (
             <>
-                {/* 🌟 Mark as Paid Button: Always visible if orders exist */}
+              <div className="mb-8 text-end">
+    <p className="text-secondary-light fw-bold mb-0 d-flex align-items-center justify-content-end gap-1" style={{ fontSize: '10px' }}>
+        <Icon icon="solar:info-circle-bold" className="text-warning-main" />
+        Disclaimer: Please click SETTLED & PAID only after the week ends. This action is final.
+    </p>
+</div>
+                
                 {settlementData?.status === "Paid" ? (
                     <div className="badge bg-success-focus text-success-main px-16 py-10 radius-8 fw-black border border-success-200">
                         <Icon icon="solar:check-circle-bold" className="me-1" /> SETTLED & PAID

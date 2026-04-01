@@ -5,16 +5,16 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, Legend
 } from 'recharts';
-import { useNavigate } from 'react-router-dom'; // 🌟 Add this at top
+import { useNavigate } from 'react-router-dom'; 
 
 
 
-const BusinessAnalytics = ({ setActiveTab }) => { // 🌟 Props-ah get pannikoam
+const BusinessAnalytics = ({ setActiveTab }) => { 
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState(null);
     
-    // 🚀 Individual Filters for Real-time Logic
+    
     const [revFilter, setRevFilter] = useState('Weekly');
     const [orderFilter, setOrderFilter] = useState('Weekly');
     const [hubFilter, setHubFilter] = useState('Weekly');
@@ -29,7 +29,7 @@ const BusinessAnalytics = ({ setActiveTab }) => { // 🌟 Props-ah get pannikoam
 
     const COLORS = ['#28C76F', '#485EC4', '#FF9F43', '#EA5455'];
 
-    // 🛠️ Helper: Data Grouping Logic for Filters (Daily, Weekly, Monthly, Yearly)
+    
     const processChartData = (dataArray, dateKey, valueKey, filterType) => {
         const now = new Date();
         const result = [];
@@ -76,98 +76,94 @@ const BusinessAnalytics = ({ setActiveTab }) => { // 🌟 Props-ah get pannikoam
     };
    
 const fetchFullAnalytics = async () => {
-        setIsLoading(true);
-        try {
-            const config = { headers: { Authorization: `Bearer ${token}` } };
-            
-            // 🚀 1. Parallel Data Fetching (Production Standard)
-            const [dashRes, ordersRes, productsRes, reelsRes] = await Promise.all([
-                axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config),
-                axios.get(`${API_BASE}/orders/all`, config),
-                axios.get(`${API_BASE}/seller/products/${sellerId}`, config),
-                axios.get(`${API_BASE}/reels`, config)
-            ]);
+    setIsLoading(true);
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        
+        // 🚀 1. Parallel Data Fetching (Including new Settlement API)
+        const [dashRes, ordersRes, productsRes, reelsRes, settlementRes] = await Promise.all([
+            axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config),
+            axios.get(`${API_BASE}/orders/all`, config),
+            axios.get(`${API_BASE}/seller/products/${sellerId}`, config),
+            axios.get(`${API_BASE}/reels`, config),
+            axios.get(`${API_BASE}/admin/finance/settlements/${sellerId}`, config) 
+        ]);
 
-            // 🎯 2. Primary Data Scoping
-            const allProducts = productsRes.data.data || [];
-            
-            // Filter orders strictly belonging to this seller
-            const myOrders = (ordersRes.data.data || []).filter(o => 
-                o.sellerSplitData?.some(s => (s.sellerId?._id || s.sellerId) === sellerId)
-            );
-            
-            // Filter reels strictly belonging to this seller
-            const myReels = (reelsRes.data.data || []).filter(r => 
-                (r.sellerId?._id || r.sellerId) === sellerId
-            );
+        // 🎯 2. Scoping All Data
+        const allProducts = productsRes.data.data || [];
+        const myOrders = (ordersRes.data.data || []).filter(o => 
+            o.sellerSplitData?.some(s => (s.sellerId?._id || s.sellerId) === sellerId)
+        );
+        const myReels = (reelsRes.data.data || []).filter(r => 
+            (r.sellerId?._id || r.sellerId) === sellerId
+        );
 
-            // 💰 3. Helper: Revenue Split Calculation logic
-            const getOrderRevenue = (order) => {
-                const split = order.sellerSplitData.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
-                return split ? (split.sellerSubtotal || 0) : 0;
-            };
+        // 💰 3. REVENUE SYNC LOGIC: Strictly from "Paid" Settlements
+        const paidSettlements = (settlementRes.data.data || []).filter(s => s.status === 'Paid');
+        
+        // Use 'updatedAt' because that's when Admin clicked "Mark as Paid"
+        const revenueTrendRaw = paidSettlements.map(s => ({ 
+            date: s.updatedAt, 
+            amt: s.finalSettlementAmount || 0 
+        }));
 
-            // 🍩 4. Fulfillment Hub Filter Logic (Daily/Weekly/Monthly/Yearly)
-            const getFilteredOrders = (filter) => {
-                const now = new Date();
-                return myOrders.filter(o => {
-                    const orderDate = new Date(o.createdAt);
-                    if (filter === 'Daily') return orderDate.toDateString() === now.toDateString();
-                    if (filter === 'Weekly') {
-                        const lastWeek = new Date(); lastWeek.setDate(now.getDate() - 7);
-                        return orderDate >= lastWeek;
-                    }
-                    if (filter === 'Monthly') return orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear();
-                    if (filter === 'Yearly') return orderDate.getFullYear() === now.getFullYear();
-                    return true;
-                });
-            };
-
-            // Process data for charts based on current state filters
-            const hubFiltered = getFilteredOrders(hubFilter);
-            
-            const revenueTrendRaw = myOrders.map(o => ({ date: o.createdAt, amt: getOrderRevenue(o) }));
-            const ordersTrendRaw = myOrders.map(o => ({ date: o.createdAt, count: 1 }));
-            const reelsTrendRaw = myReels.map(r => ({ date: r.createdAt, views: r.views || 0 }));
-
-            // 🎯 5. Set Final Integrated Stats
-            setStats({
-                // Dynamic Chart Processing
-                revenueTrend: processChartData(revenueTrendRaw, 'date', 'amt', revFilter),
-                ordersTrend: processChartData(ordersTrendRaw, 'date', 'count', orderFilter),
-                reelsTrend: processChartData(reelsTrendRaw, 'date', 'views', reelFilter),
-                
-                // Fulfillment Status Data (Filtered by hubFilter)
-                statusData: [
-                    { name: 'Delivered', value: hubFiltered.filter(o => o.status === 'Delivered').length },
-                    { name: 'Shipped', value: hubFiltered.filter(o => o.status === 'Shipped').length },
-                    { name: 'Placed', value: hubFiltered.filter(o => o.status === 'Placed').length },
-                    { name: 'Cancelled', value: hubFiltered.filter(o => o.status === 'Cancelled').length },
-                ].filter(d => d.value > 0),
-
-                // Inventory Health Segmentation
-                inventory: {
-                    outOfStock: allProducts.filter(p => (p.stock || 0) === 0),
-                    lowStock: allProducts.filter(p => (p.stock || 0) > 0 && (p.stock || 0) <= 10),
-                    healthyStock: allProducts.filter(p => (p.stock || 0) > 10).sort((a,b) => b.stock - a.stock)
-                },
-
-                // Global KPI Aggregates
-                totalRevenue: dashRes.data.data.revenue || 0,
-                totalProducts: allProducts.length,
-                totalReels: myReels.length,
-                totalLikes: myReels.reduce((acc, r) => acc + (r.likes || 0), 0),
-                totalViews: myReels.reduce((acc, r) => acc + (r.views || 0), 0),
-                totalCustomers: new Set(myOrders.map(o => o.userId?._id || o.userId)).size
+        
+        const getFilteredOrders = (filter) => {
+            const now = new Date();
+            return myOrders.filter(o => {
+                const orderDate = new Date(o.createdAt);
+                if (filter === 'Daily') return orderDate.toDateString() === now.toDateString();
+                if (filter === 'Weekly') {
+                    const lastWeek = new Date(); lastWeek.setDate(now.getDate() - 7);
+                    return orderDate >= lastWeek;
+                }
+                if (filter === 'Monthly') return orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear();
+                if (filter === 'Yearly') return orderDate.getFullYear() === now.getFullYear();
+                return true;
             });
+        };
 
-        } catch (err) { 
-            console.error("Critical Analytics Sync Error:", err);
-            toast.error("Failed to sync live business data!");
-        } finally { 
-            setIsLoading(false); 
-        }
-    };
+        const hubFiltered = getFilteredOrders(hubFilter);
+        const ordersTrendRaw = myOrders.map(o => ({ date: o.createdAt, count: 1 }));
+        const reelsTrendRaw = myReels.map(r => ({ date: r.createdAt, views: r.views || 0 }));
+
+
+setStats({
+    revenueTrend: processChartData(revenueTrendRaw, 'date', 'amt', revFilter),
+    ordersTrend: processChartData(ordersTrendRaw, 'date', 'count', orderFilter),
+    reelsTrend: processChartData(reelsTrendRaw, 'date', 'views', reelFilter),
+    
+    statusData: [
+        { name: 'Delivered', value: hubFiltered.filter(o => o.status === 'Delivered').length },
+        { name: 'Shipped', value: hubFiltered.filter(o => o.status === 'Shipped').length },
+        { name: 'Placed', value: hubFiltered.filter(o => o.status === 'Placed').length },
+        { name: 'Cancelled', value: hubFiltered.filter(o => o.status === 'Cancelled').length },
+    ].filter(d => d.value > 0),
+
+    inventory: {
+        outOfStock: allProducts.filter(p => (p.stock || 0) === 0),
+        lowStock: allProducts.filter(p => (p.stock || 0) > 0 && (p.stock || 0) <= 10),
+        healthyStock: allProducts.filter(p => (p.stock || 0) > 10).sort((a,b) => b.stock - a.stock)
+    },
+
+    // 🚀 THE CRITICAL FIX: Direct sum of all PAID settlements for accuracy
+    // Admin payout page-la 'Mark as Paid' panna amount ellaame ippo real-time-ah inga kootum
+    totalRevenue: paidSettlements.reduce((sum, s) => sum + (s.finalSettlementAmount || 0), 0).toFixed(2),
+    
+    totalProducts: allProducts.length,
+    totalReels: myReels.length,
+    totalLikes: myReels.reduce((acc, r) => acc + (r.likes || 0), 0),
+    totalViews: myReels.reduce((acc, r) => acc + (r.views || 0), 0),
+    totalCustomers: new Set(myOrders.map(o => o.userId?._id || o.userId)).size
+});
+
+    } catch (err) { 
+        console.error("Critical Analytics Sync Error:", err);
+        toast.error("Failed to sync live business data!");
+    } finally { 
+        setIsLoading(false); 
+    }
+};
 
     useEffect(() => { fetchFullAnalytics(); }, [revFilter, orderFilter, reelFilter, hubFilter]);
 
@@ -175,7 +171,7 @@ const fetchFullAnalytics = async () => {
 
     return (
         <div className="animate__animated animate__fadeIn pb-40">
-            {/* 🌟 REAL-TIME TOP CARDS */}
+            
             <div className="row g-4 mb-24">
                 <TopMetricCard title="Total Revenue" val={`₹${stats?.totalRevenue}`} icon="solar:wallet-money-bold" color="#485EC4" />
                 <TopMetricCard title="Active Products" val={stats?.totalProducts} icon="solar:box-bold" color="#28C76F" />
@@ -184,7 +180,7 @@ const fetchFullAnalytics = async () => {
             </div>
 
             <div className="row g-4">
-                {/* 📊 REVENUE Trend */}
+                
                 <div className="col-lg-12">
                     <ChartCard title="Revenue Analytics" filter={revFilter} setFilter={setRevFilter} sub="Real-time earnings flow">
                         <ResponsiveContainer width="100%" height={300}>
@@ -202,7 +198,7 @@ const fetchFullAnalytics = async () => {
                     </ChartCard>
                 </div>
 
-                {/* 📦 Order Volume */}
+               
                 <div className="col-lg-8">
                     <ChartCard title="Order Volume Trend" filter={orderFilter} setFilter={setOrderFilter} sub="Sales velocity tracking">
                         <ResponsiveContainer width="100%" height={300}>
@@ -217,13 +213,12 @@ const fetchFullAnalytics = async () => {
                     </ChartCard>
                 </div>
 
-                {/* 🍩 Fulfillment Hub */}
-{/* 🍩 Fulfillment Hub */}
+
 <div className="col-lg-4">
     <ChartCard 
         title="Fulfillment Hub" 
         filter={hubFilter} 
-        setFilter={setHubFilter} // 🌟 Corrected: strictly using hubFilter
+        setFilter={setHubFilter} 
         sub="Order lifecycle status"
     >
         <ResponsiveContainer width="100%" height={220}>
@@ -234,7 +229,7 @@ const fetchFullAnalytics = async () => {
                     outerRadius={80} 
                     paddingAngle={5} 
                     dataKey="value"
-                    animationDuration={800} // Professional feel
+                    animationDuration={800} 
                 >
                     {stats?.statusData?.map((entry, index) => (
                         <Cell key={index} fill={COLORS[index % COLORS.length]} />
@@ -247,7 +242,7 @@ const fetchFullAnalytics = async () => {
     </ChartCard>
 </div>
 
-               {/* 📉 INVENTORY HEALTH Tracker */}
+               
 <div className="col-lg-6">
     <div className="card radius-16 border-0 shadow-sm p-24 h-100">
         <h6 className="fw-black text-dark mb-20 d-flex align-items-center gap-2">
@@ -255,13 +250,13 @@ const fetchFullAnalytics = async () => {
             Inventory Health Tracker
         </h6>
         
-        {/* 1. OUT OF STOCK SECTION */}
+        
         <div className="mb-24">
             <label className="badge bg-danger-focus text-danger-main mb-12 px-12 uppercase fw-bold">Out of Stock ({stats?.inventory.outOfStock.length})</label>
             {stats?.inventory.outOfStock.slice(0, 5).map((p, i) => (
                 <div key={i} className="d-flex justify-content-between border-bottom py-2"><small className="fw-bold text-secondary">{p.name}</small><small className="text-danger fw-black">0 Left</small></div>
             ))}
-            {/* 🌟 View More for Out of Stock */}
+            
             {stats?.inventory.outOfStock.length > 5 && (
                 <button className="btn btn-sm text-primary-600 fw-black p-0 mt-2 d-flex align-items-center gap-1 transition-all hover-translate-x-2" onClick={() => navigate('/seller-dashboard')}>
                     VIEW ALL INVENTORY <Icon icon="solar:alt-arrow-right-bold" />
@@ -269,7 +264,7 @@ const fetchFullAnalytics = async () => {
             )}
         </div>
 
-        {/* 2. LOW STOCK SECTION (1-10) */}
+        
         <div className="mb-24">
             <label className="badge bg-warning-focus text-warning-main mb-12 px-12 uppercase fw-bold">Low Stock</label>
             {stats?.inventory.lowStock.slice(0, 5).map((p, i) => (
@@ -281,7 +276,7 @@ const fetchFullAnalytics = async () => {
 
         
 
-        {/* 3. HEALTHY STOCK SECTION */}
+        
         <div>
             <label className="badge bg-success-focus text-success-main mb-12 px-12 uppercase fw-bold">Top Stocked Items</label>
             {stats?.inventory.healthyStock.slice(0, 5).map((p, i) => (
@@ -290,12 +285,12 @@ const fetchFullAnalytics = async () => {
             
         </div>
         
-{/* 🌟 LOW STOCK View More Button */}
+
 {stats?.inventory.lowStock.length > 5 && (
     <button 
         className="btn btn-sm text-primary-600 fw-black p-0 mt-2 d-flex align-items-center gap-1 transition-all hover-translate-x-2" 
         onClick={() => {
-            setActiveTab("add"); // 🚀 DIRECT TAB SWITCH
+            setActiveTab("add"); 
             window.scrollTo({top: 0, behavior: 'smooth'});
         }}
     >
@@ -305,7 +300,7 @@ const fetchFullAnalytics = async () => {
     </div>
 </div>
 
-                {/* 📱 REELS ANALYTICS (Real Likes & Views) */}
+               
                 <div className="col-lg-6">
                     <div className="card radius-16 border-0 shadow-sm p-24 bg-dark h-100">
                         <div className="d-flex justify-content-between align-items-center mb-24">
@@ -326,17 +321,17 @@ const fetchFullAnalytics = async () => {
                                 <Line type="monotone" dataKey="value" stroke="#FF9F43" strokeWidth={4} dot={{fill: '#FF9F43', r: 5}} />
                             </LineChart>
                         </ResponsiveContainer>
-                        {/* 📱 REELS ANALYTICS FOOTER */}
+                        
 <div className="mt-32 d-flex justify-content-around text-white border-top border-white-10 pt-20">
     <div className="text-center">
         <Icon icon="solar:heart-bold" className="text-danger fs-3 mb-1" />
         <small className="d-block text-white opacity-75 uppercase fw-bold" style={{fontSize: '9px'}}>Total Likes</small>
-        <h4 className="mb-0 fw-black text-white mt-1">{stats?.totalLikes}</h4> {/* 🌟 Increased size & weight */}
+        <h4 className="mb-0 fw-black text-white mt-1">{stats?.totalLikes}</h4> 
     </div>
     <div className="text-center">
         <Icon icon="solar:eye-bold" className="text-warning fs-3 mb-1" />
         <small className="d-block text-white opacity-75 uppercase fw-bold" style={{fontSize: '9px'}}>Total Views</small>
-        <h4 className="mb-0 fw-black text-white mt-1">{stats?.totalViews}</h4> {/* 🌟 Increased size & weight */}
+        <h4 className="mb-0 fw-black text-white mt-1">{stats?.totalViews}</h4> 
     </div>
 </div>
                     </div>
@@ -346,7 +341,7 @@ const fetchFullAnalytics = async () => {
     );
 };
 
-// 🌟 Reusable Card Component
+
 const ChartCard = ({ title, sub, filter, setFilter, children }) => (
     <div className="card radius-16 border-0 shadow-sm p-24">
         <div className="d-flex justify-content-between align-items-center mb-24">
