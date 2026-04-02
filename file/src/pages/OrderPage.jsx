@@ -22,28 +22,37 @@ const OrderPage = () => {
     const [endDate, setEndDate] = useState("");
 
     // Modal States
-    const [viewOrder, setViewOrder] = useState(null);
-    const [multiSellerView, setMultiSellerView] = useState(null);
+const [viewOrder, setViewOrder] = useState(null);
+const [multiSellerView, setMultiSellerView] = useState(null);
+const [sellers, setSellers] = useState([]); 
 
     const API_BASE = "https://api.zhopingo.in/api/v1/orders/all"; 
 
     useEffect(() => { fetchOrders(); }, []);
 
-    const fetchOrders = async () => {
-        setIsLoading(true);
-        try {
-            const token = localStorage.getItem("userToken");
-            const config = { headers: { Authorization: `Bearer ${token}` } };
-            const res = await axios.get(API_BASE, config);
-            if (res.data.success) setOrders(res.data.data);
-        } catch (err) { console.error("Fetch error", err); } 
-        finally { setIsLoading(false); }
-    };
+   const fetchOrders = async () => {
+    setIsLoading(true);
+    try {
+        const token = localStorage.getItem("userToken");
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        
+        // 🚀 THE SYNC: Fetching both Orders and Master Seller List
+        const [resOrder, resSeller] = await Promise.all([
+            axios.get(API_BASE, config),
+            axios.get("https://api.zhopingo.in/api/v1/admin/sellers", config)
+        ]);
 
-    // 🌟 1. SYNCED FILTER LOGIC
+        if (resOrder.data.success) setOrders(resOrder.data.data);
+        if (resSeller.data.success) setSellers(resSeller.data.data); // Sellers list sync
+    } catch (err) { console.error("Fetch error", err); } 
+    finally { setIsLoading(false); }
+};
+
+   // 🌟 1. SYNCED FILTER LOGIC (Admin Multi-Seller Split Fix)
     useEffect(() => {
         let results = [...orders];
 
+        // A. Date Range Filter
         if (startDate && endDate) {
             results = results.filter(o => {
                 const date = new Date(o.createdAt).toISOString().split('T')[0];
@@ -67,15 +76,30 @@ const OrderPage = () => {
             });
         }
 
-        if (statusFilter !== "All Status") results = results.filter(o => o.status === statusFilter);
-       // Filter logic kulla intha update-ai check pannunga
-if (searchQuery) {
-    results = results.filter(o => 
-        o._id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        o.customerId?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.paymentMethod?.toLowerCase().includes(searchQuery.toLowerCase()) // 🌟 Payment mode search-um add pannittaen
-    );
-}
+        // 🚀 B. THE CRITICAL FIX: Filter based on Split Status
+        // Logic: Admin page row-la theryura adhe dynamic status-ai vachu filter panrom
+        if (statusFilter !== "All Status") {
+            results = results.filter(o => {
+                // 1. Indha order row-la theryura specific seller-ai kandupidi
+                const mySellerId = o.seller?._id || o.seller;
+                
+                // 2. Andha seller-oda specific package status-ai edukkuroam
+                const myPackage = o.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === mySellerId);
+                
+                // 3. Row-la theryura current status-um filter status-um match aagaum
+                const currentVisibleStatus = myPackage?.packageStatus || o.status;
+                return currentVisibleStatus === statusFilter;
+            });
+        }
+
+        // C. Search Query Filter
+        if (searchQuery) {
+            results = results.filter(o => 
+                o._id.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                o.customerId?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                o.paymentMethod?.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
 
         setFilteredOrders(results);
         setCurrentPage(1);
@@ -89,97 +113,99 @@ const walletPayments = filteredOrders.filter(o => o.paymentMethod?.toUpperCase()
 const downloadInvoice = (order) => {
     const doc = new jsPDF();
     
-    // 1. Header Section - Clean Black Text
+    // 1. Header Section - Clean & Professional
     doc.setFontSize(22);
-    doc.setTextColor(0, 0, 0); // Pure Black
+    doc.setTextColor(0, 0, 0); 
     doc.setFont(undefined, 'bold');
     doc.text("TAX INVOICE", 105, 20, { align: "center" });
 
-    // 2. Branding Placeholder (Zhopingo)
-    doc.setFontSize(12);
-    doc.text("ZHOPINGO - INDIA'S FIRST ORGANIC APP", 14, 30);
-    doc.setLineWidth(0.5);
-    doc.line(14, 32, 196, 32); // Horizontal Divider
+    
 
-    // 3. Order Metadata (Left Side)
+    // 3. Metadata Handshake
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.text(`Invoice No: #INV-${order._id.slice(-6).toUpperCase()}`, 14, 42);
     doc.text(`Order ID: #${order._id.slice(-8).toUpperCase()}`, 14, 47);
     doc.text(`Order Date: ${new Date(order.createdAt).toLocaleDateString('en-GB')}`, 14, 52);
-    doc.text(`Payment Mode: ${order.paymentMethod?.toUpperCase()}`, 14, 57);
+    doc.text(`Payment Mode: ${order.paymentMethod?.toUpperCase() || "ONLINE"}`, 14, 57);
 
-    // 4. Seller & Shipping Address Section (Side-by-Side)
-    // 🏠 SELLER DETAILS (Fetching Pickup Address)
+    // 🚀 4. THE CRITICAL SELLER ADDRESS SYNC (Admin Dynamic Lookup)
     doc.setFont(undefined, 'bold');
     doc.text("SOLD BY (SELLER):", 14, 70);
     doc.setFont(undefined, 'normal');
-    const seller = order.items?.[0]?.sellerId;
-    doc.text(`${seller?.shopName || "Zhopingo Store"}`, 14, 75);
-    // 🌟 SELLER SHIPPING ADDRESS FETCH
-    const sAddr = seller?.shopAddress;
-    const sellerFullAddr = sAddr ? `${sAddr.flatNo}, ${sAddr.area}, ${sAddr.pincode}` : "Pickup Address Not Set";
-    doc.text(sellerFullAddr, 14, 80, { maxWidth: 80 });
-    doc.text(`GSTIN: ${seller?.gstNumber || "N/A"}`, 14, 90);
 
-    // 👤 BILL TO (CUSTOMER DETAILS)
+    // Step A: Extract Seller Identity from first item
+    const sellerFromItem = order.items?.[0]?.sellerId;
+    const sellerId = sellerFromItem?._id || sellerFromItem; 
+
+    // Step B: Master List Lookup (Industrial Standard for Admin View)
+    const sellerFullDoc = sellers.find(s => s._id.toString() === sellerId?.toString());
+
+    // Step C: Priority-based Address Formatting
+    const shopName = sellerFullDoc?.shopName || sellerFromItem?.shopName || "Zhopingo Store";
+    const addr = sellerFullDoc?.shopAddress || sellerFromItem?.shopAddress;
+    
+    const formattedSellerAddr = addr 
+        ? `${addr.flatNo || ""}, ${addr.area || ""}, ${addr.city || ""}, ${addr.pincode || ""}`
+        : "Pickup Address Not Found in Database Records";
+
+    doc.text(shopName, 14, 75);
+    doc.text(formattedSellerAddr, 14, 80, { maxWidth: 85 });
+
+    // 👤 5. BILL TO SECTION (CUSTOMER SYNC)
     doc.setFont(undefined, 'bold');
     doc.text("BILL TO (CUSTOMER):", 120, 70);
     doc.setFont(undefined, 'normal');
-    doc.text(`${order.customerId?.name || "Customer"}`, 120, 75);
+    
+    const custName = order.customerId?.name || order.shippingAddress?.receiverName || "Customer";
+    doc.text(custName, 120, 75);
+    
     const cAddr = order.shippingAddress;
-    const custFullAddr = `${cAddr?.flatNo}, ${cAddr?.addressLine}, ${cAddr?.pincode}`;
+    const custFullAddr = cAddr 
+        ? `${cAddr.flatNo || ""}, ${cAddr.addressLine || ""}, ${cAddr.pincode || ""}` 
+        : "Address Not Provided";
+        
     doc.text(custFullAddr, 120, 80, { maxWidth: 80 });
-    doc.text(`Phone: ${order.customerId?.phone || "N/A"}`, 120, 90);
+    doc.text(`Phone: ${order.customerId?.phone || cAddr?.phone || "N/A"}`, 120, 95);
 
-    // 5. Products Table - B&W Theme
+    // 6. Products Table - Professional Grid
     const tableHeaders = [['S.No', 'Description of Goods', 'Qty', 'Unit Price', 'Total Amount']];
     const tableData = order.items.map((item, index) => [
         index + 1,
-        item.product?.name || item.name,
+        item.productId?.name || item.name || "Product",
         item.quantity,
-        `Rs. ${item.price.toLocaleString()}`,
-        `Rs. ${(item.price * item.quantity).toLocaleString()}`
+        `Rs. ${Number(item.price).toLocaleString()}`,
+        `Rs. ${(Number(item.price) * Number(item.quantity)).toLocaleString()}`
     ]);
 
     autoTable(doc, {
         head: tableHeaders,
         body: tableData,
-        startY: 100,
-        theme: 'grid', // Solid Grid for Professional Look
-        headStyles: { 
-            fillColor: [0, 0, 0], // Black Header
-            textColor: [255, 255, 255], // White Text
-            fontSize: 10,
-            halign: 'center'
-        },
-        styles: { 
-            fontSize: 9, 
-            cellPadding: 5, 
-            textColor: [0, 0, 0], // Black Body Text
-            lineColor: [0, 0, 0] // Black Border Lines
-        },
-        columnStyles: {
-            0: { halign: 'center' },
-            2: { halign: 'center' },
-            3: { halign: 'right' },
-            4: { halign: 'right' }
-        }
+        startY: 105,
+        theme: 'grid',
+        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], halign: 'center' },
+        styles: { fontSize: 9, cellPadding: 4, textColor: [0, 0, 0], lineColor: [0, 0, 0] },
+        columnStyles: { 0: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' } }
     });
 
-    // 6. Summary Section
+    // 7. Footer Summary - Calculations Sync
     const finalY = doc.lastAutoTable.finalY + 10;
-    doc.setFont(undefined, 'bold');
-    doc.setFontSize(12);
-    doc.text(`GRAND TOTAL (Incl. GST): Rs. ${order.totalAmount.toLocaleString()}`, 196, finalY, { align: "right" });
-
-    // 7. Footer - Signature Placeholder
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'italic');
-    doc.text("This is a computer-generated invoice and does not require a physical signature.", 105, finalY + 25, { align: "center" });
     
-    // Final Save
-    doc.save(`Invoice_${order._id.slice(-8).toUpperCase()}.pdf`);
+    // Finding specific split data for accuracy
+    const mySplit = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId)?.toString() === sellerId?.toString());
+    const subtotal = mySplit?.sellerSubtotal || 0;
+    const delivery = mySplit?.customerChargedShipping || 0;
+
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(10);
+    doc.text(`Subtotal: Rs. ${subtotal.toLocaleString()}`, 196, finalY, { align: "right" });
+    doc.text(`Shipping Charges: Rs. ${delivery.toLocaleString()}`, 196, finalY + 5, { align: "right" });
+    
+    doc.setFontSize(12);
+    doc.text(`GRAND TOTAL: Rs. ${(subtotal + delivery).toLocaleString()}`, 196, finalY + 13, { align: "right" });
+
+    // 8. Output Document
+    doc.save(`Invoice_${order._id.slice(-6).toUpperCase()}.pdf`);
 };
 
 // Pagination Logic - Idhai oru vaati verify pannunga
@@ -213,8 +239,14 @@ const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
                                 <input type="date" className="form-control-sm border-0 bg-transparent text-xs" value={endDate} onChange={e => setEndDate(e.target.value)} />
                             </div>
                             <select className="form-select form-select-sm w-auto radius-8" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                                <option>All Status</option><option>Placed</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option><option>Returned</option>
-                            </select>
+        <option>All Status</option>
+        <option>Placed</option>
+        <option>Packed</option> {/* 🚀 New Option Added */}
+        <option>Shipped</option>
+        <option>Delivered</option>
+        <option>Cancelled</option>
+        <option>Returned</option>
+    </select>
                             <select className="form-select form-select-sm w-auto radius-8" value={selectedDays} onChange={e => setSelectedDays(e.target.value)}>
                                 <option>All Time</option><option>Today</option><option>Yesterday</option><option>Last 7 Days</option><option>Last 30 Days</option>
                             </select>
@@ -300,45 +332,58 @@ const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
     </span>
 </td>
                                         <td className="fw-900 text-sm">₹{order.totalAmount}</td>
-                                    {/* 🌟 4 & 5. Status color sync */}
-{/* 🌟 4 & 5. Status Colors & Shadow Design Sync */}
-{/* 🌟 Admin Status Logic: Synced with Seller Split */}
-<td>
+                                   <td className="text-center">
     {(() => {
         // Step A: Find the status for this specific seller in this row
         const mySellerId = order.seller?._id || order.seller;
         const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === mySellerId);
         
-        // Priority: Split status first, then global status
+        // Step B: Detecting status priority strictly
         const currentStatus = myPackage?.packageStatus || order.status;
 
-        // Step B: Return Badge with correct color logic
+        let badgeClass = "bg-neutral-600 text-white"; // Fallback
+
+        // 🎨 9-STATUS FULL COLOR MAPPING (Admin Page Sync)
+        switch (currentStatus) {
+            case 'Placed':
+                badgeClass = "bg-warning-600 text-white"; // Bright Yellow/Orange
+                break;
+            case 'Packed':
+                badgeClass = "bg-info-main text-white"; // Light Blue
+                break;
+            case 'Shipped':
+                badgeClass = "bg-primary-600 text-white"; // Brand Blue
+                break;
+            case 'Delivered':
+                badgeClass = "bg-success-600 text-white"; // Solid Green
+                break;
+            case 'Return Requested':
+                badgeClass = "bg-magenta-600 text-white"; // Purple/Pink Mix
+                break;
+            case 'Return Approved':
+                badgeClass = "bg-lilac-600 text-white"; // Deep Violet
+                break;
+            case 'Return In Progress':
+                badgeClass = "bg-orange-600 text-white"; // Pure Orange
+                break;
+            case 'Returned':
+                badgeClass = "bg-danger-600 text-white"; // Solid Red
+                break;
+            case 'Cancelled':
+                badgeClass = "bg-secondary text-white"; // Solid Grey
+                break;
+            default:
+                badgeClass = "bg-neutral-600 text-white";
+        }
+
         return (
-            <span className={`badge px-16 py-8 radius-pill text-xxs fw-black uppercase ls-1 shadow-sm animate__animated animate__fadeIn`}
-                style={{
-                    backgroundColor: 
-                        currentStatus === 'Delivered' ? '#E7F7EF' : 
-                        currentStatus === 'Placed' ? '#FFF4E5' :    
-                        currentStatus === 'Shipped' ? '#E8EFFF' :
-                        currentStatus === 'Cancelled' ? '#FCEAEA' : 
-                        currentStatus === 'Returned' || currentStatus === 'Return Requested' ? '#F4EBFF' : 
-                        '#F2F4F7',
-                    color: 
-                        currentStatus === 'Delivered' ? '#28C76F' : 
-                        currentStatus === 'Placed' ? '#FF9F43' :    
-                        currentStatus === 'Shipped' ? '#485EC4' :
-                        currentStatus === 'Cancelled' ? '#EA5455' :
-                        currentStatus === 'Returned' || currentStatus === 'Return Requested' ? '#7F56D9' : 
-                        '#5E6366',
-                    minWidth: '90px',
-                    textAlign: 'center'
-                }}
-            >
+            <span className={`badge px-16 py-10 radius-pill fw-black uppercase ls-1 shadow-sm animate__animated animate__fadeIn ${badgeClass}`} 
+                  style={{ fontSize: '10px', minWidth: '110px', display: 'inline-block' }}>
                 {currentStatus}
             </span>
         );
     })()}
-</td>                                
+</td>                             
                                         {/* 🌟 INVOICE & DETAILS ACTIONS */}
                                         <td>
                                             <div className="d-flex align-items-center gap-2">

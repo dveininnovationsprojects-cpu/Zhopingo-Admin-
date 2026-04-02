@@ -13,12 +13,13 @@ const MyOrders = () => {
 const [currentPage, setCurrentPage] = useState(1);
 const [rowsPerPage, setRowsPerPage] = useState(10);
 const [selectedOrders, setSelectedOrders] = useState([]); // 🌟 Bulk selection check // Detail view modal
-    
+  const [sellerProfile, setSellerProfile] = useState(null);  
 const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
 const sellerId = sellerData.id || sellerData._id;
 const token = localStorage.getItem("userToken");
 const [statusFilter, setStatusFilter] = useState("All"); // 🌟 New: Status Filter State
 const API_BASE = "https://api.zhopingo.in/api/v1";
+
 
 
     const fetchOrders = async () => {
@@ -38,7 +39,22 @@ const API_BASE = "https://api.zhopingo.in/api/v1";
     };
     
 
-    useEffect(() => { fetchOrders(); }, [sellerId]);
+    useEffect(() => {
+    if (sellerId) {
+        fetchOrders();
+        fetchSellerProfile(); 
+    }
+}, [sellerId]);
+const fetchSellerProfile = async () => {
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        // Profile API moolama full address edukkuroam
+        const res = await axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config);
+        if (res.data.success) {
+            setSellerProfile(res.data.data.seller);
+        }
+    } catch (err) { console.error("Profile Address Sync Error"); }
+};
     const handleBulkInvoice = () => {
     if (selectedOrders.length === 0) return toast.warn("Select at least one order!");
 
@@ -49,46 +65,63 @@ const API_BASE = "https://api.zhopingo.in/api/v1";
         const sellerItems = order.items.filter(i => (i.sellerId?._id || i.sellerId) === sellerId);
         const sellerShare = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
 
-        // 1. Header
+        // 1. Header Section
         doc.setFontSize(22);
         doc.text("INVOICE", 105, 20, { align: "center" });
+        
         doc.setFontSize(10);
         doc.text(`Order ID: #${order._id.toUpperCase()}`, 14, 30);
         doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`, 14, 35);
         doc.line(14, 40, 196, 40);
 
-        // 2. Shipping
+        // 🚀 2. THE SYNC: SOLD BY (SELLER ADDRESS FROM PROFILE)
         doc.setFont("helvetica", "bold");
-        doc.text("SHIP TO:", 14, 50);
+        doc.text("SOLD BY (SELLER):", 14, 50);
         doc.setFont("helvetica", "normal");
-        doc.text(`${order.shippingAddress?.receiverName}`, 14, 55);
-        doc.text(`${order.shippingAddress?.flatNo}, ${order.shippingAddress?.area}`, 14, 60);
-        doc.text(`${order.shippingAddress?.city}, ${order.shippingAddress?.pincode}`, 14, 65);
+        doc.text(`${sellerProfile?.shopName || "Our Store"}`, 14, 55);
+        
+        // Dynamic Address extraction strictly from profile state
+        const sAddr = sellerProfile?.shopAddress;
+        const sellerFullAddr = sAddr 
+            ? `${sAddr.flatNo || ""}, ${sAddr.area || ""}, ${sAddr.city || ""}, ${sAddr.pincode || ""}` 
+            : "Pickup Address Details Syncing...";
+        
+        doc.text(sellerFullAddr, 14, 60, { maxWidth: 85 });
 
-        // 3. Table
+        // 👤 3. SHIP TO (CUSTOMER DETAILS)
+        doc.setFont("helvetica", "bold");
+        doc.text("SHIP TO:", 120, 50);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${order.shippingAddress?.receiverName}`, 120, 55);
+        doc.text(`${order.shippingAddress?.flatNo}, ${order.shippingAddress?.area}`, 120, 60, { maxWidth: 80 });
+        doc.text(`${order.shippingAddress?.city}, ${order.shippingAddress?.pincode}`, 120, 70);
+
+        // 4. Products Table
         const tableRows = sellerItems.map((item, idx) => [
             idx + 1, item.name, `X ${item.quantity}`, `Rs. ${item.price}`, `Rs. ${item.price * item.quantity}`
         ]);
 
         autoTable(doc, {
-            startY: 75,
+            startY: 85,
             head: [['S.No', 'Product Name', 'Qty', 'Unit Price', 'Subtotal']],
             body: tableRows,
             theme: 'striped',
             headStyles: { fillColor: [0, 0, 0] },
         });
 
+        // 5. Total Section
         const finalY = doc.lastAutoTable.finalY + 10;
+        doc.setFont("helvetica", "bold");
         doc.text(`Seller Total: Rs. ${sellerShare?.sellerSubtotal || 0}`, 196, finalY, { align: "right" });
 
-        // 🚀 THE MAGIC: If not the last order, add a new page
+        // 🚀 THE MAGIC: Add page break for all except last order
         if (index < ordersToProcess.length - 1) {
             doc.addPage();
         }
     });
 
     doc.save(`Bulk_Invoices_${new Date().getTime()}.pdf`);
-    toast.success(`${selectedOrders.length} Invoices Downloaded in 1 PDF!`);
+    toast.success(`${selectedOrders.length} Invoices Downloaded in 1 PDF! ✅`);
 };
 
 // Bulk Ship Logic
@@ -107,13 +140,13 @@ const handleBulkShip = async () => {
     } catch (err) { toast.error("Bulk shipping failed!"); }
     finally { setIsLoading(false); }
 };
-    const generateInvoice = (order) => {
+   const generateInvoice = (order) => {
     try {
         const doc = new jsPDF();
         const sellerItems = order.items.filter(i => (i.sellerId?._id || i.sellerId) === sellerId);
         const sellerShare = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
 
-        // 1. Header (Black & White)
+        // 1. Header (Professional Clean Look)
         doc.setFontSize(22);
         doc.text("INVOICE", 105, 20, { align: "center" });
         
@@ -122,17 +155,30 @@ const handleBulkShip = async () => {
         doc.text(`Order ID: #${order._id.toUpperCase()}`, 14, 35);
         doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`, 14, 40);
 
-        // 2. Shipping Details
-        doc.line(14, 45, 196, 45);
+        // 🚀 THE SYNC: SOLD BY (SELLER ADDRESS FROM PROFILE)
         doc.setFont("helvetica", "bold");
-        doc.text("SHIP TO:", 14, 55);
+        doc.text("SOLD BY (SELLER):", 14, 50);
         doc.setFont("helvetica", "normal");
-        doc.text(`${order.shippingAddress?.receiverName}`, 14, 60);
-        doc.text(`${order.shippingAddress?.flatNo}, ${order.shippingAddress?.area}`, 14, 65);
-        doc.text(`${order.shippingAddress?.city}, ${order.shippingAddress?.pincode}`, 14, 70);
-        doc.text(`Contact: ${order.shippingAddress?.phone}`, 14, 75);
+        doc.text(`${sellerProfile?.shopName || "Our Store"}`, 14, 55);
+        
+        // Address parameters extraction
+        const sAddr = sellerProfile?.shopAddress;
+        const sellerFullAddr = sAddr 
+            ? `${sAddr.flatNo || ""}, ${sAddr.area || ""}, ${sAddr.city || ""}, ${sAddr.pincode || ""}` 
+            : "Pickup Address Not Found";
+        
+        doc.text(sellerFullAddr, 14, 60, { maxWidth: 85 });
 
-        // 3. Product Table Logic - 🚀 THE FIX: Use autoTable(doc, options)
+        // 2. Shipping Details (CUSTOMER)
+        doc.line(14, 75, 196, 75);
+        doc.setFont("helvetica", "bold");
+        doc.text("SHIP TO:", 14, 82);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${order.shippingAddress?.receiverName}`, 14, 87);
+        doc.text(`${order.shippingAddress?.flatNo}, ${order.shippingAddress?.area}`, 14, 92);
+        doc.text(`${order.shippingAddress?.city}, ${order.shippingAddress?.pincode}`, 14, 97);
+
+        // 3. Product Table
         const tableRows = sellerItems.map((item, index) => [
             index + 1,
             item.name,
@@ -141,8 +187,8 @@ const handleBulkShip = async () => {
             `Rs. ${item.price * item.quantity}`
         ]);
 
-        autoTable(doc, { // 🌟 Use it as a function directly
-            startY: 85,
+        autoTable(doc, {
+            startY: 105,
             head: [['S.No', 'Product Name', 'Qty', 'Unit Price', 'Subtotal']],
             body: tableRows,
             theme: 'striped',
@@ -154,18 +200,14 @@ const handleBulkShip = async () => {
         const finalY = doc.lastAutoTable.finalY + 10;
         doc.setFont("helvetica", "bold");
         doc.text(`Total Earnings: Rs. ${sellerShare?.sellerSubtotal || 0}`, 196, finalY, { align: "right" });
-        
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "italic");
-       
 
         // 5. Save/Download
         doc.save(`Invoice_${order._id.slice(-6).toUpperCase()}.pdf`);
-        toast.success("Invoice Downloaded! ✅");
+        toast.success("Invoice Downloaded!");
 
     } catch (error) {
         console.error("PDF Generation Error:", error);
-        toast.error("Failed to generate PDF. Check console.");
+        toast.error("Failed to generate PDF.");
     }
 };
 const handleShipOrder = async (orderId) => {
@@ -259,6 +301,31 @@ const handleReturnAction = async (orderId, approvalStatus) => {
         setIsLoading(false);
     }
 };
+// 📄 1. Fetch Shipping Label (For Packed/Shipped orders)
+const handleDownloadLabel = async (awb) => {
+    try {
+        const res = await axios.get(`${API_BASE}/logistics/label/${awb}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.data.success && res.data.labelUrl) {
+            window.open(res.data.labelUrl, '_blank');
+        } else {
+            toast.info("Label is generating, please wait 30 seconds.");
+        }
+    } catch (err) { toast.error("Logistics Label error!"); }
+};
+
+// 📝 2. Fetch POD (Proof of Delivery - only for Delivered orders)
+const handleDownloadPOD = async (awb) => {
+    try {
+        const res = await axios.get(`${API_BASE}/logistics/documents/${awb}`, { headers: { Authorization: `Bearer ${token}` } });
+        // Delhivery POD response usually contains a direct link
+        const podLink = res.data.documents?.[awb]?.pod_link;
+        if (podLink) {
+            window.open(podLink, '_blank');
+        } else {
+            toast.warn("POD not uploaded by delivery boy yet.");
+        }
+    } catch (err) { toast.error("POD fetch failed!"); }
+};
 // 🌟 1. First: Filter based on Selected Status
 const filteredOrders = orders.filter(order => {
     // Current seller data mapping
@@ -319,6 +386,8 @@ return (
                 >
                     <option value="All">All Statuses</option>
                     <option value="Placed">Placed</option>
+                    {/* 🌟 41. New Filter Option: Packed (Ready for logistics) */}
+                    <option value="Packed">Packed</option> 
                     <option value="Shipped">Shipped</option>
                     <option value="Delivered">Delivered</option>
                     <option value="Returned">Returned</option>
@@ -363,6 +432,8 @@ return (
                             <th>Status</th>
                             <th className="text-center">Invoice</th>
                             <th className="text-center">Action</th>
+                            <th className="text-center">Shipping Label</th>
+        <th className="text-center">Proof (POD)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -470,35 +541,55 @@ return (
                                         {/* Invoice Column - Add this before Action <td> */}
 
 
-<td>
+<td className="text-center">
     {(() => {
-        // 🌟 THE CRITICAL FIX: Check individual item status first
         const myItems = order.items?.filter(i => (i.sellerId?._id || i.sellerId) === sellerId);
-        
-        // Items-la eadhachum "Return Requested" irundha adhai prioritise pannanum
-        const hasReturnRequest = myItems.some(i => i.itemStatus === 'Return Requested');
         const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
         
+        // 🌟 MASTER SYNC: Detecting status priority
+        const hasReturnRequest = myItems.some(i => i.itemStatus === 'Return Requested');
         const currentStatus = hasReturnRequest ? 'Return Requested' : (myPackage?.packageStatus || order.status);
 
-        let badgeClass = "bg-neutral-200 text-secondary";
-        let customStyle = {};
+        let badgeClass = "bg-neutral-600 text-white"; // Fallback
 
-        if (currentStatus === 'Delivered') badgeClass = "bg-success-focus text-success-main";
-        else if (currentStatus === 'Returned') badgeClass = "bg-danger-focus text-danger-main";
-        else if (currentStatus === 'Shipped') badgeClass = "bg-info-focus text-info-main";
-        else if (currentStatus === 'Placed') badgeClass = "bg-warning-focus text-warning-main";
-        else if (currentStatus === 'Return Requested') {
-            customStyle = { backgroundColor: '#F4EBFF', color: '#7F56D9', border: '1px solid #E9D7FE' };
+        // 🎨 9-STATUS FULL COLOR MAPPING (Strictly using utility classes)
+        switch (currentStatus) {
+            case 'Placed':
+                badgeClass = "bg-warning-600 text-white"; // Bright Yellow/Orange
+                break;
+            case 'Packed':
+                badgeClass = "bg-info-main text-white"; // Light Blue
+                break;
+            case 'Shipped':
+                badgeClass = "bg-primary-600 text-white"; // Brand Blue
+                break;
+            case 'Delivered':
+                badgeClass = "bg-success-600 text-white"; // Solid Green
+                break;
+            case 'Return Requested':
+                badgeClass = "bg-magenta-600 text-white"; // Purple/Pink Mix
+                break;
+            case 'Return Approved':
+                badgeClass = "bg-lilac-600 text-white"; // Deep Violet
+                break;
+            case 'Return In Progress':
+                badgeClass = "bg-orange-600 text-white"; // Pure Orange
+                break;
+            case 'Returned':
+                badgeClass = "bg-danger-600 text-white"; // Solid Red (Matches your Image)
+                break;
+            case 'Cancelled':
+                badgeClass = "bg-secondary text-white"; // Solid Grey
+                break;
+            default:
+                badgeClass = "bg-neutral-600 text-white";
         }
 
         return (
-            <td className="text-center">
-    <span className={`badge px-16 py-8 radius-pill text-xs fw-black uppercase ls-1 ${badgeClass}`} 
-          style={{ ...customStyle, fontSize: '11px', minWidth: '100px' }}>
-        {currentStatus}
-    </span>
-</td>
+            <span className={`badge px-16 py-10 radius-pill fw-black uppercase ls-1 shadow-sm ${badgeClass}`} 
+                  style={{ fontSize: '10px', minWidth: '110px', display: 'inline-block' }}>
+                {currentStatus}
+            </span>
         );
     })()}
 </td>
@@ -582,6 +673,33 @@ return (
             return <span className="text-secondary-light fw-bold">---</span>;
         })()}
     </div>
+</td>
+{/* 🌟 1. Shipping Label Column */}
+<td className="text-center">
+    {(() => {
+        const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+        const canLabel = myPackage?.awbNumber && ['Packed', 'Shipped', 'Delivered'].includes(myPackage.packageStatus);
+        
+        return canLabel ? (
+            <button onClick={() => handleDownloadLabel(myPackage.awbNumber)} className="btn btn-sm btn-info-focus text-info-main p-8 radius-8 border-0 shadow-sm" title="Download Label">
+                <Icon icon="solar:printer-bold" className="fs-5" />
+            </button>
+        ) : <span className="text-muted text-xxs italic">Not Ready</span>;
+    })()}
+</td>
+
+{/* 🌟 2. POD Column */}
+<td className="text-center">
+    {(() => {
+        const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+        const isDelivered = myPackage?.packageStatus === 'Delivered';
+        
+        return isDelivered ? (
+            <button onClick={() => handleDownloadPOD(myPackage.awbNumber)} className="btn btn-sm btn-success-focus text-success-main p-8 radius-8 border-0 shadow-sm" title="View Proof of Delivery">
+                <Icon icon="solar:document-bold" className="fs-5" />
+            </button>
+        ) : <span className="text-muted text-xxs italic">---</span>;
+    })()}
 </td>
                                     </tr>
                                 );

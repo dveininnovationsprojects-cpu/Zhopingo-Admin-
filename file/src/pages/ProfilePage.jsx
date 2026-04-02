@@ -12,8 +12,8 @@ const ProfilePage = () => {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [kycDocs, setKycDocs] = useState(null); // 🌟 KYC Docs state
-const [showDocModal, setShowDocModal] = useState(false); // 🌟 Doc update modal
+  const [kycDocs, setKycDocs] = useState(null);
+const [showDocModal, setShowDocModal] = useState(false); 
 const [uploadingDoc, setUploadingDoc] = useState({ field: "", label: "" });
 const [showAddressModal, setShowAddressModal] = useState(false);
 const [addressForm, setAddressForm] = useState({
@@ -23,17 +23,16 @@ const [addressForm, setAddressForm] = useState({
     pincode: ""
 });
 
-  // 🌟 Modal States
   const [showEditModal, setShowEditModal] = useState(false);
   const [editData, setEditData] = useState({ field: "", label: "", value: "" });
 
   const API_BASE = "https://api.zhopingo.in/api/v1";
-  // 🚀 THE FIX: CloudFront URL for Store Logo
+ 
 const IMAGE_BASE = "https://d1utzn73483swp.cloudfront.net/";
 
 useEffect(() => {
     if (sellerId) {
-        fetchProfileData(); // Idhuvey Revenue-aiyum fetch pannidum
+        fetchProfileData(); 
     }
 }, [sellerId]);
 
@@ -43,20 +42,20 @@ const fetchProfileData = async () => {
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
 
-        // 🚀 Parallel Fetching for better performance
+
         const [dashRes, kycRes] = await Promise.all([
             axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config),
             axios.get(`${API_BASE}/seller/my-kyc?id=${sellerId}`, config)
         ]);
 
-        // 1. Handle Dashboard & Revenue Data
+       
         if (dashRes.data.success) {
             const data = dashRes.data.data;
             const profile = data.seller;
             
             setSellerDetails({
                 ...profile,
-                // 🚀 THE FIX: Syncing image keys and address keys from backend
+
                 profileImage: profile.profileImage || profile.shopLogo, 
                 shopAddress: profile.shopAddress || profile.address || {} 
             });
@@ -64,7 +63,7 @@ const fetchProfileData = async () => {
             setTotalRevenue(data.revenue || 0);
         }
 
-        // 2. Handle KYC Documents Data 🌟
+        
         if (kycRes.data.success) {
             setKycDocs(kycRes.data.data);
         }
@@ -80,41 +79,76 @@ const handleAddressUpdate = async (e) => {
     e.preventDefault();
     setIsUpdating(true);
     try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+
+
+        const checkRes = await axios.get(`${API_BASE}/logistics/check-serviceability?pincode=${addressForm.pincode}`, config);
+
+        if (!checkRes.data.success || !checkRes.data.serviceable) {
+           
+            setIsUpdating(false);
+            return toast.error("🚫 NO SERVICE AVAILABLE ON THIS ADDRESS (DELHIVERY REJECTED PINCODE)");
+        }
+
+        
         const url = `${API_BASE}/seller/add-address/${sellerId}`;
-        const res = await axios.put(url, addressForm, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await axios.put(url, addressForm, config);
 
         if (res.data.success) {
-            toast.success("Pickup Address Updated!");
+            toast.success("SERVICEABLE AREA DETECTED & PICKUP ADDRESS UPDATED!");
             fetchProfileData();
             setShowAddressModal(false);
         }
     } catch (err) {
-        toast.error(err.response?.data?.message || "Address update failed");
+        console.error("Delhivery Handshake Error:", err);
+        toast.error(err.response?.data?.message || "Address validation failed with Logistics Partner");
     } finally {
         setIsUpdating(false);
     }
 };
-const handleDocUpdate = async (e) => {
+// 🚀 THE FIX: Parameters instantaneous-ah eduthukoam
+const handleDocUpdate = async (e, fieldName, fieldLabel) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    // 🛡️ Guard: 5MB Strict Size Limit
+    const fileSizeInMB = file.size / (1024 * 1024);
+    if (fileSizeInMB > 5) {
+        toast.error("File size exceeds 5MB limit!");
+        e.target.value = "";
+        return;
+    }
+
     const formData = new FormData();
-    formData.append(uploadingDoc.field, file);
+    // 🌟 THE SYNC: Direct field name from parameter
+    formData.append(fieldName, file);
     formData.append("sellerId", sellerId);
 
+    // Spinner tracking-kaga state update panroam
+    setUploadingDoc({ field: fieldName, label: fieldLabel });
     setIsUpdating(true);
+
     try {
         const res = await axios.put(`${API_BASE}/seller/update-kyc`, formData, {
-            headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` }
+            headers: { 
+                "Content-Type": "multipart/form-data", 
+                Authorization: `Bearer ${token}` 
+            }
         });
+
         if (res.data.success) {
-            toast.success(`${uploadingDoc.label} Updated!`);
-            fetchProfileData();
+            // 🚀 THE FINAL FIX: Katchithama andha specific label mattum varum
+            toast.success(`${fieldLabel} Updated Successfully!`);
+            await fetchProfileData();
         }
-    } catch (err) { toast.error("Update failed"); }
-    finally { setIsUpdating(false); }
+    } catch (err) { 
+        console.error("KYC Sync Error:", err.response?.data);
+        toast.error(`${fieldLabel} upload failed!`); 
+    } finally { 
+        setIsUpdating(false);
+        setUploadingDoc({ field: "", label: "" });
+        e.target.value = "";
+    }
 };
 // 2. Updated Display References (Around Line 100)
 // short-circuiting use panni undefined values-ai thadukka
@@ -312,8 +346,6 @@ const handleUpdateField = async (e) => {
     </div>
   </div>
 </div>
-{/* --- KYC DOCUMENTS SECTION --- */}
-{/* --- KYC DOCUMENTS SECTION --- */}
 <div className="col-12 mt-4">
   <div className="card radius-16 border-0 shadow-sm p-32">
     <h6 className="fw-bold mb-24 uppercase text-primary-600 ls-1" style={{fontSize: '13px'}}>Verification Documents</h6>
@@ -331,9 +363,8 @@ const handleUpdateField = async (e) => {
                             <Icon icon="solar:document-bold" className="text-primary-600 text-xl" />
                         </div>
                         
-                        {/* 🌟 ACTION HUB: File Update + Number Update Icons */}
                         <div className="d-flex gap-1">
-                            {/* Number Edit Icon (MSME-ku kidayathu strictly) */}
+                            {/* 🌟 1. NUMBER EDIT (No Spinner - Pure Action) */}
                             {doc.numField !== "msmeNumber" && (
                                 <button onClick={() => openEditor(doc.numField, `${doc.label} Number`, doc.num)} 
                                         className="btn p-4 text-primary-600 hover-bg-primary-50 radius-8">
@@ -341,29 +372,34 @@ const handleUpdateField = async (e) => {
                                 </button>
                             )}
                             
-                            {/* File Upload Icon */}
+                            {/* 🌟 2. FILE UPLOAD (Strictly Individual Spinner) */}
                             <label className="btn p-4 text-info-600 hover-bg-info-50 radius-8 cursor-pointer mb-0">
-                                <Icon icon="solar:upload-bold" className="text-lg" />
-                                <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" 
-                                       onChange={(e) => {
-                                           setUploadingDoc({ field: doc.field, label: doc.label });
-                                           handleDocUpdate(e);
-                                       }} 
-                                />
+                                {isUpdating && uploadingDoc.field === doc.field ? (
+                                    <div className="spinner-border spinner-border-sm text-info" role="status"></div>
+                                ) : (
+                                    <>
+                                        <Icon icon="solar:upload-bold" className="text-lg" />
+                                        <input 
+                                            type="file" 
+                                            hidden 
+                                            accept=".pdf,.jpg,.jpeg,.png" 
+                                            onChange={(e) => {
+                                                // 🚀 THE SYNC: Passing parameters directly as requested
+                                                handleDocUpdate(e, doc.field, doc.label);
+                                            }} 
+                                        />
+                                    </>
+                                )}
                             </label>
                         </div>
                     </div>
 
                     <div>
                         <small className="text-xxs fw-bold text-secondary-light uppercase">{doc.label}</small>
-                        
-                        {/* 🚀 THE FIX: Hide Number strictly for MSME */}
                         {doc.numField !== "msmeNumber" ? (
-                            <p className="mb-8 text-xs fw-bold text-dark text-truncate" title={doc.num}>
-                                {doc.num || "---"}
-                            </p>
+                            <p className="mb-8 text-xs fw-bold text-dark text-truncate" title={doc.num}>{doc.num || "---"}</p>
                         ) : (
-                            <div className="mb-8" style={{ height: '18px' }}></div> // Spacer for MSME
+                            <div className="mb-8" style={{ height: '18px' }}></div>
                         )}
 
                         {doc.data?.fullUrl ? (
@@ -382,19 +418,7 @@ const handleUpdateField = async (e) => {
   </div>
 </div>
 
-        {/* --- REVENUE --- */}
-        <div className="col-lg-12">
-            <div className="card radius-16 border-0 shadow-sm p-32">
-                <h6 className="fw-bold mb-24 uppercase text-secondary-light" style={{fontSize: '12px'}}>Settlement Summary</h6>
-                <div className="p-24 radius-12 d-flex justify-content-between align-items-center bg-primary-50 border border-primary-100">
-                    <div>
-                        <span className="text-primary-600 text-xs fw-bold uppercase">Total Revenue</span>
-                        <h2 className="fw-900 mb-0 mt-4 text-dark">₹ {totalRevenue.toLocaleString()}</h2>
-                    </div>
-                    <Icon icon="solar:wallet-money-bold" className="text-4xl text-primary-600 opacity-25" />
-                </div>
-            </div>
-        </div>
+        
       </div>
 
       {/* --- EDIT MODAL --- */}
