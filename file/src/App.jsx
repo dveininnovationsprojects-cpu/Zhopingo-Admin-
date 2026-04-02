@@ -346,20 +346,20 @@ import BusinessReportsPage from "./pages/BusinessReportsPage";
 import PayoutsPage from "./pages/PayoutsPage";
 
 function App() {
-  // 🌟 Logic: Storage-la irundhu fresh data-va eppovum edukka useMemo use panrom
+
   const authData = useMemo(() => {
     const token = localStorage.getItem("userToken")?.trim();
-    const role = localStorage.getItem("userRole"); // SignIn-la namma set pannura andha role
+    const role = localStorage.getItem("userRole"); 
     const userDataRaw = localStorage.getItem("userData");
     const userData = userDataRaw ? JSON.parse(userDataRaw) : {};
     return { token, role: role || userData.role, userData };
   }, []);
 
-  // 🌟 Dynamic Redirection Path Logic
+  
   const getDashboardPath = () => {
     if (!authData.token || authData.token === "undefined") return "/sign-in";
     
-    // Role-ah vachu decide pannuvom
+    
     if (authData.role === "seller") return "/seller-dashboard";
     if (authData.role === "admin") return "/dashboard";
     
@@ -369,7 +369,7 @@ function App() {
 <BrowserRouter>
       <RouteScrollToTop />
       <Routes>
-   {/* ================= PUBLIC ROUTES ================= */}
+
 <Route 
           path="/" 
           element={authData.token ? <Navigate to={getDashboardPath()} replace /> : <SignInPage />} 
@@ -382,7 +382,7 @@ function App() {
         <Route exact path='/sign-up' element={<SignUpPage />} />
         <Route exact path='/forgot-password' element={<ForgotPasswordPage />} />
 
-        {/* ================= PROTECTED ROUTES (Login Required) ================= */}
+
         <Route element={<ProtectedRoute />}>
        <Route 
             path='/dashboard' 
@@ -402,7 +402,7 @@ function App() {
           <Route exact path='/add-product' element={<AddProductPage />} />
           <Route exact path='/admin-reels' element={<AdminReels />} />
           <Route exact path='/admin-profile' element={<AdminProfile />} />
-          {/* 🚀 41. Professional Business Routes Setup */}
+
           <Route 
   path='/payouts' 
   element={<PayoutsPage />} 
@@ -419,13 +419,13 @@ function App() {
   element={<BusinessReportsPage />} 
 />
           
-          {/* Unga UI kit related routes (Protected) */}
+         
           <Route exact path='/add-user' element={<AddUserPage />} />
           <Route exact path='/assign-role' element={<AssignRolePage />} />
           <Route exact path='/carousel' element={<CarouselPage />} />
           <Route exact path='/chat-message' element={<ChatMessagePage />} />
           <Route exact path='/chat-profile' element={<ChatProfilePage />} />
-          {/* 🌟 Master Catalog Management Route */}
+         
 <Route 
   path="/master-catalog" 
   element={<MasterProductListPage />} 
@@ -462,7 +462,7 @@ function App() {
           <Route exact path='/my-account' element={<MyAccountPage />} />
         </Route>
 
-        {/* 404 Error Page */}
+        
         <Route path='*' element={<ErrorPage />} />
       </Routes>
     </BrowserRouter>

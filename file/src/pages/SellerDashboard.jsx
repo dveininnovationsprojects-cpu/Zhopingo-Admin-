@@ -8,7 +8,7 @@ import {
     LineElement, Title, Tooltip, Legend, Filler,
 } from "chart.js";
 
-// Components
+
 import MyOrders from "./MyOrders";
 import AddProduct from "./AddProduct";
 import ReelsPage from "./ReelsPage";
@@ -24,7 +24,7 @@ const SellerDashboard = () => {
     const [activeTab, setActiveTab] = useState("dashboard");
     const [isLoading, setIsLoading] = useState(false);
     
-    // 🌟 New: Live Seller Profile State
+    
     const [sellerProfile, setSellerProfile] = useState(null);
     
     const [stats, setStats] = useState({
@@ -37,21 +37,20 @@ const SellerDashboard = () => {
     const sellerData = JSON.parse(localStorage.getItem("userData") || "{}");
     const sellerId = sellerData.id || sellerData._id;
     const token = localStorage.getItem("userToken");
-    const [timeFilter, setTimeFilter] = useState("Weekly"); // Default Weekly
-const [displayRevenue, setDisplayRevenue] = useState(0); // Filter-ku yetha dynamic revenue
+    const [timeFilter, setTimeFilter] = useState("Weekly"); 
+const [displayRevenue, setDisplayRevenue] = useState(0); 
 
     const API_BASE = "https://api.zhopingo.in/api/v1";
-    // 🌟 Image Base path for sellers
+    
     const IMAGE_BASE = "https://d1utzn73483swp.cloudfront.net/";
 
     useEffect(() => {
         if (sellerId) {
             fetchSellerLiveStats();
-            fetchSellerProfile(); // 🌟 Load profile details on mount
+            fetchSellerProfile(); 
         }
     }, [sellerId]);
 
-    // 🌟 1. Fetch Latest Profile (For Image & Shop Details)
     const fetchSellerProfile = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -69,24 +68,23 @@ const fetchSellerLiveStats = async () => {
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
         
-        // 🚀 1. Parallel Fetching: Orders (for status counts), Dashboard (profile), and Settlements (for Paid Revenue)
+       
         const [ordersRes, dashboardRes, settlementRes] = await Promise.all([
             axios.get(`${API_BASE}/orders/all`, config),
             axios.get(`${API_BASE}/seller/dashboard/${sellerId}`, config),
-            // 💰 Syncing with the specific seller's settlement history
+            
             axios.get(`${API_BASE}/admin/finance/settlements/${sellerId}`, config) 
         ]);
 
         if (ordersRes.data.success && dashboardRes.data.success) {
-            // 🎯 Filtering Orders for Status Cards
+            
             const myOrders = ordersRes.data.data.filter(order => 
                 order.sellerSplitData?.some(split => (split.sellerId?._id || split.sellerId) === sellerId)
             );
 
-            // 💰 2. REAL-TIME REVENUE LOGIC: Strictly filtering "Paid" status settlements
             const paidSettlements = (settlementRes.data.data || []).filter(s => s.status === 'Paid');
             
-            // Total Revenue strictly from Admin's Payout confirmation
+
             const totalPaidRevenue = paidSettlements.reduce((sum, s) => sum + (s.finalSettlementAmount || 0), 0);
 
             setStats({
@@ -95,18 +93,18 @@ const fetchSellerLiveStats = async () => {
                 shipped: myOrders.filter(o => o.status === "Shipped").length,
                 delivered: myOrders.filter(o => o.status === "Delivered").length,
                 cancelled: myOrders.filter(o => o.status === "Cancelled").length,
-                // 🌟 Dashboard revenue card now shows 100% verified payout
+
                 revenue: totalPaidRevenue.toFixed(2) 
             });
 
-            // 🚀 3. DYNAMIC CHART SYNC: Chart strictly follows "Paid" settlement dates
+
             const now = new Date();
             let chartData = [];
 
             if (timeFilter === "Daily") {
                 chartData = new Array(7).fill(0);
                 paidSettlements.forEach(s => {
-                    const sDate = new Date(s.updatedAt); // Admin clicked 'Mark as Paid' timestamp
+                    const sDate = new Date(s.updatedAt); 
                     if (sDate.toDateString() === now.toDateString()) {
                         const slot = Math.floor(sDate.getHours() / 3.5); 
                         chartData[slot] += s.finalSettlementAmount;
@@ -119,7 +117,7 @@ const fetchSellerLiveStats = async () => {
                     chartData[day] += s.finalSettlementAmount;
                 });
             } else if (timeFilter === "Monthly") {
-                // 📊 If you want Monthly filter to show weeks of current month
+                
                 chartData = new Array(4).fill(0);
                 paidSettlements.forEach(s => {
                     const d = new Date(s.updatedAt);
@@ -131,7 +129,7 @@ const fetchSellerLiveStats = async () => {
             }
             setWeeklySalesData(chartData);
 
-            // 🏆 4. TOP PRODUCTS SYNC (Maintained from Order history)
+            
             const productMap = {};
             myOrders.forEach(order => {
                 order.items.forEach(item => {
@@ -144,7 +142,7 @@ const fetchSellerLiveStats = async () => {
             });
             setTopProducts(Object.values(productMap).sort((a, b) => b.count - a.count).slice(0, 7));
 
-            // 👤 5. PROFILE SYNC
+            
             setSellerProfile(dashboardRes.data.data.seller);
         }
     } catch (err) {
@@ -163,16 +161,16 @@ const fetchSellerLiveStats = async () => {
     const handleLogout = () => { localStorage.clear(); navigate("/sign-in"); };
 
 const getProfileImg = () => {
-    // 🌟 Profile fetch panna data-la 'seller' object kulla dhaan image irukkum
+    
     const profile = sellerProfile?.seller || sellerProfile; 
     const imgPath = profile?.profileImage || profile?.shopLogo;
 
     if (imgPath) {
-        // Direct S3/CloudFront sync
+        
         return imgPath.startsWith('http') ? imgPath : `${IMAGE_BASE}${imgPath}`;
     }
     
-    // Fallback initials if no image
+    
     return `https://api.dicebear.com/7.x/initials/svg?seed=${profile?.shopName || 'Seller'}`;
 };
 
@@ -183,11 +181,11 @@ const getProfileImg = () => {
             borderColor: "#485EC4", backgroundColor: "rgba(72, 94, 196, 0.1)", tension: 0.4 
         }] 
     };
-// 🌟 41. Dynamic Chart Config based on Filter
+
 const getChartConfig = () => {
     let labels = [];
     if (timeFilter === "Daily") {
-        labels = ["6am", "9am", "12pm", "3pm", "6pm", "9pm", "12am"]; // Hour slots
+        labels = ["6am", "9am", "12pm", "3pm", "6pm", "9pm", "12am"]; 
     } else if (timeFilter === "Weekly") {
         labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     } else if (timeFilter === "Monthly") {
@@ -198,7 +196,7 @@ const getChartConfig = () => {
         labels: labels,
         datasets: [{
             fill: true,
-            data: weeklySalesData, // Backend-la irundhu filter aagi vara data
+            data: weeklySalesData, 
             borderColor: "#485EC4",
             backgroundColor: "rgba(72, 94, 196, 0.1)",
             tension: 0.4,
@@ -348,7 +346,7 @@ const renderDashboard = () => (
                         </div>
                     </div>
                 </div>
-
+                
                 <div className='dashboard-main-body p-24'>
                     <div className="mb-24">
                         <h5 className="fw-bold mb-0">Welcome back, {sellerProfile?.name || "Seller"}!</h5>

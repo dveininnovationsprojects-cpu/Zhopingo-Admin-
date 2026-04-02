@@ -168,21 +168,26 @@ const handleBulkShip = async () => {
         toast.error("Failed to generate PDF. Check console.");
     }
 };
-// 🚚 1. Ship Now Logic (Added sellerId in payload)
 const handleShipOrder = async (orderId) => {
+    setIsLoading(true);
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const res = await axios.put(`${API_BASE}/orders/update-status/${orderId}`, {
-            status: 'Shipped',
-            sellerId: sellerId, // 🌟 EXTREMELY CRITICAL
-            awbNumber: "128374922" // Oru vaelai manual AWB kudukanum-na inga add pannalam
+        // 🚀 THE REAL-TIME SYNC: Delhivery AWB generation API
+        const res = await axios.post(`${API_BASE}/logistics/create-shipment`, {
+            orderId: orderId,
+            sellerId: sellerId
         }, config);
 
         if (res.data.success) {
-            toast.success("Your package is Shipped!");
-            fetchOrders(); 
+            toast.success(`AWB Generated: ${res.data.awb} ✅`);
+            fetchOrders(); // Table refresh panna instantaneous-ah AWB theryum
         }
-    } catch (err) { toast.error("Shipping trigger failed!"); }
+    } catch (err) { 
+        console.error("AWB Sync Error:", err.response?.data);
+        toast.error(err.response?.data?.message || "Delhivery API Timeout!"); 
+    } finally {
+        setIsLoading(false);
+    }
 };
 
 // ✅ MARK DELIVERED Logic (Postman Sync)
@@ -205,6 +210,27 @@ const handleMarkDelivered = async (orderId) => {
     } catch (err) { 
         console.error("Sync Error:", err.response?.data);
         toast.error(err.response?.data?.message || "Delivery sync failed!"); 
+    } finally {
+        setIsLoading(false);
+    }
+};
+const handleSchedulePickup = async (orderId) => {
+    setIsLoading(true);
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        // 🚀 THE LOGISTICS HANDSHAKE: Triggering Delhivery Pickup API
+        const res = await axios.post(`${API_BASE}/logistics/schedule-pickup`, {
+            sellerId: sellerId,
+            orderId: orderId // Backend mapping purpose
+        }, config);
+
+        if (res.data.success) {
+            toast.success(`Pickup Scheduled for ${res.data.message.split('Date: ')[1]} ✅`);
+            fetchOrders(); // Refresh status
+        }
+    } catch (err) {
+        console.error("Pickup API Error:", err.response?.data);
+        toast.error(err.response?.data?.details?.data?.message?.[0] || "Logistics Sync Failed!");
     } finally {
         setIsLoading(false);
     }
@@ -425,15 +451,22 @@ return (
     </div>
 </td>
                                         
-                                        {/* 🚚 Tracking Info */}
-                                        <td>
-                                            {order.awbNumber ? (
-                                                <div className="d-flex flex-column">
-                                                    <span className="badge bg-info-50 text-info-main text-xxs">AWB: {order.awbNumber}</span>
-                                                    
-                                                </div>
-                                            ) : <span className="text-muted text-xxs italic">Not Shipped</span>}
-                                        </td>
+                                       {/* 🚚 Real-time AWB Mapping from DB */}
+<td>
+    {(() => {
+        const mySplit = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+        return mySplit?.awbNumber ? (
+            <div className="d-flex flex-column">
+                <span className="badge bg-info-50 text-info-main text-xxs fw-bold">
+                    ID: {mySplit.awbNumber}
+                </span>
+                <small className="text-primary-600 fw-bold italic" style={{fontSize: '9px'}}>Auto-Tracking Active</small>
+            </div>
+        ) : (
+            <span className="text-muted text-xxs italic">Waiting for Packing</span>
+        );
+    })()}
+</td>
                                         {/* Invoice Column - Add this before Action <td> */}
 
 
@@ -480,64 +513,73 @@ return (
             </td>
 
 
-{/* 🌟 Action Logic: Synced with Seller Part Only */}
 <td className="text-center">
     <div className="d-flex gap-2 justify-content-center align-items-center">
         {(() => {
             const myItems = order.items?.filter(i => (i.sellerId?._id || i.sellerId) === sellerId);
-            const hasReturnRequest = myItems.some(i => i.itemStatus === 'Return Requested');
             const myPackage = order.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+            
+            // 🌟 THE SYNC: Priority check for Return Requests
+            const hasReturnRequested = myItems.some(i => i.itemStatus === 'Return Requested') || myPackage?.packageStatus === 'Return Requested';
             const myStatus = myPackage?.packageStatus || order.status;
 
-            // 1. If Placed -> Show SHIP NOW
-            if (myStatus === 'Placed') {
+            // 🔙 1. REVERSE LOGISTICS: Always highest priority if customer asks for return
+            if (hasReturnRequested && myStatus !== 'Returned') {
                 return (
-                    <button 
-                        onClick={() => setConfirmModal({ 
-                            show: true, orderId: order._id, type: 'Ship', 
-                            title: 'Confirm Shipment', 
-                            message: 'Ship only your products from this order?' 
-                        })} 
-                        className="btn btn-primary-600 btn-sm radius-8 fw-bold d-flex align-items-center gap-1 px-16 shadow-sm"
-                    >
-                        <Icon icon="solar:delivery-bold" /> SHIP NOW
-                    </button>
-                );
-            }
-            
-            // 2. If Shipped -> Show MARK DELIVERED
-            if (myStatus === 'Shipped') {
-                return (
-                    <button 
-                        onClick={() => setConfirmModal({ 
-                            show: true, orderId: order._id, type: 'Deliver', 
-                            title: 'Mark as Delivered', 
-                            message: 'Confirm your items reached the customer?' 
-                        })} 
-                        className="btn btn-success-600 btn-sm radius-8 fw-bold px-16 shadow-sm"
-                    >
-                        MARK DELIVERED
-                    </button>
-                );
-            }
-            // 🌟 3. RETURN REQUESTED (New Logic)
-            if (hasReturnRequest) {
-                return (
-                    <div className="d-flex flex-column gap-1">
-                        <small className="text-primary-600 fw-bold" style={{fontSize: '9px'}}>RETURN REQUESTED</small>
+                    <div className="d-flex flex-column gap-1 bg-primary-50 p-8 radius-8 border border-primary-100">
+                        <small className="text-primary-600 fw-black uppercase" style={{fontSize: '9px'}}>Return Approval Needed</small>
                         <div className="d-flex gap-2 justify-content-center">
-                            <button onClick={() => handleReturnAction(order._id, 'Approved')} className="btn btn-success btn-sm radius-8 py-4 px-12 fw-bold text-xxs">ACCEPT</button>
+                            <button onClick={() => handleReturnAction(order._id, 'Approved')} className="btn btn-success btn-sm radius-8 py-4 px-12 fw-bold text-xxs shadow-sm">ACCEPT</button>
                             <button onClick={() => handleReturnAction(order._id, 'Rejected')} className="btn btn-outline-danger btn-sm radius-8 py-4 px-12 fw-bold text-xxs">REJECT</button>
                         </div>
                     </div>
                 );
             }
 
-// 3. FINAL BADGES
-            if (myStatus === 'Delivered') return <div className="text-success fw-black text-xxs uppercase"><Icon icon="solar:check-circle-bold" className="fs-5" /> COMPLETED</div>;
-            if (myStatus === 'Returned') return <div className="text-danger fw-black text-xxs uppercase"><Icon icon="solar:back-bold" className="fs-5" /> RETURNED</div>;
+            // 🚚 2. SHIPMENT TRIGGER: Ready for Delhivery Pickup
+            if (myStatus === 'Packed') {
+                return (
+                    <button 
+                        onClick={() => handleSchedulePickup(order._id)} 
+                        disabled={isLoading}
+                        className="btn btn-warning-600 btn-sm radius-8 fw-bold d-flex align-items-center gap-1 px-16 shadow-sm"
+                    >
+                        {isLoading ? <span className="spinner-border spinner-border-sm"></span> : <Icon icon="solar:delivery-bold" />}
+                        READY TO SHIP
+                    </button>
+                );
+            }
 
-            return <span className="text-secondary-light fw-bold">—</span>;
+            // 📦 3. PRE-PACKING: Order received but not yet packed by seller
+            if (myStatus === 'Placed') {
+                return (
+                    <div className="text-secondary-light d-flex align-items-center gap-1">
+                        <Icon icon="solar:box-minimalistic-bold" className="fs-5" />
+                        <span className="fw-bold text-xxs uppercase">Wait for Packing</span>
+                    </div>
+                );
+            }
+
+            // 📡 4. AUTO-TRACKING STATES: Webhook updates from Delhivery
+            // Inime "Mark Delivered" button thevai illai, webhook automatic-ah andha work-ai mudikkum.
+            if (myStatus === 'Shipped' || myStatus === 'In Transit' || myStatus === 'Dispatched') {
+                return (
+                    <div className="text-info-main fw-black text-xxs uppercase d-flex flex-column align-items-center gap-1">
+                        <div className="d-flex align-items-center gap-1">
+                            <Icon icon="solar:delivery-bold" className="fs-5" />
+                            <span>In Transit</span>
+                        </div>
+                        <small className="text-dark fw-bold lowercase" style={{fontSize: '8px', opacity: 0.6}}>Syncing from Logistics...</small>
+                    </div>
+                );
+            }
+
+            // ✅ 5. TERMINAL STATES: Completed or Finalized
+            if (myStatus === 'Delivered') return <div className="text-success fw-black text-xxs uppercase d-flex align-items-center gap-1"><Icon icon="solar:check-circle-bold" className="fs-5" /> COMPLETED</div>;
+            if (myStatus === 'Returned') return <div className="text-danger fw-black text-xxs uppercase d-flex align-items-center gap-1"><Icon icon="solar:back-bold" className="fs-5" /> RETURNED</div>;
+            if (myStatus === 'Cancelled') return <div className="text-secondary fw-black text-xxs uppercase">CANCELLED</div>;
+
+            return <span className="text-secondary-light fw-bold">---</span>;
         })()}
     </div>
 </td>

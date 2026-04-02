@@ -10,21 +10,21 @@ const SubCategoryPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("All Categories"); // 🌟 Category Filter
+  const [categoryFilter, setCategoryFilter] = useState("All Categories"); 
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const [categories, setCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
   
-  // Pagination States
+  
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const [formData, setFormData] = useState({ 
     id: "", name: "", categoryId: "", description: "", image: null
   });
-  const [previewImage, setPreviewImage] = useState(null); // 🌟 Image Preview State
+  const [previewImage, setPreviewImage] = useState(null); 
 
   const BASE_URL = "https://api.zhopingo.in/api/v1/catalog";
   const IMAGE_DOMAIN = "https://api.zhopingo.in/uploads/categories/";
@@ -50,7 +50,7 @@ const SubCategoryPage = () => {
     fetchAllSubCategories();
   }, []);
 
-  // 🌟 FILTER LOGIC: Category Dropdown + Search
+
   const filteredData = subCategories.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === "All Categories" || (item.category?._id || item.category) === categoryFilter;
@@ -73,7 +73,7 @@ const SubCategoryPage = () => {
     });
   };
 
-  // 🌟 IMAGE RESTRICTION & PREVIEW LOGIC
+
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -89,7 +89,7 @@ const SubCategoryPage = () => {
       return;
     }
     setFormData({ ...formData, image: file });
-    setPreviewImage(URL.createObjectURL(file)); // Show preview
+    setPreviewImage(URL.createObjectURL(file)); 
   };
 
   const handleSubmit = async (e) => {
@@ -138,19 +138,19 @@ const SubCategoryPage = () => {
       description: item.description || "", hsnCode: item.hsnCode || "", 
       gstRate: item.gstRate || "", image: null 
     });
-    // 🌟 Show existing image in preview
+    
     setPreviewImage(getImageUrl(item.image));
     setIsDrawerOpen(true);
   };
 
- // 🌟 41. Fixed Image URL Logic to support CloudFront
+
 const getImageUrl = (path) => {
     if (!path) return "assets/images/default.png";
     
-    // Oru velai backend-la irundhu full URL (http...) vandha adhaiye use pannuvom
+    
     if (path.startsWith('http')) return path;
     
-    // Illana unga secondary CloudFront URL-oda sync pannuvom
+    
     const CF_URL = "https://d1utzn73483swp.cloudfront.net/";
     return CF_URL + path;
 };
@@ -211,7 +211,7 @@ const getImageUrl = (path) => {
             src={getImageUrl(item.image)} 
             className="w-100 h-100 object-fit-cover" 
             alt={item.name}
-            // 🌟 Error vandha andha space empty-ah irukkaama default image vara vaikkaum
+            
             onError={(e) => { 
                 e.target.onerror = null; 
                 e.target.src = "assets/images/default.png"; 
