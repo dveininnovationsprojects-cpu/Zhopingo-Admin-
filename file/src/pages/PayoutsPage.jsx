@@ -94,13 +94,12 @@ const fetchFilteredOrders = async (sId, week) => {
             endDate: week.end.split('T')[0]
         };
 
-        console.log("🚀 TRIGGERING SETTLEMENT FOR WEEK:", week.label, payload);
+        
 
         const res = await axios.post(`${API_BASE}/admin/generate-settlement`, payload, config);
 
         if (res.data.success) {
-            console.log("✅ SETTLEMENT DATA SYNCED:", res.data.data);
-            // 🌟 THE SYNC: Backend breakdown list-ai dhaan table-ku anuppuvom
+
             setOrders(res.data.data.payoutBreakdown || []);
             setSettlementData(res.data.data);
         }

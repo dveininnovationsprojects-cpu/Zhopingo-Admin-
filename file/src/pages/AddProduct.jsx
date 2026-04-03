@@ -879,6 +879,35 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                                     <div className="col-lg-4 ps-lg-4">
                                         <h6 className="fw-bold text-dark mb-20 d-flex align-items-center gap-2"><Icon icon="solar:camera-bold" className="text-primary-600"/> Media & Logistics</h6>
                                         <div className="bg-primary-focus p-16 radius-16 border border-primary-100 mb-24">
+                                            {/* 🍏 VEG / NON-VEG SELECTION HUB */}
+<div className="mb-20 p-16 radius-12 border bg-light">
+    <label className="form-label text-xs fw-black text-dark uppercase ls-1 mb-12 d-block">
+        Dietary Classification *
+    </label>
+    <div className="d-flex gap-3">
+        {/* VEG OPTION */}
+        <div 
+            onClick={() => setFormData({...formData, isVeg: true})}
+            className={`flex-grow-1 p-12 radius-10 border cursor-pointer transition-all d-flex align-items-center gap-2 ${formData.isVeg ? 'bg-success-focus border-success-main shadow-sm' : 'bg-white opacity-50'}`}
+        >
+            <div className="border border-2 border-success-main p-1 d-flex align-items-center justify-content-center" style={{ width: '16px', height: '16px' }}>
+                <div className="bg-success-main rounded-circle" style={{ width: '8px', height: '8px' }}></div>
+            </div>
+            <span className={`text-xs fw-bold ${formData.isVeg ? 'text-success-main' : 'text-secondary'}`}>PURE VEG</span>
+        </div>
+
+        {/* NON-VEG OPTION */}
+        <div 
+            onClick={() => setFormData({...formData, isVeg: false})}
+            className={`flex-grow-1 p-12 radius-10 border cursor-pointer transition-all d-flex align-items-center gap-2 ${!formData.isVeg ? 'bg-danger-focus border-danger-main shadow-sm' : 'bg-white opacity-50'}`}
+        >
+            <div className="border border-2 border-danger-main p-1 d-flex align-items-center justify-content-center" style={{ width: '16px', height: '16px' }}>
+                <div className="bg-danger-main rounded-circle" style={{ width: '8px', height: '8px' }}></div>
+            </div>
+            <span className={`text-xs fw-bold ${!formData.isVeg ? 'text-danger-main' : 'text-secondary'}`}>NON-VEG</span>
+        </div>
+    </div>
+</div>
                                             <div className="row g-2">
                                                 <div className="col-6"><label className="text-xxs fw-bold uppercase">Free Delivery?</label><select className="form-select form-select-sm" onChange={e => setFormData({...formData, isFreeDelivery: e.target.value === 'true'})}><option value="false">No</option><option value="true">Yes</option></select></div>
                                                 <div className="col-6"><label className="text-xxs fw-bold uppercase">Returnable?</label><select 
@@ -1423,6 +1452,35 @@ const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
                             <h6 className="fw-bold text-dark mb-20 uppercase ls-1" style={{fontSize:'12px'}}>3. Logistics & Source</h6>
                             
                            <div className="row g-2 mb-20">
+                            {/* 🍏 VEG / NON-VEG SELECTION HUB */}
+<div className="mb-20 p-16 radius-12 border bg-light">
+    <label className="form-label text-xs fw-black text-dark uppercase ls-1 mb-12 d-block">
+        Dietary Classification *
+    </label>
+    <div className="d-flex gap-3">
+        {/* VEG OPTION */}
+        <div 
+            onClick={() => setFormData({...formData, isVeg: true})}
+            className={`flex-grow-1 p-12 radius-10 border cursor-pointer transition-all d-flex align-items-center gap-2 ${formData.isVeg ? 'bg-success-focus border-success-main shadow-sm' : 'bg-white opacity-50'}`}
+        >
+            <div className="border border-2 border-success-main p-1 d-flex align-items-center justify-content-center" style={{ width: '16px', height: '16px' }}>
+                <div className="bg-success-main rounded-circle" style={{ width: '8px', height: '8px' }}></div>
+            </div>
+            <span className={`text-xs fw-bold ${formData.isVeg ? 'text-success-main' : 'text-secondary'}`}>PURE VEG</span>
+        </div>
+
+        {/* NON-VEG OPTION */}
+        <div 
+            onClick={() => setFormData({...formData, isVeg: false})}
+            className={`flex-grow-1 p-12 radius-10 border cursor-pointer transition-all d-flex align-items-center gap-2 ${!formData.isVeg ? 'bg-danger-focus border-danger-main shadow-sm' : 'bg-white opacity-50'}`}
+        >
+            <div className="border border-2 border-danger-main p-1 d-flex align-items-center justify-content-center" style={{ width: '16px', height: '16px' }}>
+                <div className="bg-danger-main rounded-circle" style={{ width: '8px', height: '8px' }}></div>
+            </div>
+            <span className={`text-xs fw-bold ${!formData.isVeg ? 'text-danger-main' : 'text-secondary'}`}>NON-VEG</span>
+        </div>
+    </div>
+</div>
     <div className="col-6">
         <label className="text-xxs fw-bold uppercase">Returnable?</label>
         <select 

@@ -33,7 +33,7 @@ const API_BASE = "https://api.zhopingo.in/api/v1";
                 setOrders(response.data.data);
             }
         } catch (err) {
-            console.error("Fetch Error:", err);
+            
             toast.error("Failed to load orders!");
         } finally { setIsLoading(false); }
     };
@@ -53,7 +53,7 @@ const fetchSellerProfile = async () => {
         if (res.data.success) {
             setSellerProfile(res.data.data.seller);
         }
-    } catch (err) { console.error("Profile Address Sync Error"); }
+    } catch (err) {  }
 };
     const handleBulkInvoice = () => {
     if (selectedOrders.length === 0) return toast.warn("Select at least one order!");
@@ -250,7 +250,7 @@ const handleMarkDelivered = async (orderId) => {
             fetchOrders(); 
         }
     } catch (err) { 
-        console.error("Sync Error:", err.response?.data);
+        
         toast.error(err.response?.data?.message || "Delivery sync failed!"); 
     } finally {
         setIsLoading(false);
@@ -271,7 +271,7 @@ const handleSchedulePickup = async (orderId) => {
             fetchOrders(); // Refresh status
         }
     } catch (err) {
-        console.error("Pickup API Error:", err.response?.data);
+        
         toast.error(err.response?.data?.details?.data?.message?.[0] || "Logistics Sync Failed!");
     } finally {
         setIsLoading(false);

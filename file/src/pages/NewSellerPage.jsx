@@ -17,9 +17,8 @@ const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Production API Base URL
   const API_BASE_URL = "https://api.zhopingo.in/api/v1/admin";
-  
-  // 🌟 Base URL for direct file access
-  const FILE_BASE_URL = "http://54.157.210.26"; 
+// 🚀 THE FIX: Cloudfront URL for fast and secure document access
+  const IMAGE_BASE = "https://d1utzn73483swp.cloudfront.net/";
 
   // 1. FETCH ALL SELLERS
   const fetchSellers = async () => {
@@ -150,97 +149,97 @@ const [rowsPerPage, setRowsPerPage] = useState(10);
           <button type='button' className='btn-close shadow-none' onClick={() => setIsDrawerOpen(false)}></button>
         </div>
         <div className='offcanvas-body p-24'>
-          {selectedSeller && (
-            <div className="row gy-4">
-              <div className="col-12"><h6 className="text-md fw-bold mb-16 text-primary-600 border-bottom pb-2">Mandatory Documents</h6></div>
-              
-              {/* MSME Document - Direct API Link based on your sample */}
-              <div className="col-12 d-flex justify-content-between align-items-center bg-neutral-50 p-16 radius-12 border">
-                 <div>
-                     <h6 className="text-sm mb-0">MSME Certificate</h6>
-                     <small className="text-secondary">File: {selectedSeller.kycDocuments?.msmeDoc?.fileName || "Pending"}</small>
-                 </div>
-                 {selectedSeller.kycDocuments?.msmeDoc?.fileName && (
-                   <a 
-                    href={`${FILE_BASE_URL}/uploads/kyc/msme/${selectedSeller.kycDocuments.msmeDoc.fileName}`} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="btn btn-sm btn-outline-primary radius-8 d-flex align-items-center gap-1"
-                   >
-                     <Icon icon="bi:file-earmark-pdf" /> View PDF
-                   </a>
-                 )}
-              </div>
+    {selectedSeller && (
+        <div className="row gy-4">
+            {/* 🔴 SECTION 1: MANDATORY DOCUMENTS */}
+            <div className="col-12">
+                <h6 className="text-md fw-bold mb-16 text-danger d-flex align-items-center gap-2 border-bottom pb-2">
+                    <Icon icon="solar:shield-check-bold" /> Mandatory Documents
+                </h6>
+            </div>
 
-              {/* PAN Card - Folder /pan/ */}
-              <div className="col-12 d-flex justify-content-between align-items-center bg-neutral-50 p-16 radius-12 border">
-                 <div>
-                     <h6 className="text-sm mb-0">PAN Card</h6>
-                     <h6 className="text-primary-600 mb-0 mt-1">{selectedSeller.panNumber}</h6>
-                 </div>
-                 {selectedSeller.kycDocuments?.panDoc?.fileName && (
-                   <a 
-                    href={`${FILE_BASE_URL}/uploads/kyc/pan/${selectedSeller.kycDocuments.panDoc.fileName}`} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="btn btn-sm btn-outline-primary radius-8 d-flex align-items-center gap-1"
-                   >
-                     <Icon icon="bi:file-earmark-pdf" /> View PAN
-                   </a>
-                 )}
-              </div>
+            {/* 🌟 1. PAN Card Sync (Mandatory) */}
+            <div className="col-12 d-flex justify-content-between align-items-center bg-neutral-50 p-16 radius-12 border border-start-4 border-start-danger">
+                <div>
+                    <h6 className="text-sm mb-0">PAN Card</h6>
+                    <h6 className="text-primary-600 mb-0 mt-1 text-xs">{selectedSeller.panNumber}</h6>
+                </div>
+                {selectedSeller.kycDocuments?.panDoc?.fileUrl ? (
+                    <a href={`${IMAGE_BASE}${selectedSeller.kycDocuments.panDoc.fileUrl}`} target="_blank" rel="noreferrer" 
+                       className="btn btn-sm btn-outline-primary radius-8 d-flex align-items-center gap-1">
+                        <Icon icon="solar:eye-bold" /> View PAN
+                    </a>
+                ) : <span className="badge bg-danger-focus text-danger text-xxs">Missing</span>}
+            </div>
 
-              <div className="col-12 mt-16"><h6 className="text-md fw-bold mb-16 text-warning-main border-bottom pb-2">GST & Other Info</h6></div>
+            {/* 🌟 2. GST Certificate Sync (Mandatory) */}
+            <div className="col-12 d-flex justify-content-between align-items-center bg-neutral-50 p-16 radius-12 border border-start-4 border-start-danger">
+                <div>
+                    <h6 className="text-sm mb-0">GST Registration</h6>
+                    <h6 className="text-primary-600 mb-0 mt-1 text-xs">{selectedSeller.gstNumber || "N/A"}</h6>
+                </div>
+                {selectedSeller.kycDocuments?.gstDoc?.fileUrl ? (
+                    <a href={`${IMAGE_BASE}${selectedSeller.kycDocuments.gstDoc.fileUrl}`} target="_blank" rel="noreferrer" 
+                       className="btn btn-sm btn-outline-primary radius-8 d-flex align-items-center gap-1">
+                        <Icon icon="solar:eye-bold" /> View GST
+                    </a>
+                ) : <span className="badge bg-danger-focus text-danger text-xxs">Missing</span>}
+            </div>
 
-              {/* GST Document - Folder /gst/ */}
-              <div className="col-12 d-flex justify-content-between align-items-center bg-neutral-50 p-16 radius-12 border">
-                 <div>
-                     <h6 className="text-sm mb-0">GST Registration</h6>
-                     <h6 className="text-primary-600 mb-0 mt-1">{selectedSeller.gstNumber || "N/A"}</h6>
-                 </div>
-                 {selectedSeller.kycDocuments?.gstDoc?.fileName && (
-                   <a 
-                    href={`${FILE_BASE_URL}/uploads/kyc/gst/${selectedSeller.kycDocuments.gstDoc.fileName}`} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="btn btn-sm btn-outline-primary radius-8 d-flex align-items-center gap-1"
-                   >
-                     <Icon icon="bi:file-earmark-pdf" /> View GST
-                   </a>
-                 )}
-              </div>
+            {/* 🌟 3. MSME Certificate Sync (Mandatory) */}
+            <div className="col-12 d-flex justify-content-between align-items-center bg-neutral-50 p-16 radius-12 border border-start-4 border-start-danger">
+                <div>
+                    <h6 className="text-sm mb-0">MSME Certificate</h6>
+                    
+                </div>
+                {selectedSeller.kycDocuments?.msmeDoc?.fileUrl ? (
+                    <a href={`${IMAGE_BASE}${selectedSeller.kycDocuments.msmeDoc.fileUrl}`} target="_blank" rel="noreferrer" 
+                       className="btn btn-sm btn-outline-primary radius-8 d-flex align-items-center gap-1">
+                        <Icon icon="solar:eye-bold" /> View MSME
+                    </a>
+                ) : <span className="badge bg-danger-focus text-danger text-xxs">Missing</span>}
+            </div>
 
-              {/* FSSAI - Folder /fssai/ */}
- {/* FSSAI License Section */}
-<div className="col-12 d-flex justify-content-between align-items-center bg-neutral-50 p-16 radius-12 border">
-    <div>
-        <h6 className="text-sm mb-0">FSSAI License</h6>
-        <h6 className="text-primary-600 mb-0 mt-1">{selectedSeller.fssaiNumber || "N/A"}</h6>
-    </div>
-    
-    {/* 🌟 Document Fetching Logic */}
-    {selectedSeller.kycDocuments?.fssaiDoc?.fileName ? (
-      <a 
-        href={`${FILE_BASE_URL}/uploads/kyc/fssai/${selectedSeller.kycDocuments.fssaiDoc.fileName}`} 
-        target="_blank" 
-        rel="noreferrer" 
-        className="btn btn-sm btn-outline-primary radius-8 d-flex align-items-center gap-2 px-12"
-      >
-        <Icon icon="bi:file-earmark-pdf" className="text-lg" /> 
-        <span>View FSSAI</span>
-      </a>
-    ) : (
-      <span className="text-xs text-secondary-light italic">No Document Uploaded</span>
+            {/* 🟢 SECTION 2: OPTIONAL DOCUMENTS */}
+            <div className="col-12 mt-16">
+                <h6 className="text-md fw-bold mb-16 text-success d-flex align-items-center gap-2 border-bottom pb-2">
+                    <Icon icon="solar:add-circle-bold" /> Optional / Others
+                </h6>
+            </div>
+
+            {/* 🌟 4. FSSAI License Sync (Optional) */}
+            <div className="col-12 d-flex justify-content-between align-items-center bg-neutral-50 p-16 radius-12 border border-start-4 border-start-success">
+                <div>
+                    <h6 className="text-sm mb-0">FSSAI License</h6>
+                    <h6 className="text-primary-600 mb-0 mt-1 text-xs">{selectedSeller.fssaiNumber || "Not Provided"}</h6>
+                </div>
+                {selectedSeller.kycDocuments?.fssaiDoc?.fileUrl ? (
+                    <a href={`${IMAGE_BASE}${selectedSeller.kycDocuments.fssaiDoc.fileUrl}`} target="_blank" rel="noreferrer" 
+                       className="btn btn-sm btn-outline-success radius-8 d-flex align-items-center gap-2">
+                        <Icon icon="solar:eye-bold" /> View FSSAI
+                    </a>
+                ) : <span className="text-muted text-xxs italic">Not Uploaded</span>}
+            </div>
+
+            {/* ACTION BUTTONS */}
+            <div className="col-12 mt-32 d-flex gap-3">
+                <button className="btn btn-danger-600 flex-grow-1 py-12 fw-bold" onClick={() => updateSellerStatus("rejected")}>REJECT REQUEST</button>
+                <button 
+                    className="btn btn-success-600 flex-grow-1 py-12 fw-bold" 
+                    onClick={() => setShowConfirmModal(true)}
+                    disabled={!selectedSeller.kycDocuments?.panDoc?.fileUrl || !selectedSeller.kycDocuments?.gstDoc?.fileUrl || !selectedSeller.kycDocuments?.msmeDoc?.fileUrl}
+                >
+                    APPROVE SELLER
+                </button>
+            </div>
+            {!selectedSeller.kycDocuments?.panDoc?.fileUrl || !selectedSeller.kycDocuments?.gstDoc?.fileUrl || !selectedSeller.kycDocuments?.msmeDoc?.fileUrl ? (
+                <div className="col-12 text-center mt-2">
+                    <small className="text-danger fw-bold italic">* All mandatory documents must be uploaded to Approve.</small>
+                </div>
+            ) : null}
+        </div>
     )}
 </div>
-              
-              <div className="col-12 mt-32 d-flex gap-3">
-                 <button className="btn btn-danger-600 flex-grow-1 py-12" onClick={() => updateSellerStatus("rejected")}>Reject Request</button>
-                 <button className="btn btn-success-600 flex-grow-1 py-12" onClick={() => updateSellerStatus("approved")}>Approve Seller</button>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Confirmation Modal logic remains same */}
@@ -302,5 +301,4 @@ const [rowsPerPage, setRowsPerPage] = useState(10);
     </MasterLayout>
   );
 };
-
 export default NewSellerPage;

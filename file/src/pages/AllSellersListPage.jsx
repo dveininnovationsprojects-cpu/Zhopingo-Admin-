@@ -86,6 +86,9 @@ const handleToggleBrand = async (item) => {
         seller.shopName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+
+    const pendingRequestsCount = sellers.filter(s => s.kycStatus === 'pending').length;
+
     // 🌟 Advanced Pagination Logic
     const indexOfLastItem = currentPage * rowsPerPage;
     const indexOfFirstItem = indexOfLastItem - rowsPerPage;
@@ -106,12 +109,21 @@ const handleToggleBrand = async (item) => {
                     </div>
 
                     <div className="d-flex align-items-center gap-3">
-                        {/* 🌟 New Seller Requests Redirect Button */}
+                        {/* 🌟 New Seller Requests Button with Red Notification Badge */}
                         <button 
                             onClick={() => navigate("/new-seller")} 
-                            className="btn btn-primary-600 btn-sm radius-8 px-16 d-flex align-items-center gap-2"
+                            className="btn btn-primary-600 btn-sm radius-8 px-16 d-flex align-items-center gap-2 position-relative"
                         >
-                            <Icon icon="solar:user-plus-bold" /> New Requests
+                            <Icon icon="solar:user-plus-bold" /> 
+                            <span>New Requests</span>
+                            
+                            {/* 🔴 RED NOTIFICATION BADGE */}
+                            {pendingRequestsCount > 0 && (
+                                <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-2 border-white animate__animated animate__pulse animate__infinite" 
+                                      style={{ fontSize: '10px', padding: '4px 6px', zIndex: '1' }}>
+                                    {pendingRequestsCount}
+                                </span>
+                            )}
                         </button>
 
                         <div className="position-relative">

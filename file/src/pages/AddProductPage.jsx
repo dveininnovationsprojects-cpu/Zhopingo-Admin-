@@ -264,29 +264,7 @@ const handleSubmit = async (e) => {
                             {/* COLUMN 2: Specs & Technicals */}
 <div className="col-lg-4 border-end">
     <h6 className="fw-bold text-primary-600 mb-20 uppercase ls-1" style={{fontSize:'12px'}}>Technical Specs & Ingredients</h6>
-    
-    <div className="row g-2 mb-16">
-        <div className="col-6"><label className="text-xxs fw-bold text-secondary uppercase">Weight/Vol</label><input type="text" className="form-control" value={formData.weight} onChange={e => setFormData({...formData, weight: e.target.value})} /></div>
-        <div className="col-6"><label className="text-xxs fw-bold text-secondary uppercase">Shelf Life</label><input type="text" className="form-control" value={formData.shelfLife} onChange={e => setFormData({...formData, shelfLife: e.target.value})} /></div>
-    </div>
-
-    <div className="mb-20">
-        <label className="text-xxs fw-bold text-secondary uppercase">Full Ingredients List</label>
-        <textarea className="form-control radius-10" rows="3" placeholder="e.g. Organic Brown Rice, Natural Fibre..." value={formData.ingredients} onChange={e => setFormData({...formData, ingredients: e.target.value})} />
-    </div>
-
-    <div className="mb-20">
-        <label className="text-xxs fw-bold text-secondary uppercase">Key Highlight Features</label>
-        {keyFeatures.map((f, i) => (
-            <div className="d-flex gap-2 mb-2" key={i}>
-                <input className="form-control form-control-sm" value={f} onChange={e => { const n = [...keyFeatures]; n[i] = e.target.value; setKeyFeatures(n); }} />
-                <button type="button" className="btn btn-sm btn-light border" onClick={() => setKeyFeatures(keyFeatures.filter((_, idx) => idx !== i))}><Icon icon="solar:trash-bin-minimalistic-bold" className="text-danger" /></button>
-            </div>
-        ))}
-        <button type="button" className="btn btn-sm text-primary-600 fw-bold p-0" onClick={() => setKeyFeatures([...keyFeatures, ""])}>+ Add Point</button>
-    </div>
-
-{/* Manufacturer Hub Section - Column 2 Update */}
+    {/* Manufacturer Hub Section - Column 2 Update */}
 <div className="mb-0">
     <label className="text-xxs fw-bold text-secondary uppercase mb-8 d-block">Manufacturer Details</label>
     <div className="p-16 radius-12 bg-neutral-50 border border-neutral-200">
@@ -321,12 +299,63 @@ const handleSubmit = async (e) => {
         </div>
     </div>
 </div>
+    <div className="row g-2 mb-16">
+        <div className="col-6"><label className="text-xxs fw-bold text-secondary uppercase">Weight/Vol</label><input type="text" className="form-control" value={formData.weight} onChange={e => setFormData({...formData, weight: e.target.value})} /></div>
+        <div className="col-6"><label className="text-xxs fw-bold text-secondary uppercase">Shelf Life</label><input type="text" className="form-control" value={formData.shelfLife} onChange={e => setFormData({...formData, shelfLife: e.target.value})} /></div>
+    </div>
+
+    <div className="mb-20">
+        <label className="text-xxs fw-bold text-secondary uppercase">Full Ingredients List</label>
+        <textarea className="form-control radius-10" rows="3" placeholder="e.g. Organic Brown Rice, Natural Fibre..." value={formData.ingredients} onChange={e => setFormData({...formData, ingredients: e.target.value})} />
+    </div>
+
+    <div className="mb-20">
+        <label className="text-xxs fw-bold text-secondary uppercase">Key Highlight Features</label>
+        {keyFeatures.map((f, i) => (
+            <div className="d-flex gap-2 mb-2" key={i}>
+                <input className="form-control form-control-sm" value={f} onChange={e => { const n = [...keyFeatures]; n[i] = e.target.value; setKeyFeatures(n); }} />
+                <button type="button" className="btn btn-sm btn-light border" onClick={() => setKeyFeatures(keyFeatures.filter((_, idx) => idx !== i))}><Icon icon="solar:trash-bin-minimalistic-bold" className="text-danger" /></button>
+            </div>
+        ))}
+        <button type="button" className="btn btn-sm text-primary-600 fw-bold p-0" onClick={() => setKeyFeatures([...keyFeatures, ""])}>+ Add Point</button>
+    </div>
+
+
 </div>
                             {/* COLUMN 3: Logistics & Nutrition */}
 <div className="col-lg-4">
     <h6 className="fw-bold text-primary-600 mb-20 uppercase ls-1" style={{fontSize:'12px'}}>Logistics & Marketing</h6>
     
     <div className="bg-primary-50 p-16 radius-16 border mb-24">
+        {/* 🍏 VEG / NON-VEG SELECTION HUB */}
+<div className="mb-20 p-16 radius-12 border bg-light">
+    <label className="form-label text-xs fw-black text-dark uppercase ls-1 mb-12 d-block">
+        Dietary Classification *
+    </label>
+    <div className="d-flex gap-3">
+        {/* VEG OPTION */}
+        <div 
+            onClick={() => setFormData({...formData, isVeg: true})}
+            className={`flex-grow-1 p-12 radius-10 border cursor-pointer transition-all d-flex align-items-center gap-2 ${formData.isVeg ? 'bg-success-focus border-success-main shadow-sm' : 'bg-white opacity-50'}`}
+        >
+            <div className="border border-2 border-success-main p-1 d-flex align-items-center justify-content-center" style={{ width: '16px', height: '16px' }}>
+                <div className="bg-success-main rounded-circle" style={{ width: '8px', height: '8px' }}></div>
+            </div>
+            <span className={`text-xs fw-bold ${formData.isVeg ? 'text-success-main' : 'text-secondary'}`}>PURE VEG</span>
+        </div>
+
+        {/* NON-VEG OPTION */}
+        <div 
+            onClick={() => setFormData({...formData, isVeg: false})}
+            className={`flex-grow-1 p-12 radius-10 border cursor-pointer transition-all d-flex align-items-center gap-2 ${!formData.isVeg ? 'bg-danger-focus border-danger-main shadow-sm' : 'bg-white opacity-50'}`}
+        >
+            <div className="border border-2 border-danger-main p-1 d-flex align-items-center justify-content-center" style={{ width: '16px', height: '16px' }}>
+                <div className="bg-danger-main rounded-circle" style={{ width: '8px', height: '8px' }}></div>
+            </div>
+            <span className={`text-xs fw-bold ${!formData.isVeg ? 'text-danger-main' : 'text-secondary'}`}>NON-VEG</span>
+        </div>
+    </div>
+</div>
         <div className="row g-2 mb-12">
             <div className="col-6"><label className="text-xxs fw-bold text-secondary">Free Delivery?</label><select className="form-select form-select-sm" value={formData.isFreeDelivery} onChange={e => setFormData({...formData, isFreeDelivery: e.target.value === 'true'})}><option value="false">No</option><option value="true">Yes</option></select></div>
             <div className="col-6"><label className="text-xxs fw-bold text-secondary">Returnable?</label><select className="form-select form-select-sm" value={formData.isReturnable} onChange={e => setFormData({...formData, isReturnable: e.target.value === 'true'})}><option value="false">No</option><option value="true">Yes</option></select></div>

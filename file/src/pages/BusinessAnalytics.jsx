@@ -134,11 +134,19 @@ setStats({
     reelsTrend: processChartData(reelsTrendRaw, 'date', 'views', reelFilter),
     
     statusData: [
-        { name: 'Delivered', value: hubFiltered.filter(o => o.status === 'Delivered').length },
-        { name: 'Shipped', value: hubFiltered.filter(o => o.status === 'Shipped').length },
-        { name: 'Placed', value: hubFiltered.filter(o => o.status === 'Placed').length },
-        { name: 'Cancelled', value: hubFiltered.filter(o => o.status === 'Cancelled').length },
-    ].filter(d => d.value > 0),
+    { name: 'Placed', value: hubFiltered.filter(o => {
+        const myPackage = o.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+        return (myPackage?.packageStatus || o.status) === 'Placed';
+    }).length },
+    { name: 'Shipped', value: hubFiltered.filter(o => {
+        const myPackage = o.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+        return (myPackage?.packageStatus || o.status) === 'Shipped';
+    }).length },
+    { name: 'Delivered', value: hubFiltered.filter(o => {
+        const myPackage = o.sellerSplitData?.find(s => (s.sellerId?._id || s.sellerId) === sellerId);
+        return (myPackage?.packageStatus || o.status) === 'Delivered';
+    }).length },
+], // 🚀 THE FIX: Removed .filter(d => d.value > 0) to show Zero values
 
     inventory: {
         outOfStock: allProducts.filter(p => (p.stock || 0) === 0),
@@ -225,18 +233,38 @@ setStats({
             <PieChart>
                 <Pie 
                     data={stats?.statusData} 
-                    innerRadius={60} 
-                    outerRadius={80} 
+                    innerRadius={65} 
+                    outerRadius={85} 
                     paddingAngle={5} 
                     dataKey="value"
                     animationDuration={800} 
                 >
-                    {stats?.statusData?.map((entry, index) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                    ))}
+                    {/* 🎨 Strictly 3 Colors: Placed(Green), Shipped(Blue), Delivered(Orange) */}
+                    <Cell fill="#28C76F" /> 
+                    <Cell fill="#485EC4" />
+                    <Cell fill="#FF9F43" />
                 </Pie>
+                
+                {/* 🚀 THE MAGIC: Total count including Zeros */}
+                <text 
+                    x="50%" 
+                    y="50%" 
+                    textAnchor="middle" 
+                    dominantBaseline="middle" 
+                    className="fw-900" 
+                    style={{ fontSize: '20px', fill: '#485EC4' }}
+                >
+                    {stats?.statusData?.reduce((acc, curr) => acc + curr.value, 0)}
+                    <tspan x="50%" dy="20" style={{ fontSize: '10px', fill: '#999', fontWeight: 'bold' }}>
+                        ORDERS
+                    </tspan>
+                </text>
+
                 <Tooltip />
-                <Legend iconType="circle" />
+                <Legend 
+                    iconType="circle" 
+                    wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }} 
+                />
             </PieChart>
         </ResponsiveContainer>
     </ChartCard>
