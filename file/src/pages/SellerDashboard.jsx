@@ -15,6 +15,7 @@ import ReelsPage from "./ReelsPage";
 import ProfilePage from "./ProfilePage";
 import ThemeToggleButton from "../helper/ThemeToggleButton";
 import BusinessAnalytics from "./BusinessAnalytics";
+import FinanceForSeller from "./FinanceForSeller";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -286,7 +287,7 @@ const renderDashboard = () => (
             <aside className={`sidebar ${sidebarActive ? "active" : ""} ${mobileMenu ? "sidebar-open" : ""}`}>
                 <button onClick={mobileMenuControl} type='button' className='sidebar-close-btn'><Icon icon='radix-icons:cross-2' /></button>
                 <div className="p-24 border-bottom text-center">
-                    <img src='/assets/images/auth/logo-dash.png' alt='logo' style={{ width: '120px' }} />
+                    <img src='/assets/images/auth/logo-dash-seller.png' alt='logo' style={{ width: '120px' }} />
                 </div>
                 <div className='sidebar-menu-area'>
                     <ul className='sidebar-menu'>
@@ -306,6 +307,12 @@ const renderDashboard = () => (
     <Link to='#'>
         <Icon icon='solar:chart-2-bold-duotone' className='menu-icon' /> 
         <span>Business Analytics</span>
+    </Link>
+</li>
+<li onClick={() => {setActiveTab("finance"); setMobileMenu(false)}} className={activeTab === 'finance' ? 'active-page' : ''}>
+    <Link to='#'>
+        <Icon icon='solar:wallet-money-bold-duotone' className='menu-icon' /> 
+        <span>Finance</span>
     </Link>
 </li>
                     </ul>
@@ -359,10 +366,11 @@ const renderDashboard = () => (
                     
                     {activeTab === "profile" && <ProfilePage />}
 {activeTab === "analytics" && <BusinessAnalytics setActiveTab={setActiveTab} />} 
+{activeTab === "finance" && <FinanceForSeller />}
                </div>
 
                 <footer className='d-footer p-24 border-top  mt-auto'>
-                    <p className='mb-0 text-secondary text-sm'>© 2026 Zhopingo Seller Hub. All Rights Reserved.</p>
+                    <p className='mb-0 text-secondary text-sm'>© 2026 oxplow Seller Hub. All Rights Reserved.</p>
                 </footer>
             </main>
         </section>

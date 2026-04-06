@@ -142,7 +142,7 @@ const downloadInvoice = (order) => {
     const sellerFullDoc = sellers.find(s => s._id.toString() === sellerId?.toString());
 
     // Step C: Priority-based Address Formatting
-    const shopName = sellerFullDoc?.shopName || sellerFromItem?.shopName || "Zhopingo Store";
+    const shopName = sellerFullDoc?.shopName || sellerFromItem?.shopName || "oxplow Store";
     const addr = sellerFullDoc?.shopAddress || sellerFromItem?.shopAddress;
     
     const formattedSellerAddr = addr 
@@ -522,7 +522,7 @@ const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
         <div>
             {/* Populated seller name and shop name like Product page */}
             <p className="mb-0 text-sm fw-bold text-dark">{seller?.name || "Seller"}</p>
-            <small className="text-muted text-xxs italic">{seller?.shopName || "Zhopingo Store"}</small>
+            <small className="text-muted text-xxs italic">{seller?.shopName || "oxplow Store"}</small>
         </div>
     </div>
 ))}

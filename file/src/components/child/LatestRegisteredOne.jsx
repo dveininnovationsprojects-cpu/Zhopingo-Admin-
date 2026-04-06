@@ -43,7 +43,7 @@ const LatestRegisteredOne = () => {
     };
 
     const getCustomerDisplayName = (user) => {
-        return user.name && user.name !== "NA" ? user.name : "Zhopingo Customer";
+        return user.name && user.name !== "NA" ? user.name : "oxplow Customer";
     };
 
     return (
@@ -114,7 +114,7 @@ const LatestRegisteredOne = () => {
                                                     </div>
                                                 </td>
                                                 <td className="text-sm">{new Date(item.createdAt).toLocaleDateString('en-GB')}</td>
-                                                <td className="text-sm fw-medium text-primary-600">{item.shopName || "Zhopingo Store"}</td>
+                                                <td className="text-sm fw-medium text-primary-600">{item.shopName || "oxplow Store"}</td>
                                                 <td className='text-center'>
                                                     <span className={`badge px-16 py-4 radius-pill text-xs ${item.kycStatus === 'approved' ? 'bg-success-focus text-success-main' : 'bg-warning-focus text-warning-main'}`}>
                                                         {item.kycStatus === 'approved' ? 'Active' : 'Pending'}

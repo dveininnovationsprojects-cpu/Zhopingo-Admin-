@@ -4,7 +4,7 @@ import MasterLayout from "../masterLayout/MasterLayout";
 const AdminProfile = () => {
     // Unga fixed admin details
     const adminEmail = "admin@gmail.com";
-    const adminName = "Zhopingo Admin";
+    const adminName = "oxplow Admin";
 
     return (
         <MasterLayout>

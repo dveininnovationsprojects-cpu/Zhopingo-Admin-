@@ -279,7 +279,7 @@ useEffect(() => {
                                 {currentUsersList.length > 0 ? currentUsersList.map((user, idx) => (
                                     <div key={idx} className="d-flex align-items-center gap-3 p-16 border-bottom">
                                         <div className="w-32-px h-32-px bg-primary-50 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"><Icon icon="solar:user-bold" className="text-primary-600" /></div>
-                                        <div className="overflow-hidden"><p className="mb-0 text-sm fw-bold text-dark text-truncate">{user.name || "Zhopingo User"}</p><small className="text-secondary text-xxs">{user.phone || "No Phone"}</small></div>
+                                        <div className="overflow-hidden"><p className="mb-0 text-sm fw-bold text-dark text-truncate">{user.name || "oxplow User"}</p><small className="text-secondary text-xxs">{user.phone || "No Phone"}</small></div>
                                     </div>
                                 )) : <div className="text-center py-40 text-muted opacity-50"><Icon icon="solar:ghost-broken" className="fs-1 mb-2" /><p className="text-xs fw-bold">No interactions found.</p></div>}
                             </div>

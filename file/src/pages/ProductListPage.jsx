@@ -141,7 +141,7 @@ const getCleanImageUrl = (path) => {
                                         <td>
                                             <div className="d-flex flex-column">
                                                 <span className="text-xs fw-bold text-dark">{p.seller?.name || "Admin"}</span>
-                                                <small className="text-info-main fw-bold" style={{ fontSize: '10px' }}>{p.seller?.shopName || "Zhopingo Store"}</small>
+                                                <small className="text-info-main fw-bold" style={{ fontSize: '10px' }}>{p.seller?.shopName || "oxplow Store"}</small>
                                             </div>
                                         </td>
 {/* 🌟 Dynamic Price & MRP Sync from Backend */}

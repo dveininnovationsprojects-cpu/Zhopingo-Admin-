@@ -151,7 +151,7 @@ const handleBulkShip = async () => {
         doc.text("INVOICE", 105, 20, { align: "center" });
         
         doc.setFontSize(10);
-        doc.text("Platform: Zhopingo ", 14, 30);
+        doc.text("Platform: oxplow ", 14, 30);
         doc.text(`Order ID: #${order._id.toUpperCase()}`, 14, 35);
         doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`, 14, 40);
 

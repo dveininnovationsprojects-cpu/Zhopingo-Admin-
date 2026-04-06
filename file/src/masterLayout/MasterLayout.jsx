@@ -1987,7 +1987,7 @@ import ThemeToggleButton from "../helper/ThemeToggleButton";
 const MasterLayout = ({ children }) => {
   let [sidebarActive, seSidebarActive] = useState(false);
   let [mobileMenu, setMobileMenu] = useState(false);
-  const [headerStats, setHeaderStats] = useState({ label: "Zhopingo Admin", count: null });
+  const [headerStats, setHeaderStats] = useState({ label: "oxplow Admin", count: null });
   const [dates, setDates] = useState({ start: "", end: "" });
   const location = useLocation();
   const navigate = useNavigate(); 
@@ -2016,7 +2016,7 @@ else if (location.pathname === "/form-layout") {
           const res = await axios.get(`${API_BASE}/catalog/hsn-master`, config);
           setHeaderStats({ label: "Total HSN Records", count: res.data.data?.length || 0 });
         } else {
-          setHeaderStats({ label: "Zhopingo Admin", count: null });
+          setHeaderStats({ label: "oxplow Admin", count: null });
         }
       } catch (err) {
         console.error("Header Count Error", err);
@@ -2163,7 +2163,7 @@ else if (location.pathname === "/form-layout") {
               </NavLink>
             </li>
 
-            {/* <li className='sidebar-menu-group-title'>Zhopingo Operations</li>*/}
+            {/* <li className='sidebar-menu-group-title'>oxplow Operations</li>*/}
 
             {/* Banner Management (From Carousel) 
             <li>
@@ -2530,7 +2530,7 @@ else if (location.pathname === "/form-layout") {
                   icon='mage:message-question-mark-round'
                   className='menu-icon'
                 />
-                <span>Zhopingo Help</span>
+                <span>oxplow Help</span>
               </NavLink>
             </li>
             
@@ -2657,7 +2657,7 @@ else if (location.pathname === "/form-layout") {
 
                   <ul className="dropdown-menu dropdown-menu-end shadow border-0 radius-12 p-12 mt-3">
                     <li className="mb-8 p-12 border-bottom">
-                        <h6 className="text-sm mb-0">Zhopingo Admin</h6>
+                        <h6 className="text-sm mb-0">oxplow Admin</h6>
                         <span className="text-xs text-secondary">Administrator</span>
                     </li>
                     <li>
@@ -2686,7 +2686,7 @@ else if (location.pathname === "/form-layout") {
           <div className='row align-items-center justify-content-between'>
             <div className='col-auto'>
               <div color="#485EC4"></div>
-              <p className='mb-0'>© 2026 Zhopingo. All Rights Reserved.</p>
+              <p className='mb-0'>© 2026 oxplow. All Rights Reserved.</p>
             </div>
           </div>
         </footer>

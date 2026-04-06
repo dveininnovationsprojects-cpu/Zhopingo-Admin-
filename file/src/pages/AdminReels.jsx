@@ -435,7 +435,7 @@ useEffect(() => {
                     <div className="p-16 radius-16 bg-light border border-neutral-200 shadow-sm">
                         <div className="d-flex align-items-center gap-2 mb-4">
                             <Icon icon="solar:shop-bold" className="text-primary-600" />
-                            <span className="text-sm fw-bold text-dark">{showProductInfo.seller?.shopName || "Zhopingo Store"}</span>
+                            <span className="text-sm fw-bold text-dark">{showProductInfo.seller?.shopName || "oxplow Store"}</span>
                         </div>
                         <p className="mb-0 text-xs text-secondary-light fw-medium">
                             <b>Owner:</b> {showProductInfo.seller?.name || "Admin"}

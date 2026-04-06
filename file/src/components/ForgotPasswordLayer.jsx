@@ -6,7 +6,7 @@ const ForgotPasswordLayer = () => {
     <section className='auth bg-base d-flex flex-wrap'>
       <div className='auth-left d-lg-block d-none'>
         <div className='d-flex align-items-center flex-column h-100 justify-content-center'>
-          <img src='../assets/images/auth/zhopingo-splash.jpeg' alt='Zhopingo' style={{ width: '100%', height: '100vh', objectFit: 'cover' }} />
+          <img src='../assets/images/auth/zhopingo-splash.jpeg' alt='oxplow' style={{ width: '100%', height: '100vh', objectFit: 'cover' }} />
         </div>
       </div>
       <div className='auth-right py-32 px-24 d-flex flex-column justify-content-center'>

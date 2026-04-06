@@ -8,7 +8,7 @@ const SignInLayer = () => {
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const navigate = useNavigate();
 
-  // ✅ Step 1: HTTPS URL-ku mathunga
+  
   const API_BASE = "https://api.zhopingo.in/api/v1"; 
   const [showPassword, setShowPassword] = useState(false);
 
@@ -74,7 +74,7 @@ const handleLogin = async (e) => {
       <div className='auth-left d-lg-block d-none vh-100' style={{ flex: '0 0 50%' }}>
         <img 
           src='../assets/images/auth/zhopingo-splash.jpeg' 
-          alt='Zhopingo' 
+          alt='oxplow' 
           style={{ width: '100%', height: '100vh', objectFit: 'cover' }} 
         />
       </div>
@@ -83,7 +83,7 @@ const handleLogin = async (e) => {
         <div className='max-w-464-px mx-auto w-100'>
           <div className="text-center mb-32">
             {/*<img src='assets/images/logo.png' alt='Logo' className="mb-24" />*/}
-            <h4 className='mb-12'>Sign In to Zhopingo</h4>
+            <h4 className='mb-12'>Sign In to oxplow</h4>
             <p className="text-secondary-light">Please enter your registered email to access dashboard</p>
           </div>
 
