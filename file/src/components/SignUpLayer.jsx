@@ -106,7 +106,7 @@ const SignUpLayer = () => {
       <ToastContainer position="top-right" autoClose={2000} theme="colored" />
       
       <div className='auth-left d-lg-block d-none vh-100' style={{ flex: '0 0 50%' }}>
-        <img src='../assets/images/auth/zhopingo-splash.jpeg' alt='oxplow' className="w-100 h-100" style={{ objectFit: 'cover' }} />
+        <img src='../assets/images/auth/oxplow-splash.jpeg' alt='oxplow' className="w-100 h-100" style={{ objectFit: 'cover' }} />
       </div>
 
       <div className='auth-right py-32 px-24 d-flex flex-column justify-content-center vh-100' style={{ flex: '1' }}>

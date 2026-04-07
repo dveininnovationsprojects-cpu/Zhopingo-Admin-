@@ -73,7 +73,7 @@ const handleLogin = async (e) => {
       
       <div className='auth-left d-lg-block d-none vh-100' style={{ flex: '0 0 50%' }}>
         <img 
-          src='../assets/images/auth/zhopingo-splash.jpeg' 
+          src='../assets/images/auth/oxplow-splash.jpeg' 
           alt='oxplow' 
           style={{ width: '100%', height: '100vh', objectFit: 'cover' }} 
         />
