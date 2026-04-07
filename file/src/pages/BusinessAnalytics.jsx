@@ -181,7 +181,16 @@ setStats({
         <div className="animate__animated animate__fadeIn pb-40">
             
             <div className="row g-4 mb-24">
-                <TopMetricCard title="Total Revenue" val={`₹${stats?.totalRevenue}`} icon="solar:wallet-money-bold" color="#485EC4" />
+                <TopMetricCard 
+        title="Total Revenue" 
+        val={`₹${stats?.totalRevenue}`} 
+        icon="solar:wallet-money-bold" 
+        color="#485EC4" 
+        onClick={() => {
+            setActiveTab("finance");
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // Visual smooth sync
+        }}
+    />
                 <TopMetricCard title="Active Products" val={stats?.totalProducts} icon="solar:box-bold" color="#28C76F" />
                 <TopMetricCard title="Total Customers" val={stats?.totalCustomers} icon="solar:users-group-two-rounded-bold" color="#7367F0" />
                 <TopMetricCard title="Total Reels" val={stats?.totalReels} icon="solar:videocamera-record-bold" color="#FF9F43" />
@@ -388,15 +397,17 @@ const ChartCard = ({ title, sub, filter, setFilter, children }) => (
     </div>
 );
 
-const TopMetricCard = ({ title, val, icon, color }) => (
-    <div className="col-xl-3 col-sm-6">
-        <div className="card radius-16 border-0 shadow-sm p-20 h-100 border-bottom border-4" style={{borderBottomColor: color}}>
+const TopMetricCard = ({ title, val, icon, color, onClick }) => (
+    <div className={`col-xl-3 col-sm-6 ${onClick ? 'cursor-pointer' : ''}`} onClick={onClick}>
+        <div className="card radius-16 border-0 shadow-sm p-20 h-100 border-bottom border-4 transition-all hover-translate-y-2" 
+             style={{ borderBottomColor: color }}>
             <div className="d-flex align-items-center gap-3">
-                <div className="w-48-px h-48-px rounded-circle d-flex align-items-center justify-content-center" style={{backgroundColor: `${color}15`, color: color}}>
+                <div className="w-48-px h-48-px rounded-circle d-flex align-items-center justify-content-center" 
+                     style={{ backgroundColor: `${color}15`, color: color }}>
                     <Icon icon={icon} className="text-2xl" />
                 </div>
                 <div>
-                    <small className="text-secondary fw-bold uppercase ls-1" style={{fontSize: '10px'}}>{title}</small>
+                    <small className="text-secondary fw-bold uppercase ls-1" style={{ fontSize: '10px' }}>{title}</small>
                     <h4 className="fw-900 mb-0 mt-1">{val}</h4>
                 </div>
             </div>

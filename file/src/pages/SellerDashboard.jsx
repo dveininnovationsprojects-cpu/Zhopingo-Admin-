@@ -220,10 +220,12 @@ const renderDashboard = () => (
             <StatCard label="Delivered" val={stats.delivered} color="success" />
             {/* Change your Revenue card call to this */}
 <StatCard 
-    label={`${timeFilter} Revenue`} 
-    val={`₹${weeklySalesData.reduce((a, b) => a + b, 0).toLocaleString()}`} 
-    color="success" 
-/>
+                label={`${timeFilter} Revenue`} 
+                val={`₹${weeklySalesData.reduce((a, b) => a + b, 0).toLocaleString()}`} 
+                color="success" 
+                btn="View Revenue" // 🌟 Button Text Added
+                onClick={() => setActiveTab("finance")} // 🌟 Direct Finance Tab Link
+            />
         </div>
 
             <div className="row gy-4">
